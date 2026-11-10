@@ -1,10 +1,28 @@
 # Profile openapi — usado SOMENTE pelo CI para exportar /v3/api-docs sem banco de dados.
-# Mantém as exclusões mesmo depois que a Issue #3 habilitar o Oracle nos demais profiles.
+# Os repositórios JPA continuam existindo (a autenticação depende deles), mas nenhuma conexão é aberta:
+# Flyway desligado, Hibernate sem acesso a metadados JDBC e pool Hikari sem conexão inicial.
+# A URL abaixo é apenas um valor de preenchimento; nada se conecta a ela.
 spring:
   autoconfigure:
     exclude:
-      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
-      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
-      - org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration
-      - org.springframework.boot.autoconfigure.data.jpa.JpaRepositoriesAutoConfiguration
       - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
+  datasource:
+    url: jdbc:oracle:thin:@//localhost:1521/FREEPDB1
+    hikari:
+      initialization-fail-timeout: -1
+      minimum-idle: 0
+  flyway:
+    enabled: false
+  jpa:
+    database-platform: org.hibernate.dialect.OracleDialect
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        boot:
+          allow_jdbc_metadata_access: false
+
+management:
+  health:
+    db:
+      enabled: false

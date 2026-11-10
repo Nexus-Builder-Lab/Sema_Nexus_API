@@ -32,6 +32,12 @@ spring:
     problemdetails:
       enabled: true
 
+semanexus:
+  jwt:
+    # Segredo HS256 SOMENTE por variável de ambiente (mínimo 32 caracteres). Obrigatório fora de dev/openapi.
+    secret: ${JWT_SECRET:}
+    expiration: 8h
+
 server:
   port: ${SERVER_PORT:8080}
   error:

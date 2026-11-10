@@ -1,6 +1,6 @@
 # SEMA NEXUS — Contrato da API
 
-> **Status:** Planejado. A fonte da verdade será o OpenAPI gerado pelo springdoc (`/v3/api-docs`, `/swagger-ui.html`) e exportado pelo CI como artefato `openapi.json` (Issue #7). Este documento registra os **padrões**; alterou endpoint, atualize as anotações e este arquivo.
+> **Status:** Em desenvolvimento — **Implementado:** autenticação (`/api/auth/*`, Issue #4). **Planejado:** demais endpoints. A fonte da verdade será o OpenAPI gerado pelo springdoc (`/v3/api-docs`, `/swagger-ui.html`) e exportado pelo CI como artefato `openapi.json` (Issue #7). Este documento registra os **padrões**; alterou endpoint, atualize as anotações e este arquivo.
 
 ## Padrões
 
@@ -30,8 +30,8 @@
 
 | Método | Caminho | Perfil | Issue |
 |---|---|---|:-:|
-| POST | `/api/auth/login` · `/api/auth/logout` | público / autenticado | #4 |
-| GET | `/api/auth/me` · `/api/auth/config` | autenticado / público | #4 |
+| POST | `/api/auth/login` · `/api/auth/logout` | público / autenticado | #4 — **Implementado** |
+| GET | `/api/auth/me` · `/api/auth/config` | autenticado / público | #4 — **Implementado** |
 | GET | `/api/catalogos/{municipios,biomas,categorias,origens,prioridades,status}` | autenticado | #7 |
 | GET | `/api/setores` · `/api/equipes` · `/api/equipes/{id}/membros` | autenticado | #7 |
 | POST · PUT · GET · DELETE | `/api/demandas` · `/api/demandas/{id}` | ver ARCHITECTURE §6 | #11 |
@@ -70,6 +70,21 @@ Content-Type: application/json
   "usuario": { "id": 1, "nome": "Administrador (demonstração)", "email": "admin@admin.com", "perfil": "ADMIN" } }
 ```
 > `admin@admin.com` é uma credencial **exclusivamente demonstrativa**, existente apenas nos profiles `demo`/`dev` (senha em [DEMO.md](DEMO.md)).
+
+### Autenticação (Implementado — Issue #4)
+
+| Endpoint | Resposta |
+|---|---|
+| `POST /api/auth/login` `{email, senha}` | `200` `{token, expiresIn, usuario}` · `400` campos inválidos · `401` credenciais inválidas (mensagem genérica, não revela se o e-mail existe) · `403` usuário inativo |
+| `POST /api/auth/logout` | `204`; registra `LOGOUT` na auditoria (o token é descartado no cliente) |
+| `GET /api/auth/me` | `200` `{id, nome, email, perfil}` |
+| `GET /api/auth/config` (público) | `200` `{demo: true\|false}` — `true` quando o profile `demo` está ativo (aviso **AMBIENTE DEMONSTRATIVO — DADOS FICTÍCIOS** na tela de login) |
+
+- **Token:** JWT HS256, validade de 8 h (`expiresIn` = 28800 s), enviado em `Authorization: Bearer <jwt>`. Carrega só `sub` (ID) e `perfil`; a cada requisição o usuário é relido do banco, então **desativar um usuário invalida seus tokens imediatamente**.
+- **Segredo:** variável `JWT_SECRET` (mínimo 32 caracteres), **obrigatória fora dos profiles `dev` e `openapi`** (a API não sobe sem ela). Em `dev`/`openapi`, se ausente, usa-se um segredo aleatório efêmero.
+- **401 / 403:** sem token, token inválido/expirado ou usuário inativo → `401`; perfil sem permissão (`@PreAuthorize`) → `403`; ambos em `application/problem+json`.
+- **CORS:** habilitado somente no profile `dev`, para `http://localhost:5173`. No Docker o Web usa proxy (sem CORS).
+- **Auditoria:** `LOGIN` e `LOGOUT` gravam em `AUDITORIA` (sem senha nem token).
 
 ## Uso pelo frontend
 

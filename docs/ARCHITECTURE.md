@@ -54,10 +54,10 @@
 ├── .claude/  settings.json  commands/start-issue.md
 ├── pom.xml
 └── src/main/java/br/com/nexusbuilderlab/semanexus/
-    ├── config/        OpenApiConfig, CorsConfig, StorageProperties
-    ├── security/      SecurityConfig, JwtService, JwtAuthFilter, AuthController, TestUserProfileGuard
+    ├── config/        OpenApiConfig, StorageProperties
+    ├── security/      SecurityConfig (inclui CORS do profile dev), JwtService, JwtConfig, JwtAuthFilter, ProblemDetailSecurityHandlers, TestUserProfileGuard
     ├── common/        exception/GlobalExceptionHandler, dto/PageResponse, audit/AuditService
-    ├── core/          usuario/ setor/ equipe/ auditoria/ catalogo/ dashboard/ notificacao/
+    ├── core/          auth/ usuario/ setor/ equipe/ auditoria/ catalogo/ dashboard/ notificacao/
     ├── flux/          demanda/ triagem/ distribuicao/ fiscalizacao/
     ├── intelligence/  indicador/ mapa/ relatorio/
     ├── docia/         documento/ storage/ extracao/ comparacao/ assistente/
@@ -112,7 +112,7 @@ A autorização é aplicada no backend; o Web apenas oculta o que o perfil não 
 
 ## 7. Autenticação e usuário de teste
 
-- `POST /api/auth/login` → JWT HS256 (`JWT_SECRET` por ambiente, ≥ 32 bytes, obrigatório fora de `dev`), validade 8 h. Logout registrado na auditoria; o token é descartado no cliente (lista de revogação é P2).
+- `POST /api/auth/login` → JWT HS256 (`JWT_SECRET` por ambiente, ≥ 32 bytes, obrigatório fora de `dev`/`openapi`), validade 8 h. Logout registrado na auditoria; o token é descartado no cliente (lista de revogação é P2). **Implementado (Issue #4):** o usuário é relido do banco a cada requisição — desativar o usuário invalida os tokens dele na hora; 401/403 em `problem+json`.
 - O Web guarda o token em memória + `sessionStorage`. Nenhum dado de negócio em LocalStorage.
 - `DemoSeedRunner` (`@Profile({"demo","dev"})`) cria `admin@admin.com` (ADMIN) e os demais usuários fictícios com **hash BCrypt pré-calculado** — o texto puro das senhas não existe em `src/main`.
 - `TestUserProfileGuard`: fora de `demo`/`dev`, se `admin@admin.com` existir, a aplicação **não sobe** e registra o motivo.

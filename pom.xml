@@ -47,6 +47,11 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
+        <!-- JWT HS256: traz a biblioteca Nimbus JOSE+JWT (versão gerenciada pelo Spring Boot) -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-oauth2-jose</artifactId>
+        </dependency>
 
         <!-- Persistência Oracle (conexão habilitada na Issue #3) -->
         <dependency>
