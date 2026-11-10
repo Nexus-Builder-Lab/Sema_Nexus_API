@@ -11,6 +11,7 @@ Somente `main` + branches de trabalho. Não existe `develop`.
 5. Commits: `GH-<n>: descrição curta`.
 6. Abra o PR: título `GH-<n> — <título da Issue>`, corpo pelo template, com `Closes #<n>`. Mova para **PR solicitado**.
 7. CI verde + revisão → merge **somente com autorização do proprietário**. A Issue fecha e vai para **Finalizado**.
+   No **modo autopilot** (`/next-issue`, [AUTOPILOT.md](AUTOPILOT.md)) o merge é automático quando as 5 condições do `CLAUDE.md` § 8.1 forem atendidas.
 
 Regras: um branch por Issue; sem prefixos `fix/`, `chore/`, `docs/`; sem sufixos; não crie branches antecipadamente; Issue mesclada que precisa de mais trabalho → nova Issue.
 Mudança que exige API e Web → uma Issue em cada repositório, ligadas por "Blocked by", um PR em cada repositório.

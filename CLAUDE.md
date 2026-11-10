@@ -71,7 +71,7 @@ src/main/resources/  application*.yml   db/migration/V*.sql   demo/*.json
 
 - **Nunca** se adicionar como colaborador, convidar contas, alterar permissões de membros, alterar visibilidade ou excluir repositórios/histórico.
 - Trabalhe sempre a partir de uma Issue. Não marque Issue como finalizada sem os critérios atendidos.
-- Não invente resultados de CI ou de testes. Não faça merge, tag ou release sem autorização do proprietário.
+- Não invente resultados de CI ou de testes. Não faça merge, tag ou release sem autorização do proprietário — exceto o merge no **modo autopilot** (seção 8.1). Tag e release continuam exigindo autorização.
 
 ### Títulos de Issue (regra permanente)
 
@@ -87,7 +87,23 @@ src/main/resources/  application*.yml   db/migration/V*.sql   demo/*.json
 - Commits: `GH-<n>: descrição curta`. PR: título `GH-<n> — <título da Issue>`, corpo com `Closes #<n>` (ou `Closes Nexus-Builder-Lab/Sema_Nexus_Web#<n>` para o outro repo), testes executados e evidências.
 - O CI valida o nome do branch com `^feature/GH-[0-9]+$`.
 
-## 9. Como executar uma Issue (use `/start-issue <n>`)
+## 8.1 Modo autopilot (autorizado pelo proprietário em 10/11/2026)
+
+Quando executado pelo `/next-issue` (ou pelo script `scripts/autopilot/autopilot.ps1`), o Claude Code **pode fazer merge sem pedir autorização**, desde que **todas** as condições sejam verdadeiras:
+
+1. todos os checks do CI do PR verdes;
+2. testes locais executados e aprovados na mesma execução;
+3. todos os critérios de aceitação da Issue comprovados com evidência e marcados no PR;
+4. subida via Docker Compose validada, quando o `docker-compose.yml` já existir e a Issue afetar a execução;
+5. todas as dependências ("Blocked by") da Issue fechadas, inclusive as do outro repositório.
+
+Se faltar só a condição 5, o PR fica aberto com a label `aguardando-dependencia`. Se um problema persistir após **3 tentativas de correção**, não há merge: a Issue recebe a label `autopilot-falhou` e o erro é registrado em `C:\SEMANEXUS\autopilot\RELATORIO_ERROS.md`.
+Toda Issue concluída acrescenta uma entrada em `docs/DIARIO_DESENVOLVIMENTO.md` (no mesmo PR).
+Continuam proibidos no autopilot: tags/releases (incluindo `v0.1.0-demo`), push direto na `main`, force push, apagar volumes Docker, Issues P2, ampliar escopo e encerrar processos que o agente não iniciou. Detalhes: `docs/AUTOPILOT.md`.
+
+Ambiente desta máquina: o `JAVA_HOME` do sistema é JDK 8 — use `$env:JAVA_HOME = 'C:\Program Files\Java\jdk-21'`. A porta 8080 do host está ocupada por outro serviço — use 18080 (`--server.port=18080` ou `API_PORT=18080`).
+
+## 9. Como executar uma Issue (use `/start-issue <n>`, ou `/next-issue` no autopilot)
 
 1. Ler a Issue (`gh issue view <n>`).
 2. Verificar dependências ("Blocked by") — não começar se houver bloqueio aberto, salvo autorização.
