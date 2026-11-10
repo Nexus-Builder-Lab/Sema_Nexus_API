@@ -37,6 +37,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     static final URI TYPE_CONFLITO = URI.create("https://semanexus.demo/problemas/conflito");
     static final URI TYPE_CREDENCIAIS = URI.create("https://semanexus.demo/problemas/credenciais-invalidas");
     static final URI TYPE_USUARIO_INATIVO = URI.create("https://semanexus.demo/problemas/usuario-inativo");
+    static final URI TYPE_NAO_IMPLEMENTADO = URI.create("https://semanexus.demo/problemas/nao-implementado");
     static final URI TYPE_ERRO_INTERNO = URI.create("https://semanexus.demo/problemas/erro-interno");
 
     /** Erro de validação de um campo: nome do campo e mensagem legível. */
@@ -78,6 +79,16 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
         problem.setTitle("Conflito com o estado atual do recurso");
         problem.setType(TYPE_CONFLITO);
+        return problem;
+    }
+
+    /** Endpoint com contrato publicado e implementação ainda pendente (Issue indicada no detalhe). */
+    @ExceptionHandler(ContratoPendenteException.class)
+    public ProblemDetail handleContratoPendente(ContratoPendenteException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_IMPLEMENTED, ex.getMessage());
+        problem.setTitle("Endpoint ainda não implementado");
+        problem.setType(TYPE_NAO_IMPLEMENTADO);
+        problem.setProperty("issue", ex.getIssue());
         return problem;
     }
 

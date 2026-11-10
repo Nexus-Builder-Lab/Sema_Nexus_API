@@ -14,7 +14,7 @@
 | Dashboard inicial: demandas, em andamento, finalizadas, documentos, indicadores, atividades recentes, atalhos | P0 | Planejado | API#17, Web#8 |
 | Layout com menu lateral, breadcrumbs, faixa "AMBIENTE DEMONSTRATIVO — DADOS FICTÍCIOS" | P0 | Planejado | Web#3 |
 | Auditoria de login/logout, cadastro, edição, exclusão lógica, status, distribuição e upload | P0 | Planejado | API#4, API#14, API#15 |
-| Consulta de setores, equipes e fiscais | P0 | Planejado | API#7 |
+| Consulta de setores, equipes e fiscais (`GET /api/setores`, `/api/equipes`, `/api/equipes/{id}/membros`) e catálogos (municípios de MT, biomas, categorias, origens, prioridades, status) | P0 | Implementado | API#7 |
 | Usuários: listagem, pesquisa, filtro por perfil, cadastro, edição, ativação, equipes | P1 | Planejado | API#24, Web#13 |
 | Setores e equipes: cadastro, membros, responsáveis | P1 | Planejado | API#24, Web#13 |
 | Notificações: novas demandas, prazos, atrasos, distribuição, documentos | P1 | Planejado | API#25, Web#14 |

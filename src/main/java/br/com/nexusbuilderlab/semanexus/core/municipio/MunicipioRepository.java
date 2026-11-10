@@ -8,4 +8,6 @@ public interface MunicipioRepository extends JpaRepository<Municipio, Integer> {
     List<Municipio> findAllByOrderByNomeAsc();
 
     List<Municipio> findByBiomaOrderByNomeAsc(Bioma bioma);
+
+    List<Municipio> findByBioma(Bioma bioma);
 }

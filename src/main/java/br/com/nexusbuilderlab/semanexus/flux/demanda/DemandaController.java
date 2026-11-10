@@ -1,0 +1,183 @@
+package br.com.nexusbuilderlab.semanexus.flux.demanda;
+
+import br.com.nexusbuilderlab.semanexus.common.dto.PageResponse;
+import br.com.nexusbuilderlab.semanexus.common.exception.ContratoPendenteException;
+import br.com.nexusbuilderlab.semanexus.common.openapi.ContratoPendente;
+import br.com.nexusbuilderlab.semanexus.flux.demanda.dto.AtividadeRequest;
+import br.com.nexusbuilderlab.semanexus.flux.demanda.dto.ConclusaoRequest;
+import br.com.nexusbuilderlab.semanexus.flux.demanda.dto.DemandaDetalhe;
+import br.com.nexusbuilderlab.semanexus.flux.demanda.dto.DemandaFiltro;
+import br.com.nexusbuilderlab.semanexus.flux.demanda.dto.DemandaRequest;
+import br.com.nexusbuilderlab.semanexus.flux.demanda.dto.DemandaResumo;
+import br.com.nexusbuilderlab.semanexus.flux.demanda.dto.DevolucaoRequest;
+import br.com.nexusbuilderlab.semanexus.flux.demanda.dto.DistribuicaoRequest;
+import br.com.nexusbuilderlab.semanexus.flux.demanda.dto.FiscalizacaoRequest;
+import br.com.nexusbuilderlab.semanexus.flux.demanda.dto.HistoricoItem;
+import br.com.nexusbuilderlab.semanexus.flux.demanda.dto.TriagemRequest;
+import br.com.nexusbuilderlab.semanexus.security.Autorizacao;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import java.util.List;
+import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
+
+/**
+ * Contrato do Flux (demandas de fiscalização). Os endpoints respondem {@code 501} até a Issue indicada em
+ * cada {@link ContratoPendente}: cadastro/listagem/detalhes (#11), triagem e distribuição (#12),
+ * acompanhamento, fiscalização, conclusão e devolução (#13). Máquina de estados em {@code docs/ARCHITECTURE.md} §5.
+ */
+@RestController
+@RequestMapping("/api/demandas")
+@Tag(name = "Flux — Demandas", description = "Demandas de fiscalização ambiental: cadastro, triagem, distribuição, "
+        + "acompanhamento, fiscalização, conclusão e devolução")
+public class DemandaController {
+
+    // ----------------------------------------------------------------- Issue #11 — cadastro e consulta
+
+    @Operation(summary = "Cadastra uma demanda (status inicial PENDENTE, número DEM-AAAA/NNNN automático)",
+            description = "Perfis: ADMIN, GESTOR, ANALISTA.")
+    @ApiResponse(responseCode = "201", description = "Demanda criada; `Location` aponta para `/api/demandas/{id}`")
+    @PreAuthorize(Autorizacao.ADMIN_GESTOR_ANALISTA)
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    @ContratoPendente(issue = 11)
+    public DemandaDetalhe cadastrar(@Valid @RequestBody DemandaRequest pedido) {
+        throw new ContratoPendenteException(11);
+    }
+
+    @Operation(summary = "Edita uma demanda (somente em PENDENTE ou EM_TRIAGEM)",
+            description = "Perfis: ADMIN, GESTOR, ANALISTA. Fora desses status responde 409.")
+    @PreAuthorize(Autorizacao.ADMIN_GESTOR_ANALISTA)
+    @PutMapping("/{id}")
+    @ContratoPendente(issue = 11)
+    public DemandaDetalhe editar(@PathVariable Long id, @Valid @RequestBody DemandaRequest pedido) {
+        throw new ContratoPendenteException(11);
+    }
+
+    @Operation(summary = "Lista demandas com paginação, ordenação e filtros combináveis",
+            description = "Qualquer perfil autenticado; FISCAL enxerga só as demandas da sua equipe ou atribuídas a ele. "
+                    + "Ordenação: `sort=campo,asc|desc` (campos: numero, titulo, dataRecebimento, prazo, status, prioridade).")
+    @GetMapping
+    @ContratoPendente(issue = 11)
+    public PageResponse<DemandaResumo> listar(@ParameterObject DemandaFiltro filtro, @ParameterObject Pageable paginacao) {
+        throw new ContratoPendenteException(11);
+    }
+
+    @Operation(summary = "Detalhes da demanda (equipe, fiscal, prazo, situação, fiscalização e documentos)",
+            description = "Qualquer perfil autenticado; FISCAL só nas demandas da sua equipe ou atribuídas a ele.")
+    @ApiResponse(responseCode = "403", description = "Fiscal fora do escopo (demanda de outra equipe)")
+    @GetMapping("/{id}")
+    @ContratoPendente(issue = 11)
+    public DemandaDetalhe detalhar(@PathVariable Long id) {
+        throw new ContratoPendenteException(11);
+    }
+
+    @Operation(summary = "Histórico (linha do tempo) da demanda, do mais recente ao mais antigo",
+            description = "Qualquer perfil autenticado; FISCAL só nas demandas da sua equipe ou atribuídas a ele.")
+    @ApiResponse(responseCode = "403", description = "Fiscal fora do escopo (demanda de outra equipe)")
+    @GetMapping("/{id}/historico")
+    @ContratoPendente(issue = 11)
+    public List<HistoricoItem> historico(@PathVariable Long id) {
+        throw new ContratoPendenteException(11);
+    }
+
+    @Operation(summary = "Exclui logicamente a demanda (somente ADMIN e somente em PENDENTE)",
+            description = "Perfil: ADMIN. Fora de PENDENTE responde 409.")
+    @PreAuthorize(Autorizacao.SOMENTE_ADMIN)
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @ContratoPendente(issue = 11)
+    public void excluir(@PathVariable Long id) {
+        throw new ContratoPendenteException(11);
+    }
+
+    // ----------------------------------------------------------------- Issue #12 — triagem e distribuição
+
+    @Operation(summary = "Inicia a triagem (PENDENTE → EM_TRIAGEM)", description = "Perfis: ADMIN, GESTOR, ANALISTA.")
+    @PreAuthorize(Autorizacao.ADMIN_GESTOR_ANALISTA)
+    @PostMapping("/{id}/triagem/iniciar")
+    @ContratoPendente(issue = 12)
+    public DemandaDetalhe iniciarTriagem(@PathVariable Long id) {
+        throw new ContratoPendenteException(12);
+    }
+
+    @Operation(summary = "Conclui a triagem (EM_TRIAGEM → AGUARDANDO_DISTRIBUICAO) ou solicita complementação (→ PENDENTE)",
+            description = "Perfis: ADMIN, GESTOR, ANALISTA. CLASSIFICAR exige categoria, prioridade e justificativa.")
+    @PreAuthorize(Autorizacao.ADMIN_GESTOR_ANALISTA)
+    @PostMapping("/{id}/triagem")
+    @ContratoPendente(issue = 12)
+    public DemandaDetalhe triar(@PathVariable Long id, @Valid @RequestBody TriagemRequest pedido) {
+        throw new ContratoPendenteException(12);
+    }
+
+    @Operation(summary = "Distribui a demanda (AGUARDANDO_DISTRIBUICAO → DISTRIBUIDA)",
+            description = "Perfis: ADMIN, GESTOR. Exige equipe, fiscal membro da equipe e prazo >= hoje.")
+    @PreAuthorize(Autorizacao.ADMIN_GESTOR)
+    @PostMapping("/{id}/distribuicao")
+    @ContratoPendente(issue = 12)
+    public DemandaDetalhe distribuir(@PathVariable Long id, @Valid @RequestBody DistribuicaoRequest pedido) {
+        throw new ContratoPendenteException(12);
+    }
+
+    // ----------------------------------------------------------------- Issue #13 — acompanhamento e conclusão
+
+    @Operation(summary = "Inicia a execução (DISTRIBUIDA → EM_ANDAMENTO)",
+            description = "Perfis: fiscal designado, GESTOR, ADMIN. Fiscal que não é o designado recebe 403.")
+    @PreAuthorize(Autorizacao.ADMIN_GESTOR_FISCAL)
+    @PostMapping("/{id}/inicio")
+    @ContratoPendente(issue = 13)
+    public DemandaDetalhe iniciarExecucao(@PathVariable Long id) {
+        throw new ContratoPendenteException(13);
+    }
+
+    @Operation(summary = "Registra uma atividade de acompanhamento no histórico (demanda EM_ANDAMENTO)",
+            description = "Perfis: fiscal designado, GESTOR, ADMIN.")
+    @ApiResponse(responseCode = "201", description = "Atividade registrada")
+    @PreAuthorize(Autorizacao.ADMIN_GESTOR_FISCAL)
+    @PostMapping("/{id}/atividades")
+    @ResponseStatus(HttpStatus.CREATED)
+    @ContratoPendente(issue = 13)
+    public HistoricoItem registrarAtividade(@PathVariable Long id, @Valid @RequestBody AtividadeRequest pedido) {
+        throw new ContratoPendenteException(13);
+    }
+
+    @Operation(summary = "Registra a fiscalização (EM_ANDAMENTO → AGUARDANDO_CONCLUSAO)",
+            description = "Perfis: fiscal designado, GESTOR, ADMIN. Exige registro completo.")
+    @PreAuthorize(Autorizacao.ADMIN_GESTOR_FISCAL)
+    @PostMapping("/{id}/fiscalizacao")
+    @ContratoPendente(issue = 13)
+    public DemandaDetalhe registrarFiscalizacao(@PathVariable Long id, @Valid @RequestBody FiscalizacaoRequest pedido) {
+        throw new ContratoPendenteException(13);
+    }
+
+    @Operation(summary = "Conclui a demanda (AGUARDANDO_CONCLUSAO → FINALIZADA)",
+            description = "Perfis: GESTOR, ADMIN. Exige resultado final e justificativa.")
+    @PreAuthorize(Autorizacao.ADMIN_GESTOR)
+    @PostMapping("/{id}/conclusao")
+    @ContratoPendente(issue = 13)
+    public DemandaDetalhe concluir(@PathVariable Long id, @Valid @RequestBody ConclusaoRequest pedido) {
+        throw new ContratoPendenteException(13);
+    }
+
+    @Operation(summary = "Devolve a demanda para ajustes (AGUARDANDO_CONCLUSAO → EM_ANDAMENTO)",
+            description = "Perfis: GESTOR, ADMIN. Exige justificativa.")
+    @PreAuthorize(Autorizacao.ADMIN_GESTOR)
+    @PostMapping("/{id}/devolucao")
+    @ContratoPendente(issue = 13)
+    public DemandaDetalhe devolver(@PathVariable Long id, @Valid @RequestBody DevolucaoRequest pedido) {
+        throw new ContratoPendenteException(13);
+    }
+}
