@@ -14,7 +14,8 @@ Este repositório também concentra a **infraestrutura e a documentação transv
 | Esqueleto Spring Boot: profiles, erros RFC 9457, paginação, OpenAPI/Swagger, health (Issue #1) | **Implementado** |
 | Imagem Docker da API: Dockerfile multi-stage, usuário não-root, healthcheck (Issue #2) | **Implementado** |
 | Conexão Oracle, Flyway e schema do Core com os 142 municípios de MT (Issue #3) | **Implementado** |
-| Autenticação, seed, docker-compose | **Planejado** — Sprint 1 (Issues #4–#10) |
+| Seed demonstrativo base: usuário de teste, usuários, setores e equipes fictícios, só em `demo`/`dev` (Issue #5) | **Implementado** |
+| Trava do usuário de teste, docker-compose, scripts demo | **Planejado** — Sprint 1 (Issues #6, #8–#10) |
 | Módulos Flux, Intelligence, DocIA | **Planejado** — Sprints 2 e 3 |
 
 Acompanhamento: [GitHub Project — SEMA NEXUS — Desenvolvimento](https://github.com/orgs/Nexus-Builder-Lab/projects/1) · [docs/SPRINTS.md](docs/SPRINTS.md)

@@ -68,5 +68,6 @@ Conexão: `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOU
 ## Testes com Oracle
 
 `CoreSchemaOracleTest` (tag `oracle`, Testcontainers com `gvenzl/oracle-free:23-slim-faststart`) sobe o contexto completo com `ddl-auto=validate` e verifica: V1 e V2 aplicadas e não reaplicadas, 142 municípios todos de MT, persistência de setor/usuário/equipe/auditoria e os `CHECK`/UK. Fica fora do `mvn -B verify` padrão; rode com `mvn -B verify -Poracle` (exige Docker). O job agendado de CI é a Issue #23 (P1).
-- Dados demonstrativos (usuários, equipes, demandas, documentos): `DemoSeedRunner`, somente profiles `demo`/`dev`, idempotente (Issues #5 e #18).
+- **Implementado (Issue #5) — base demonstrativa:** `DemoSeedRunner` → `DemoSeedService`, somente nos profiles `demo`/`dev` (nunca com `openapi`, que roda sem banco), idempotente por chave natural (sigla do setor; e-mail do usuário; setor + nome da equipe — só cria o que falta e não altera registros existentes). Lê `src/main/resources/demo/usuarios.json` e grava: 3 setores fictícios (`DEMO-GAB`, `DEMO-FISC`, `DEMO-DOC`), 6 usuários (todos com `DEMO = 1`), 4 equipes de fiscalização fictícias e 6 vínculos de membro. Senhas só como hash BCrypt no JSON; o log informa "seed demonstrativo aplicado / já existente" sem senhas.
+- **Planejado (Issue #18):** demandas e documentos fictícios coerentes para a demonstração.
 - Reset: `scripts/demo-reset` (Issue #9) — exige confirmação, recusa profiles diferentes de `demo`/`dev`, recria os volumes e recarrega o seed.

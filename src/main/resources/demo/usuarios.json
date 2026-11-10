@@ -1,0 +1,78 @@
+{
+  "aviso": "AMBIENTE DEMONSTRATIVO — DADOS FICTÍCIOS. Setores, equipes e usuários abaixo são simulados. As senhas estão somente como hash BCrypt (custo 10); as senhas de demonstração constam em docs/DEMO.md.",
+  "setores": [
+    { "sigla": "DEMO-GAB", "nome": "Gabinete Demonstrativo (fictício)" },
+    { "sigla": "DEMO-FISC", "nome": "Coordenadoria de Fiscalização Demonstrativa (fictícia)" },
+    { "sigla": "DEMO-DOC", "nome": "Núcleo de Análise e Documentação Demonstrativo (fictício)" }
+  ],
+  "usuarios": [
+    {
+      "nome": "Administrador Demonstrativo",
+      "email": "admin@admin.com",
+      "perfil": "ADMIN",
+      "setor": "DEMO-GAB",
+      "senhaHash": "$2a$10$OFSOrnKPUzaDt1TTPwqLj.USYOv6D.pvJtwxL9qtsv858Sh14bpFG"
+    },
+    {
+      "nome": "Gestor Demonstrativo",
+      "email": "gestor@demo.semanexus.local",
+      "perfil": "GESTOR",
+      "setor": "DEMO-FISC",
+      "senhaHash": "$2a$10$ek/ac1zL8VR9e8eDdvgDnucv4z80gXe5/apbLj9A1v759DItBslcK"
+    },
+    {
+      "nome": "Fiscal Demonstrativo 1",
+      "email": "fiscal1@demo.semanexus.local",
+      "perfil": "FISCAL",
+      "setor": "DEMO-FISC",
+      "senhaHash": "$2a$10$ek/ac1zL8VR9e8eDdvgDnucv4z80gXe5/apbLj9A1v759DItBslcK"
+    },
+    {
+      "nome": "Fiscal Demonstrativo 2",
+      "email": "fiscal2@demo.semanexus.local",
+      "perfil": "FISCAL",
+      "setor": "DEMO-FISC",
+      "senhaHash": "$2a$10$ek/ac1zL8VR9e8eDdvgDnucv4z80gXe5/apbLj9A1v759DItBslcK"
+    },
+    {
+      "nome": "Analista Demonstrativo",
+      "email": "analista@demo.semanexus.local",
+      "perfil": "ANALISTA",
+      "setor": "DEMO-DOC",
+      "senhaHash": "$2a$10$ek/ac1zL8VR9e8eDdvgDnucv4z80gXe5/apbLj9A1v759DItBslcK"
+    },
+    {
+      "nome": "Consulta Demonstrativo",
+      "email": "consulta@demo.semanexus.local",
+      "perfil": "CONSULTA",
+      "setor": "DEMO-DOC",
+      "senhaHash": "$2a$10$ek/ac1zL8VR9e8eDdvgDnucv4z80gXe5/apbLj9A1v759DItBslcK"
+    }
+  ],
+  "equipes": [
+    {
+      "nome": "Equipe Alfa (demonstrativa)",
+      "setor": "DEMO-FISC",
+      "responsavel": "fiscal1@demo.semanexus.local",
+      "membros": ["fiscal1@demo.semanexus.local"]
+    },
+    {
+      "nome": "Equipe Bravo (demonstrativa)",
+      "setor": "DEMO-FISC",
+      "responsavel": "fiscal2@demo.semanexus.local",
+      "membros": ["fiscal2@demo.semanexus.local"]
+    },
+    {
+      "nome": "Equipe Charlie (demonstrativa)",
+      "setor": "DEMO-FISC",
+      "responsavel": "fiscal1@demo.semanexus.local",
+      "membros": ["fiscal1@demo.semanexus.local", "fiscal2@demo.semanexus.local"]
+    },
+    {
+      "nome": "Equipe Delta (demonstrativa)",
+      "setor": "DEMO-FISC",
+      "responsavel": "gestor@demo.semanexus.local",
+      "membros": ["fiscal2@demo.semanexus.local", "analista@demo.semanexus.local"]
+    }
+  ]
+}

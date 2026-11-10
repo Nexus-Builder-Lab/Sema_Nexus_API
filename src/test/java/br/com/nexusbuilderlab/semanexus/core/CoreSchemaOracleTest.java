@@ -112,7 +112,9 @@ class CoreSchemaOracleTest {
         assertThat(usuarios.findByEmail("fiscal.it@exemplo.com")).isPresent();
         Long setorId = setores.findBySigla("CTF-IT").orElseThrow().getId();
         assertThat(equipes.findBySetorIdOrderByNomeAsc(setorId)).hasSize(1);
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM EQUIPE_MEMBRO", Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM EQUIPE_MEMBRO WHERE EQUIPE_ID = ?", Integer.class,
+                equipes.findBySetorIdOrderByNomeAsc(setorId).get(0).getId())).isEqualTo(1);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM AUDITORIA WHERE ACAO = 'CRIAR'", Integer.class))
                 .isEqualTo(1);
     }
