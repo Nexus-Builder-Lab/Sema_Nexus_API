@@ -7,11 +7,21 @@
 Duas sessões do Claude Code rodando sem supervisão, uma em `Sema_Nexus_API` e outra em `Sema_Nexus_Web`. Cada iteração executa o comando `/next-issue`, que:
 
 1. retoma trabalho pendente (branch em andamento, PRs com `aguardando-dependencia` cujas dependências fecharam);
-2. escolhe a próxima Issue **P0** desbloqueada (Sprint 1 → 2 → 3); sem P0 disponível, a próxima **P1** na ordem de `docs/SPRINTS.md`; **nunca P2** nem a Issue de tag (#22);
+2. escolhe a próxima Issue **P0** desbloqueada (Sprint 1 → 2 → 3); sem P0 disponível, a próxima **P1** na ordem: Assistente DocIA → **dados de satélite do INPE na aba Inteligência ambiental** (API#34 / Web#22) → Comparação → Indicadores/Painel → Notificações/Auditoria → Usuários/Equipes → Relatórios → testes Oracle; **nunca P2** nem a Issue de tag (#22);
 3. cria `feature/GH-<n>`, implementa, escreve testes, atualiza docs e o `docs/DIARIO_DESENVOLVIMENTO.md`;
 4. valida: build/testes locais, critérios de aceitação com evidência e, quando o compose já existir, subida via Docker com login do usuário de teste;
 5. abre o PR, espera o CI e faz **merge automático** só se as 5 condições forem verdadeiras (abaixo);
 6. atualiza o Status no Project (Em andamento → PR solicitado → Finalizado).
+
+## Modelos
+
+| Situação | Modelo | Esforço |
+|---|---|---|
+| Toda iteração (padrão) | **Sonnet 5.5** (`--model sonnet`) | **alto** (`--effort high`) |
+| Diagnóstico pontual dentro da iteração (problema que persiste após 2 tentativas, decisão de arquitetura, depuração difícil) | **Opus 5.5** via subagente (`model: "opus"`) | **médio** |
+| Retentativa automática de uma Issue que terminou em `FALHOU` | **Opus 5.5** (`--model opus`) | **médio** (`--effort medium`) |
+
+Definido pelo proprietário em 10/11/2026 para economizar tokens e avançar mais. A retentativa com Opus acontece **uma vez por Issue**; se falhar de novo, a Issue fica com `autopilot-falhou`. Os parâmetros `-Modelo`, `-Esforco`, `-ModeloReforco` e `-EsforcoReforco` do script permitem mudar isso.
 
 ## Condições para o merge automático
 
