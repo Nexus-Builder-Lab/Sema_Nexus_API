@@ -16,7 +16,8 @@ Este repositório também concentra a **infraestrutura e a documentação transv
 | Conexão Oracle, Flyway e schema do Core com os 142 municípios de MT (Issue #3) | **Implementado** |
 | Seed demonstrativo base: usuário de teste, usuários, setores e equipes fictícios, só em `demo`/`dev` (Issue #5) | **Implementado** |
 | Trava de inicialização do usuário de teste fora de `demo`/`dev` (Issue #6) | **Implementado** |
-| docker-compose, scripts demo | **Planejado** — Sprint 1 (Issues #8–#10) |
+| `docker-compose.yml` (Oracle Free + API + Web), `.env.example`, healthchecks e volumes (Issue #8) | **Implementado** |
+| Scripts demo-up/down/reset, `docs/DOCKER.md` completo | **Planejado** — Sprint 1 (Issues #9–#10) |
 | Módulos Flux, Intelligence, DocIA | **Planejado** — Sprints 2 e 3 |
 
 Acompanhamento: [GitHub Project — SEMA NEXUS — Desenvolvimento](https://github.com/orgs/Nexus-Builder-Lab/projects/1) · [docs/SPRINTS.md](docs/SPRINTS.md)
@@ -25,7 +26,7 @@ Acompanhamento: [GitHub Project — SEMA NEXUS — Desenvolvimento](https://gith
 
 Java 21 · Spring Boot 3.5 · Spring Security (JWT + BCrypt) · Spring Data JPA · **Oracle Database 23ai Free** · Flyway · springdoc-openapi · JUnit 5 · Mockito · Testcontainers · Maven · Docker Compose · GitHub Actions
 
-## Executar via Docker (após as Issues #2, #8 e Web#2)
+## Executar via Docker (Implementado — Issues #2, #8 e Web#2)
 
 ```bash
 git clone https://github.com/Nexus-Builder-Lab/Sema_Nexus_API.git
@@ -52,7 +53,7 @@ mvn -B verify                                          # build + testes
 mvn spring-boot:run -Dspring-boot.run.profiles=dev     # http://localhost:8080
 ```
 
-A API precisa do **Oracle** (Issue #3): na primeira subida o Flyway cria o schema e carrega os 142 municípios; nas seguintes, nada muda. Até o `docker-compose.yml` existir (Issue #8), suba o Oracle avulso e informe a conexão por variáveis de ambiente (escolha a senha você mesmo; nunca a versione):
+A API precisa do **Oracle** (Issue #3): na primeira subida o Flyway cria o schema e carrega os 142 municípios; nas seguintes, nada muda. Se preferir, suba só o Oracle do compose (`docker compose up -d oracle`) ou avulso e informe a conexão por variáveis de ambiente (escolha a senha você mesmo; nunca a versione):
 
 ```powershell
 docker run -d --name sema-oracle -p 1521:1521 -e ORACLE_PASSWORD=<senha> -e APP_USER=SEMANEXUS -e APP_USER_PASSWORD=<senha> gvenzl/oracle-free:23-slim-faststart
@@ -62,7 +63,7 @@ $env:SPRING_DATASOURCE_PASSWORD = '<senha>'
 mvn spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
-Depois da Issue #8: `docker compose up -d oracle` e as variáveis do `.env` exportadas no shell.
+Com o compose: `docker compose up -d oracle` e as variáveis do `.env` exportadas no shell (a porta do host é `ORACLE_PORT`, padrão 1521).
 
 Testes: `mvn -B verify` roda só os testes **sem** Oracle. Os testes de integração com Oracle real (Testcontainers, tag `oracle`, exigem Docker) rodam com `mvn -B verify -Poracle`.
 

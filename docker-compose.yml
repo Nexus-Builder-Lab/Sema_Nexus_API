@@ -1,0 +1,77 @@
+# SEMA NEXUS — ambiente completo (Oracle Free + API + Web). Issue #8.
+# AMBIENTE DEMONSTRATIVO — DADOS FICTÍCIOS.
+#
+# Uso:  cp .env.example .env   (edite as senhas)   →   docker compose up -d --build
+# Os repositórios ficam lado a lado:  ./Sema_Nexus_API (este)  e  ../Sema_Nexus_Web.
+# NENHUM segredo neste arquivo: tudo vem do .env (ignorado pelo Git). Ver docs/DOCKER.md.
+# Nunca use `docker compose down -v` sem querer perder o banco e os uploads (ver demo-reset).
+
+name: sema-nexus
+
+services:
+  # ---------- Banco: Oracle Database 23ai Free ----------
+  oracle:
+    # Tag fixada (mesma imagem validada nos testes Testcontainers: gvenzl/oracle-free:23-slim-faststart).
+    image: gvenzl/oracle-free:23.26.3-slim-faststart
+    restart: unless-stopped
+    environment:
+      ORACLE_PASSWORD: ${ORACLE_PASSWORD:?defina ORACLE_PASSWORD no .env}
+      APP_USER: ${APP_USER:?defina APP_USER no .env}
+      APP_USER_PASSWORD: ${APP_USER_PASSWORD:?defina APP_USER_PASSWORD no .env}
+    ports:
+      - "${ORACLE_PORT:-1521}:1521"
+    volumes:
+      - oradata:/opt/oracle/oradata
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 120s
+
+  # ---------- Backend: Spring Boot ----------
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      oracle:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-demo}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:oracle:thin:@//oracle:1521/FREEPDB1}
+      SPRING_DATASOURCE_USERNAME: ${APP_USER}
+      SPRING_DATASOURCE_PASSWORD: ${APP_USER_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET no .env (mínimo 32 caracteres)}
+      STORAGE_DIR: /data/uploads
+      DOCIA_PROVIDER: ${DOCIA_PROVIDER:-demo}
+      DOCIA_API_URL: ${DOCIA_API_URL:-}
+      DOCIA_API_KEY: ${DOCIA_API_KEY:-}
+      DEMO_RESET_CONFIRM: ${DEMO_RESET_CONFIRM:-}
+    ports:
+      - "${API_PORT:-8080}:8080"
+    volumes:
+      - uploads:/data/uploads
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health > /dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 90s
+
+  # ---------- Frontend: React servido pelo Nginx (proxy /api -> api:8080) ----------
+  web:
+    build:
+      context: ../Sema_Nexus_Web
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${WEB_PORT:-3000}:8080"
+
+volumes:
+  oradata:
+  uploads:
