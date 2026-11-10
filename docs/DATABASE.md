@@ -1,6 +1,6 @@
 # SEMA NEXUS — Banco de dados (Oracle)
 
-> **Status:** Planejado. As tabelas serão criadas pelas migrations Flyway das Issues #3 (Core), #11 (Flux), #15 (DocIA) e #25 (Notificações, P1).
+> **Status:** Core **Implementado** (Issue #3: `V1__core.sql`, `V2__municipios_mt.sql`). Flux (#11), DocIA (#15) e Notificações (#25, P1) **Planejados**.
 > **Oracle é obrigatório.** Não usar PostgreSQL, MySQL, H2 ou SQLite em nenhum ambiente, nem em testes.
 
 ## Ambiente
@@ -24,16 +24,27 @@
 - `spring.jpa.hibernate.ddl-auto=validate`: o Hibernate **não** cria schema; só o Flyway.
 - Migration aplicada na `main` nunca é editada; crie uma nova.
 
+- Booleanos usam o tipo nativo `BOOLEAN` do Oracle 23ai (mapeado de `boolean` pelo Hibernate).
+
 ## Modelo
+
+### Core — Implementado (Issue #3)
+
+Conexão: `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD` (Hikari, pool `sema-nexus-pool`, máx. 10). O profile `dev` usa `jdbc:oracle:thin:@//localhost:1521/FREEPDB1` como URL padrão; usuário e senha sempre do ambiente. Entidades e repositories em `core/{municipio,setor,usuario,equipe,auditoria}`.
+
+| Tabela | Colunas | Restrições / índices |
+|---|---|---|
+| `MUNICIPIO` | `ID NUMBER(7)` (código IBGE, sem identity), `NOME`, `REGIAO`, `BIOMA`, `LATITUDE NUMBER(9,6)`, `LONGITUDE NUMBER(9,6)` | `CK_MUNICIPIO_UF_MT` (`ID` entre 5100000 e 5199999), `CK_MUNICIPIO_BIOMA` (`AMAZONIA`,`CERRADO`,`PANTANAL`), latitude/longitude no retângulo de MT; `IX_MUNICIPIO_BIOMA`, `IX_MUNICIPIO_REGIAO`. 142 linhas (dado público de referência). Entidade `@Immutable` |
+| `SETOR` | `ID` identity, `SIGLA`, `NOME`, `ATIVO`, `CRIADO_EM`, `ATUALIZADO_EM` | `UK_SETOR_SIGLA` |
+| `USUARIO` | `ID` identity, `NOME`, `EMAIL`, `SENHA_HASH` (BCrypt), `PERFIL`, `SETOR_ID`, `ATIVO`, `ULTIMO_ACESSO`, `DEMO`, `CRIADO_EM`, `ATUALIZADO_EM` | `UK_USUARIO_EMAIL`, `CK_USUARIO_EMAIL_MINUSCULO` (a entidade normaliza com trim + minúsculas), `CK_USUARIO_PERFIL` (`ADMIN`,`GESTOR`,`FISCAL`,`ANALISTA`,`CONSULTA`), `FK_USUARIO_SETOR`; `IX_USUARIO_SETOR_ID`, `IX_USUARIO_PERFIL` |
+| `EQUIPE` | `ID` identity, `NOME`, `SETOR_ID` (obrigatório), `RESPONSAVEL_ID`, `ATIVO`, `CRIADO_EM`, `ATUALIZADO_EM` | `UK_EQUIPE_SETOR_NOME`, `FK_EQUIPE_SETOR`, `FK_EQUIPE_RESPONSAVEL`; `IX_EQUIPE_RESPONSAVEL_ID` |
+| `EQUIPE_MEMBRO` | `EQUIPE_ID`, `USUARIO_ID` | PK composta; `FK_EQUIPE_MEMBRO_EQUIPE` (`ON DELETE CASCADE`), `FK_EQUIPE_MEMBRO_USUARIO`; `IX_EQUIPE_MEMBRO_USUARIO_ID` |
+| `AUDITORIA` | `ID` identity, `DATA`, `USUARIO_ID`, `ACAO`, `ENTIDADE`, `ENTIDADE_ID VARCHAR2(64)`, `DETALHE VARCHAR2(4000)` | `FK_AUDITORIA_USUARIO`; `IX_AUDITORIA_DATA`, `IX_AUDITORIA_ENTIDADE (ENTIDADE, ENTIDADE_ID)`, `IX_AUDITORIA_USUARIO_ID`. Append-only (entidade `@Immutable`) |
+
+### Demais módulos — Planejado
 
 | Tabela | Colunas principais | Restrições / índices | Issue |
 |---|---|---|---|
-| `MUNICIPIO` | `ID` (código IBGE), `NOME`, `REGIAO`, `BIOMA`, `LATITUDE`, `LONGITUDE` | `CHECK BIOMA IN ('AMAZONIA','CERRADO','PANTANAL')`; 142 linhas (dado público de referência) | #3 |
-| `SETOR` | `ID`, `SIGLA` (UK), `NOME`, `ATIVO` | | #3 |
-| `USUARIO` | `ID`, `NOME`, `EMAIL` (UK), `SENHA_HASH`, `PERFIL`, `SETOR_ID`, `ATIVO`, `ULTIMO_ACESSO`, `DEMO` | `CHECK PERFIL IN ('ADMIN','GESTOR','FISCAL','ANALISTA','CONSULTA')` | #3 |
-| `EQUIPE` | `ID`, `NOME`, `SETOR_ID`, `RESPONSAVEL_ID`, `ATIVO` | FKs para `SETOR`, `USUARIO` | #3 |
-| `EQUIPE_MEMBRO` | `EQUIPE_ID`, `USUARIO_ID` | PK composta | #3 |
-| `AUDITORIA` | `ID`, `DATA`, `USUARIO_ID`, `ACAO`, `ENTIDADE`, `ENTIDADE_ID`, `DETALHE` | `IX (DATA)`, `IX (ENTIDADE, ENTIDADE_ID)` | #3 |
 | `DEMANDA` | `ID`, `NUMERO` (UK, `DEM-AAAA/NNNN`), `TITULO`, `DESCRICAO` (CLOB), `ORIGEM`, `CATEGORIA`, `MUNICIPIO_ID`, `LOCALIDADE`, `LATITUDE`, `LONGITUDE`, `DATA_RECEBIMENTO`, `PRIORIDADE`, `PRAZO`, `STATUS`, `EQUIPE_ID`, `FISCAL_ID`, `OBSERVACOES`, `RESULTADO_FINAL`, `JUSTIFICATIVA_CONCLUSAO`, `CONCLUIDA_EM`, `CRIADO_POR`, `EXCLUIDO_EM` | CHECKs de enums; coordenadas dentro do retângulo de MT; índices em `STATUS`, `MUNICIPIO_ID`, `CATEGORIA`, `DATA_RECEBIMENTO`, `EQUIPE_ID` | #11 |
 | `NUMERACAO_DEMANDA` | `ANO` (PK), `ULTIMO` | `SELECT … FOR UPDATE` na geração do número | #11 |
 | `DEMANDA_HISTORICO` | `ID`, `DEMANDA_ID`, `TIPO`, `STATUS_ANTERIOR`, `STATUS_NOVO`, `TEXTO`, `USUARIO_ID`, `DATA` | `IX (DEMANDA_ID, DATA)` | #11 |
@@ -52,6 +63,10 @@
 
 ## Seed e reset
 
-- Municípios: migration `V2__municipios_mt.sql` (todos os ambientes; dado público do IBGE).
+- Municípios: migration `V2__municipios_mt.sql` (todos os ambientes; dado público do IBGE, extraído de `data/geo-mt.js` do protótipo; bioma predominante e região são aproximações; Boa Esperança do Norte, criado em 2023, tem centroide aproximado).
+
+## Testes com Oracle
+
+`CoreSchemaOracleTest` (tag `oracle`, Testcontainers com `gvenzl/oracle-free:23-slim-faststart`) sobe o contexto completo com `ddl-auto=validate` e verifica: V1 e V2 aplicadas e não reaplicadas, 142 municípios todos de MT, persistência de setor/usuário/equipe/auditoria e os `CHECK`/UK. Fica fora do `mvn -B verify` padrão; rode com `mvn -B verify -Poracle` (exige Docker). O job agendado de CI é a Issue #23 (P1).
 - Dados demonstrativos (usuários, equipes, demandas, documentos): `DemoSeedRunner`, somente profiles `demo`/`dev`, idempotente (Issues #5 e #18).
 - Reset: `scripts/demo-reset` (Issue #9) — exige confirmação, recusa profiles diferentes de `demo`/`dev`, recria os volumes e recarrega o seed.

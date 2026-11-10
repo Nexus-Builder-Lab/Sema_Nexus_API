@@ -22,6 +22,9 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <springdoc.version>2.10.0</springdoc.version>
+        <!-- Testes unitários não dependem de Oracle: a tag "oracle" fica fora do build padrão (profile -Poracle). -->
+        <testes.grupos></testes.grupos>
+        <testes.grupos.excluidos>oracle</testes.grupos.excluidos>
     </properties>
 
     <dependencies>
@@ -82,7 +85,34 @@
             <artifactId>spring-security-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- Testes de integração com Oracle real (tag "oracle", fora do mvn verify padrão) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>oracle-free</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
+
+    <profiles>
+        <!-- mvn -B -ntp verify -Poracle  → roda SOMENTE os testes com a tag "oracle" (Testcontainers + Docker). -->
+        <profile>
+            <id>oracle</id>
+            <properties>
+                <testes.grupos>oracle</testes.grupos>
+                <testes.grupos.excluidos>nenhum</testes.grupos.excluidos>
+            </properties>
+        </profile>
+    </profiles>
 
     <build>
         <finalName>sema-nexus-api</finalName>
@@ -109,6 +139,14 @@
                         </configuration>
                     </execution>
                 </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <groups>${testes.grupos}</groups>
+                    <excludedGroups>${testes.grupos.excluidos}</excludedGroups>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
