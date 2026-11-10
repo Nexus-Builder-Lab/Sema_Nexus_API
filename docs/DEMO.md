@@ -20,7 +20,7 @@ Regras: essas contas existem **apenas** nos profiles `demo`/`dev`, são gravadas
 
 ## Preparação (antes da apresentação)
 
-1. Subir o ambiente: `.\scripts\demo-up.ps1` (ou `./scripts/demo-up.sh`).
+1. Subir o ambiente: `.\scripts\demo-up.ps1` (ou `./scripts/demo-up.sh`) — Implementado (Issue #9); aguarda os healthchecks e imprime as URLs.
 2. Conferir `docker compose ps`: `oracle`, `api` e `web` **healthy**.
 3. Restaurar a massa demonstrativa: `.\scripts\demo-reset.ps1` (confirmação explícita).
 4. Abrir http://localhost:3000 e entrar com `admin@admin.com` / `12345678`.

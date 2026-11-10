@@ -17,7 +17,8 @@ Este repositório também concentra a **infraestrutura e a documentação transv
 | Seed demonstrativo base: usuário de teste, usuários, setores e equipes fictícios, só em `demo`/`dev` (Issue #5) | **Implementado** |
 | Trava de inicialização do usuário de teste fora de `demo`/`dev` (Issue #6) | **Implementado** |
 | `docker-compose.yml` (Oracle Free + API + Web), `.env.example`, healthchecks e volumes (Issue #8) | **Implementado** |
-| Scripts demo-up/down/reset, `docs/DOCKER.md` completo | **Planejado** — Sprint 1 (Issues #9–#10) |
+| Scripts `demo-up`/`demo-down`/`demo-reset` (`.sh` e `.ps1`) e `Makefile` (Issue #9) | **Implementado** |
+| `docs/DOCKER.md` completo (requisitos validados, solução de problemas) | **Planejado** — Sprint 1 (Issue #10) |
 | Módulos Flux, Intelligence, DocIA | **Planejado** — Sprints 2 e 3 |
 
 Acompanhamento: [GitHub Project — SEMA NEXUS — Desenvolvimento](https://github.com/orgs/Nexus-Builder-Lab/projects/1) · [docs/SPRINTS.md](docs/SPRINTS.md)

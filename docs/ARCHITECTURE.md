@@ -48,7 +48,8 @@
 ```
 ├── CLAUDE.md  README.md  .env.example  .gitignore  .editorconfig
 ├── Dockerfile  .dockerignore  docker-compose.yml        (Issues #2 e #8)
-├── scripts/  demo-up|demo-down|demo-reset .sh/.ps1      (Issue #9)
+├── scripts/  demo-up|demo-down|demo-reset .sh/.ps1, lib/, tests/   (Issue #9, implementado)
+├── Makefile  up|down|reset|logs|ps                      (Issue #9)
 ├── docs/
 ├── .github/  workflows/ ISSUE_TEMPLATE/ scripts/ PULL_REQUEST_TEMPLATE.md
 ├── .claude/  settings.json  commands/start-issue.md

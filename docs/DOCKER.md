@@ -1,6 +1,6 @@
 # SEMA NEXUS — Execução com Docker
 
-> **Status:** o `docker-compose.yml` e o `.env.example` estão **Implementados** (Issue API#8), assim como a imagem da API (API#2) e a do Web (Web#2). **Planejado:** scripts `demo-up/down/reset` (API#9) e a seção final de requisitos validados e solução de problemas (API#10).
+> **Status:** o `docker-compose.yml` e o `.env.example` estão **Implementados** (Issue API#8), assim como a imagem da API (API#2), a do Web (Web#2) e os scripts `demo-up/down/reset` (API#9). **Planejado:** a seção final de requisitos validados e solução de problemas (API#10).
 
 ## Imagem da API
 
@@ -85,12 +85,33 @@ docker compose logs -f api
 #    Login de teste: admin@admin.com  /  12345678   (somente demonstração)
 ```
 
-Com os scripts (Issue #9): `./scripts/demo-up.sh` ou `.\scripts\demo-up.ps1`.
+Com os scripts (**Implementado**, Issue #9) os passos 2–5 viram um comando:
+
+```bash
+./scripts/demo-up.sh         # Linux/macOS/WSL/Git Bash   (ou: make up)
+.\scripts\demo-up.ps1        # Windows (PowerShell)
+```
+
+## Scripts `demo-*`
+
+**Status:** Implementado (Issue API#9). Pares `.sh` (POSIX) e `.ps1` (PowerShell) em `scripts/`, com funções comuns em `scripts/lib/`. Há também um `Makefile` opcional (`make up | down | reset | logs | ps`).
+
+| Script | O que faz |
+|---|---|
+| `demo-up` | Valida que o Docker (e o Compose v2) estão ativos; cria o `.env` a partir do `.env.example` **somente se não existir**; `docker compose up -d --build`; aguarda `oracle`, `api` e `web` ficarem `healthy` (falha em `unhealthy` ou no timeout); imprime as URLs (usando `WEB_PORT`/`API_PORT` do `.env`) e o e-mail do login de teste — a senha demonstrativa fica em [DEMO.md](DEMO.md), nunca nos scripts. |
+| `demo-down` | `docker compose down` — **preserva** os volumes (`oradata`, `uploads`). Nunca usa `-v`. |
+| `demo-reset` | **Destrutivo.** Recusa se `SPRING_PROFILES_ACTIVE` (ambiente ou `.env`; padrão `demo`) contiver algo além de `demo`/`dev`; exige `DEMO_RESET_CONFIRM=yes` (ambiente ou `.env`) **ou** digitar `RESETAR` em terminal interativo (sem terminal e sem a variável → recusa); então `docker compose down -v`, sobe de novo via `demo-up` e aguarda o seed (feito pela API na subida). Qualquer recusa termina com código ≠ 0 sem apagar nada. |
+
+Variáveis opcionais: `DEMO_UP_TIMEOUT` (segundos de espera pelos healthchecks, padrão 600) e `DEMO_POLL_SECONDS` (intervalo, padrão 5).
+
+**Testes:** `sh scripts/tests/demo-scripts.test.sh` (também roda no CI, job `scripts-demo`) usa um `docker` **falso** no PATH e verifica criação do `.env`, preservação do `.env` existente, healthchecks (ok/unhealthy/timeout), Docker inativo, `down` sem `-v` e todas as recusas do `demo-reset` (sem confirmação, profile `prod`, lista `demo,prod`, valor ≠ `yes`) além do caminho confirmado (`down -v` antes do `up`).
+
+> No Windows com Docker Desktop, se `localhost` não responder no host (resolução para IPv6), use `127.0.0.1` nas URLs.
 
 ## Parar sem perder dados
 
 ```bash
-docker compose down          # ou scripts/demo-down
+./scripts/demo-down.sh       # ou: docker compose down
 ```
 
 ## Reset completo da demonstração
@@ -99,6 +120,7 @@ Apaga os volumes do ambiente demonstrativo (banco Oracle e uploads) e recarrega 
 
 ```bash
 ./scripts/demo-reset.sh      # Windows: .\scripts\demo-reset.ps1
+DEMO_RESET_CONFIRM=yes ./scripts/demo-reset.sh   # sem pergunta (automação)
 ```
 
 Equivalente manual (somente em ambiente de demonstração):
