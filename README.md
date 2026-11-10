@@ -17,7 +17,8 @@ Este repositório também concentra a **infraestrutura e a documentação transv
 | Seed demonstrativo base: usuário de teste, usuários, setores e equipes fictícios, só em `demo`/`dev` (Issue #5) | **Implementado** |
 | Trava de inicialização do usuário de teste fora de `demo`/`dev` (Issue #6) | **Implementado** |
 | `docker-compose.yml` (Oracle Free + API + Web), `.env.example`, healthchecks e volumes (Issue #8) | **Implementado** |
-| Scripts demo-up/down/reset, `docs/DOCKER.md` completo | **Planejado** — Sprint 1 (Issues #9–#10) |
+| `docs/DOCKER.md` completo (requisitos, Windows/WSL2, Apple Silicon, problemas comuns) e seção de execução do README (Issue #10) | **Implementado** |
+| Scripts demo-up/down/reset (Issue #9) | **Em desenvolvimento** — PR aberto, ainda não mesclado |
 | Módulos Flux, Intelligence, DocIA | **Planejado** — Sprints 2 e 3 |
 
 Acompanhamento: [GitHub Project — SEMA NEXUS — Desenvolvimento](https://github.com/orgs/Nexus-Builder-Lab/projects/1) · [docs/SPRINTS.md](docs/SPRINTS.md)
@@ -37,10 +38,13 @@ docker compose up -d --build
 docker compose ps
 ```
 
+- Edite o `.env` (senhas e `JWT_SECRET` de 32+ caracteres) antes do `up`; se 8080, 3000 ou 1521 estiverem em uso, troque `API_PORT`, `WEB_PORT` ou `ORACLE_PORT`.
 - Aplicação: http://localhost:3000 · API: http://localhost:8080 · Swagger: http://localhost:8080/swagger-ui.html
 - Login de teste (**somente demonstração**): `admin@admin.com` / `12345678`
+- Parar sem perder dados: `docker compose down` (nunca `-v`, que apaga o banco e os uploads).
+- Requisitos: Docker com Compose v2, RAM de 8 GB+ no host (~2 GB para o Oracle), ~12 GB de disco; 1ª subida de 1 a 3 min (mais o download das imagens).
 
-Detalhes, requisitos e reset: [docs/DOCKER.md](docs/DOCKER.md).
+Passo a passo completo, requisitos, Windows/WSL2, Apple Silicon, reset e solução de problemas: [docs/DOCKER.md](docs/DOCKER.md).
 
 ## Executar localmente sem Docker
 
