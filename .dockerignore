@@ -1,0 +1,25 @@
+# Contexto de build da imagem da API (Issue #2): só pom.xml e src/ são necessários.
+target/
+.git/
+.github/
+.claude/
+.idea/
+.vscode/
+*.iml
+.env
+.env*
+*.log
+logs/
+docs/
+scripts/
+uploads/
+oradata/
+data/
+wallet/
+*.pem
+*.key
+*.p12
+*.jks
+Dockerfile
+.dockerignore
+docker-compose*.yml

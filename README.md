@@ -12,7 +12,8 @@ Este repositório também concentra a **infraestrutura e a documentação transv
 |---|---|
 | Planejamento, backlog (3 sprints), Project, CI, templates, documentação | **Implementado** (10/11/2026) |
 | Esqueleto Spring Boot: profiles, erros RFC 9457, paginação, OpenAPI/Swagger, health (Issue #1) | **Implementado** |
-| Conexão Oracle, autenticação, seed, Dockerfile, docker-compose | **Planejado** — Sprint 1 (Issues #2–#10) |
+| Imagem Docker da API: Dockerfile multi-stage, usuário não-root, healthcheck (Issue #2) | **Implementado** |
+| Conexão Oracle, autenticação, seed, docker-compose | **Planejado** — Sprint 1 (Issues #3–#10) |
 | Módulos Flux, Intelligence, DocIA | **Planejado** — Sprints 2 e 3 |
 
 Acompanhamento: [GitHub Project — SEMA NEXUS — Desenvolvimento](https://github.com/orgs/Nexus-Builder-Lab/projects/1) · [docs/SPRINTS.md](docs/SPRINTS.md)
