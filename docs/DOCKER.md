@@ -61,7 +61,7 @@ Valores **medidos** na validação (Docker 29 / Compose v5, Windows 11 + WSL2, 8
 | Docker | Docker Desktop (Windows/macOS) ou Docker Engine + Compose v2 (Linux) |
 | Memória | Host com **8 GB ou mais** (recomendação). O Oracle usa cerca de **2 GB**; o build do Maven/Node usa mais durante a construção das imagens. O Docker/WSL2 precisa ter pelo menos **6 GB** disponíveis |
 | Disco | **~12 GB livres** (medido: imagem Oracle ~6,5 GB descompactada, API ~0,4 GB, Web ~0,1 GB, volume do banco ~3,2 GB, mais cache de build) |
-| 1ª subida | download das imagens (Oracle ~6,5 GB descompactada) + build + inicialização do banco: de **1 a 3 min** com imagens já baixadas e internet rápida, **mais** o tempo do download na primeira vez. Com a imagem `faststart`, o Oracle ficou `healthy` em cerca de 50 s |
+| 1ª subida | download das imagens (Oracle ~6,5 GB descompactada) + build + inicialização do banco: de **1 a 3 min** com imagens já baixadas e internet rápida, **mais** o tempo do download na primeira vez. Com a imagem `faststart`, o Oracle ficou `healthy` em 35–50 s. Medido do zero (volumes novos, imagens já baixadas): `docker compose up -d --build` terminou em **41 s** com os três serviços `healthy` |
 | Subidas seguintes | menos de 1 min (imagens e volumes já existem) |
 | Internet | só na primeira vez (imagens, dependências Maven/npm). Depois a demonstração roda **offline** |
 | Portas livres no host | 3000 (Web), 8080 (API), 1521 (Oracle) — ou as que você definir no `.env` |
@@ -172,6 +172,7 @@ O script `demo-reset` (Issue API#9, em desenvolvimento) fará o mesmo pedindo co
 | `web` não sobe (`Waiting`/`dependency failed to start`) | `api` não ficou `healthy` | resolva primeiro o `api` (`docker compose logs api`) |
 | `permission denied` em `/data/uploads` | uso de **bind mount** (pasta do host) em vez do volume nomeado; o container roda como UID 10001 | mantenha o volume nomeado `uploads` do compose; se usar pasta do host: `sudo chown -R 10001:10001 <pasta>` |
 | Aviso do Flyway `Oracle 23.26 is newer than this version` | apenas informativo | nenhuma ação: a migração funciona |
+| `localhost` não responde (timeout) embora `docker compose ps` mostre `healthy` | observado no Windows com cliente que tenta IPv6 primeiro; a causa não foi investigada | use `http://127.0.0.1:<porta>` no lugar de `localhost` |
 | Build lento ou falha por rede na 1ª vez | download das imagens e dependências | repita `docker compose up -d --build`; o cache de build aproveita o que já baixou |
 | Sem espaço em disco | imagens, cache e volumes acumulados | libere espaço **do que você reconhece** (`docker image prune` de imagens não usadas); evite `docker system prune`/`volume rm` sem saber o que apaga |
 
