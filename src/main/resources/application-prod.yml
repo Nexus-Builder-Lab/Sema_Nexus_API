@@ -1,0 +1,12 @@
+# Profile prod — sem seed demonstrativo e sem usuário de teste (a trava da Issue #6 impede a subida se ele existir).
+# Swagger UI desligado; o contrato é publicado pelo CI (profile openapi).
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+logging:
+  level:
+    root: WARN
+    br.com.nexusbuilderlab.semanexus: INFO

@@ -1,0 +1,10 @@
+# Profile openapi — usado SOMENTE pelo CI para exportar /v3/api-docs sem banco de dados.
+# Mantém as exclusões mesmo depois que a Issue #3 habilitar o Oracle nos demais profiles.
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+      - org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.jpa.JpaRepositoriesAutoConfiguration
+      - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration

@@ -1,0 +1,4 @@
+# Profile dev — desenvolvimento local. Habilita o seed demonstrativo (Issue #5) e CORS para o Vite (Issue #4).
+logging:
+  level:
+    br.com.nexusbuilderlab.semanexus: DEBUG

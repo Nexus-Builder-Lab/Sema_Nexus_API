@@ -1,0 +1,5 @@
+# Profile demo — ambiente de demonstração (Docker Compose). AMBIENTE DEMONSTRATIVO — DADOS FICTÍCIOS.
+# Habilita o seed demonstrativo e o usuário de teste (Issues #5 e #6).
+logging:
+  level:
+    root: INFO
