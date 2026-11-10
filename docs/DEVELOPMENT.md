@@ -103,6 +103,16 @@ Cota: o plano Free tem 2.000 minutos/mês de Actions para repositórios privados
 **Indisponível no plano atual.** Rulesets e branch protection exigem repositório público ou plano Team/Enterprise para repositórios privados. A disciplina é garantida por: CLAUDE.md, job de nome de branch no CI, `.claude/settings.json` (bloqueia force push) e revisão do proprietário antes de cada merge.
 Se o plano mudar, aplique um ruleset na `main`: exigir PR (0 aprovações), exigir os checks `Nome do branch`, `Compilar e testar` e `Build da imagem Docker`, bloquear force push e exclusão, exigir resolução de conversas.
 
+## Implementar um endpoint que já está no contrato (501)
+
+Os endpoints P0 estão publicados desde a Issue #7 com `@ContratoPendente(issue = N)` e corpo `throw new ContratoPendenteException(N)`. Para implementar um deles:
+
+1. Mantenha **caminho, DTOs e códigos de erro** do controller existente (o Web já gera mocks a partir do `openapi.json`). Mudança incompatível = avisar o Web e atualizar `docs/API.md`.
+2. Crie o `Service`/`Repository`/`Entity` e troque o corpo do método por `return service.…(…)`; remova `@ContratoPendente` do método.
+3. Em `ContratoOpenApiTest`, retire a operação do mapa `PENDENTES` (o teste exige que operações sem `@ContratoPendente` não declarem `501`).
+4. Mantenha as respostas de erro: `ErrosPadraoCustomizer` documenta 400/401/403/404/409/413/415 a partir do que o método declara (`@RequestBody`, `@PathVariable`, `@PreAuthorize`, `consumes` multipart); use `@ApiResponse` só para descrever casos específicos (ex.: 403 de escopo do fiscal).
+5. Atualize a coluna Status de `docs/API.md` (📄 → ✅) e `docs/REQUIREMENTS.md`.
+
 ## Guardrails do Claude Code
 
 `.claude/settings.json` nega force push, exclusão/edição de repositório, chamadas `gh api` a colaboradores/convites/permissões/visibilidade, `rm -rf` fora do projeto e comandos Docker que apagam volumes; pede confirmação para merge, tags, releases, push direto na `main` e `demo-reset`.

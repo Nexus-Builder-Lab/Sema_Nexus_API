@@ -1,6 +1,6 @@
 # SEMA NEXUS — Arquitetura
 
-> **Status:** Planejado (10/11/2026). Este documento descreve a arquitetura-alvo do MVP. Itens marcados **Implementado** só depois de mesclados e testados.
+> **Status:** Planejado (10/11/2026), com itens já **Implementados** marcados no texto (autenticação, seed e trava do usuário de teste; catálogos e estrutura, Issue #7). Este documento descreve a arquitetura-alvo do MVP; só marque **Implementado** depois de mesclado e testado.
 > AMBIENTE DEMONSTRATIVO — DADOS FICTÍCIOS. Sem integração com sistemas institucionais.
 
 ## 1. Visão geral
@@ -54,9 +54,9 @@
 ├── .claude/  settings.json  commands/start-issue.md
 ├── pom.xml
 └── src/main/java/br/com/nexusbuilderlab/semanexus/
-    ├── config/        OpenApiConfig, StorageProperties
+    ├── config/        OpenApiConfig (schema `Problema`), ErrosPadraoCustomizer (erros padrão no OpenAPI), StorageProperties
     ├── security/      SecurityConfig (inclui CORS do profile dev), JwtService, JwtConfig, JwtAuthFilter, ProblemDetailSecurityHandlers, TestUserProfileGuard
-    ├── common/        exception/GlobalExceptionHandler, dto/PageResponse, audit/AuditService
+    ├── common/        exception/{GlobalExceptionHandler,ContratoPendenteException}, dto/{PageResponse,*Ref,AvisoDemonstrativo}, openapi/ContratoPendente, audit/AuditService
     ├── core/          auth/ usuario/ setor/ equipe/ auditoria/ catalogo/ dashboard/ notificacao/
     ├── flux/          demanda/ triagem/ distribuicao/ fiscalizacao/
     ├── intelligence/  indicador/ mapa/ relatorio/
@@ -144,3 +144,6 @@ CI de cada repositório: validação do nome do branch (`^feature/GH-[0-9]+$`), 
 | 10/11/2026 | Vite (não Create React App). JavaScript (sem TypeScript). |
 | 10/11/2026 | Mapa com malha IBGE local; OSM opcional. |
 | 10/11/2026 | Status, perfis e escopo da especificação prevalecem sobre o protótipo. |
+| 10/11/2026 | Contrato primeiro (Issue #7): controllers e DTOs dos endpoints P0 existem desde a Sprint 1 e respondem `501` (`@ContratoPendente` + `ContratoPendenteException`) até a Issue que os implementa; o Web gera mocks a partir do `openapi.json`. Autenticação, perfil e validação valem também nos stubs (401 → 403 → 400 → 501). |
+| 10/11/2026 | Respostas de erro do OpenAPI padronizadas por `ErrosPadraoCustomizer` (schema `Problema`, `application/problem+json`), derivadas do que o método declara — sem repetir `@ApiResponse` em cada endpoint. |
+| 10/11/2026 | Enums de domínio (origem, categoria, prioridade, status) vivem em `core/catalogo` e são expostos por `GET /api/catalogos/*`; o nome do enum é o código gravado nos `CHECK` do banco e usado na API. Municípios são ordenados no service (sem acentos, palavra a palavra), não no `ORDER BY`, para não depender do `NLS_SORT`. |

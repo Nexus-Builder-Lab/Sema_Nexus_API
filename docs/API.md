@@ -1,61 +1,111 @@
 # SEMA NEXUS — Contrato da API
 
-> **Status:** Em desenvolvimento — **Implementado:** autenticação (`/api/auth/*`, Issue #4). **Planejado:** demais endpoints. A fonte da verdade será o OpenAPI gerado pelo springdoc (`/v3/api-docs`, `/swagger-ui.html`) e exportado pelo CI como artefato `openapi.json` (Issue #7). Este documento registra os **padrões**; alterou endpoint, atualize as anotações e este arquivo.
+> **Status:** Em desenvolvimento — **Implementado:** autenticação (`/api/auth/*`, Issue #4), catálogos e estrutura (`/api/catalogos/*`, `/api/setores`, `/api/equipes[/{id}/membros]`, Issue #7). **Contrato publicado, ainda respondendo `501`:** demandas, documentos, indicadores, mapa e dashboard (Issue #7 publica o contrato; cada endpoint é implementado na Issue indicada na tabela). **Planejado:** auditoria (#14) e os endpoints P1.
+>
+> A fonte da verdade é o OpenAPI gerado pelo springdoc (`/v3/api-docs`, `/swagger-ui.html`) e exportado pelo CI como artefato `openapi.json` (job **Exportar contrato OpenAPI**). Este documento registra os **padrões**; alterou endpoint, atualize as anotações e este arquivo. O teste `ContratoOpenApiTest` falha se um endpoint P0 sair do contrato ou se um endpoint novo não for registrado nele.
 
 ## Padrões
 
 | Tema | Regra |
 |---|---|
-| Base | Prefixo `/api`, JSON UTF-8, datas ISO-8601 (`2026-11-27`, `2026-11-27T14:30:00-04:00`) |
+| Base | Prefixo `/api`, JSON UTF-8. Datas `AAAA-MM-DD` (`2026-11-27`); instantes sem deslocamento no fuso `America/Cuiaba` (`2026-11-27T14:30:00`). Campos nulos são omitidos da resposta |
 | Autenticação | `Authorization: Bearer <jwt>`; públicos: `POST /api/auth/login`, `GET /api/auth/config`, `GET /actuator/health` |
-| Paginação | `?page=0&size=20&sort=campo,asc` → `{ "content": [], "page": 0, "size": 20, "totalElements": 0, "totalPages": 0 }` (máx. `size=100`) |
-| Filtros | Query params opcionais e combináveis; datas `de`/`ate` inclusivas |
-| Erros | `application/problem+json` (RFC 9457): `type`, `title`, `status`, `detail`, `instance` e, em validação, `errors: [{ "campo": "titulo", "mensagem": "..." }]`. Nunca stacktrace |
-| Dados simulados | Respostas de indicadores incluem `"demonstrativo": true` |
+| Autorização | Por perfil no backend (`@PreAuthorize`); matriz em [ARCHITECTURE.md](ARCHITECTURE.md) §6. Escopo fino (fiscal só na sua equipe) no service |
+| Paginação | `?page=0&size=20&sort=campo,asc` → `{ "content": [], "page": 0, "size": 20, "totalElements": 0, "totalPages": 0 }`. Padrão `size=20`; `size` acima de 100 é reduzido a 100; `page` começa em 0. Só as listagens de demandas e documentos (e as demandas de uma equipe) são paginadas; catálogos, setores, equipes e membros são listas curtas e retornam um array |
+| Filtros | Query params opcionais e combináveis; datas `de`/`ate` inclusivas (`AAAA-MM-DD`); enums pelo **código** (`EM_ANDAMENTO`); valor inválido → `400` |
+| Enums | Sempre o código estável em MAIÚSCULAS (`MEDIA`, `AGUARDANDO_DISTRIBUICAO`); o rótulo para exibição vem de `GET /api/catalogos/*` |
+| Identificação | IDs numéricos; município pelo **código IBGE** (7 dígitos); demanda também tem `numero` (`DEM-AAAA/NNNN`) |
+| Upload | `multipart/form-data` (`POST /api/documentos`): parte `arquivo` + campos de metadados; download binário em `GET /api/documentos/{id}/arquivo` |
+| Erros | `application/problem+json` (RFC 9457): `type`, `title`, `status`, `detail`, `instance` e, em validação, `errors: [{ "campo": "titulo", "mensagem": "..." }]`. Nunca stacktrace. Todas as respostas 4xx/5xx documentadas no OpenAPI apontam para o schema `Problema` |
+| Dados simulados | Respostas de indicadores, mapa e dashboard incluem `"demonstrativo": true` e `"aviso": "AMBIENTE DEMONSTRATIVO — DADOS FICTÍCIOS"` |
 
 ## Códigos HTTP
 
 | Código | Uso |
 |---|---|
-| 200 / 201 / 204 | Sucesso (201 com `Location` em criações) |
-| 400 | Validação de campos |
+| 200 / 201 / 204 | Sucesso (201 em criações — `POST /api/demandas`, `/atividades`, `/api/documentos`, vínculo de documento; 204 em exclusões e logout) |
+| 400 | Validação de campos (`errors` por campo), enum/data/número inválido em query ou corpo, JSON malformado |
 | 401 | Sem token ou token inválido |
 | 403 | Perfil sem permissão ou fora do escopo (ex.: fiscal em demanda de outra equipe) |
 | 404 | Recurso inexistente |
-| 409 | Conflito de estado (transição inválida, vínculo duplicado) |
+| 409 | Conflito de estado (transição inválida, edição fora de PENDENTE/EM_TRIAGEM, vínculo duplicado) |
 | 413 / 415 | Upload grande demais / tipo não permitido |
-| 501 | Endpoint do contrato ainda não implementado (somente até a Issue correspondente) |
+| 501 | Endpoint do contrato ainda não implementado (somente até a Issue correspondente). Corpo `problem+json` com `type` `https://semanexus.demo/problemas/nao-implementado` e a propriedade `issue` |
+
+A ordem de avaliação é **autenticação (401) → perfil (403) → validação do corpo/parâmetros (400) → regra de negócio (404/409/…)**; os endpoints ainda em `501` respondem 501 apenas depois de passar por 401, 403 e 400.
 
 ## Endpoints (MVP)
 
-| Método | Caminho | Perfil | Issue |
-|---|---|---|:-:|
-| POST | `/api/auth/login` · `/api/auth/logout` | público / autenticado | #4 — **Implementado** |
-| GET | `/api/auth/me` · `/api/auth/config` | autenticado / público | #4 — **Implementado** |
-| GET | `/api/catalogos/{municipios,biomas,categorias,origens,prioridades,status}` | autenticado | #7 |
-| GET | `/api/setores` · `/api/equipes` · `/api/equipes/{id}/membros` | autenticado | #7 |
-| POST · PUT · GET · DELETE | `/api/demandas` · `/api/demandas/{id}` | ver ARCHITECTURE §6 | #11 |
-| GET | `/api/demandas/{id}/historico` | consulta | #11 |
-| POST | `/api/demandas/{id}/triagem/iniciar` · `/triagem` | Admin, Gestor, Analista | #12 |
-| POST | `/api/demandas/{id}/distribuicao` · GET `/api/equipes/{id}/demandas` | Admin, Gestor | #12 |
-| POST | `/api/demandas/{id}/inicio` · `/atividades` · `/fiscalizacao` | fiscal designado, Gestor, Admin | #13 |
-| POST | `/api/demandas/{id}/conclusao` · `/devolucao` | Gestor, Admin | #13 |
-| GET | `/api/auditoria` | Admin | #14 |
-| POST · GET | `/api/documentos` (multipart) · `/api/documentos/{id}` · `/api/documentos/{id}/arquivo` | ver ARCHITECTURE §6 | #15, #16 |
-| GET · POST · DELETE | `/api/demandas/{id}/documentos[/{docId}]` | ver ARCHITECTURE §6 | #16 |
-| GET | `/api/intelligence/{resumo,serie-mensal,por-municipio,por-bioma,por-categoria,por-situacao,mapa}` | autenticado | #17 |
-| GET | `/api/dashboard` | autenticado | #17 |
-| GET | `/actuator/health` | público | #1 |
+**Status:** ✅ Implementado · 📄 Contrato publicado (responde `501` até a Issue indicada).
+
+| Método | Caminho | Perfil | Issue | Status |
+|---|---|---|:-:|:-:|
+| POST | `/api/auth/login` · `/api/auth/logout` | público / autenticado | #4 | ✅ |
+| GET | `/api/auth/me` · `/api/auth/config` | autenticado / público | #4 | ✅ |
+| GET | `/api/catalogos/{municipios,biomas,categorias,origens,prioridades,status}` | qualquer autenticado | #7 | ✅ |
+| GET | `/api/setores` · `/api/equipes` · `/api/equipes/{id}/membros` | Admin, Gestor | #7 | ✅ |
+| POST · PUT · GET · DELETE | `/api/demandas` · `/api/demandas/{id}` (cadastro: Admin, Gestor, Analista; exclusão lógica: Admin; consulta: todos, fiscal só da sua equipe) | ver ARCHITECTURE §6 | #11 | 📄 |
+| GET | `/api/demandas/{id}/historico` | consulta | #11 | 📄 |
+| POST | `/api/demandas/{id}/triagem/iniciar` · `/triagem` | Admin, Gestor, Analista | #12 | 📄 |
+| POST | `/api/demandas/{id}/distribuicao` · GET `/api/equipes/{id}/demandas` | Admin, Gestor | #12 | 📄 |
+| POST | `/api/demandas/{id}/inicio` · `/atividades` · `/fiscalizacao` | fiscal designado, Gestor, Admin | #13 | 📄 |
+| POST | `/api/demandas/{id}/conclusao` · `/devolucao` | Gestor, Admin | #13 | 📄 |
+| GET | `/api/auditoria` | Admin | #14 | Planejado |
+| POST · GET | `/api/documentos` (multipart; Admin, Gestor, Fiscal, Analista) · `/api/documentos/{id}/arquivo` | ver ARCHITECTURE §6 | #15 | 📄 |
+| GET | `/api/documentos` (biblioteca com filtros) · `/api/documentos/{id}` | qualquer autenticado | #16 | 📄 |
+| GET · POST · DELETE | `/api/demandas/{id}/documentos[/{documentoId}]` | ver ARCHITECTURE §6 | #16 | 📄 |
+| GET | `/api/intelligence/{resumo,serie-mensal,por-municipio,por-bioma,por-categoria,por-situacao,mapa}` | qualquer autenticado | #17 | 📄 |
+| GET | `/api/dashboard` | qualquer autenticado | #17 | 📄 |
+| GET | `/actuator/health` | público | #1 | ✅ |
+
+Cada operação do contrato publicado traz no OpenAPI `x-implementado: false` e `x-issue: <n>`, além do aviso no início da `description`. Quando a Issue implementa o endpoint, remove-se `@ContratoPendente` do método e a operação deixa de declarar `501` (o contrato — caminhos, DTOs e erros — **não** muda; mudança incompatível exige avisar o Web e atualizar este arquivo). O teste `ContratoOpenApiTest` mantém a lista de pendentes: ao implementar um endpoint, retire-o de `PENDENTES`.
 
 ### P1 (somente se houver folga)
 
 | Método | Caminho | Issue |
 |---|---|:-:|
-| GET · POST · PUT · PATCH | `/api/usuarios[/{id}[/ativacao]]`, `/api/setores`, `/api/equipes[/{id}/membros]` | #24 |
+| GET · POST · PUT · PATCH | `/api/usuarios[/{id}[/ativacao]]` e cadastro/edição de `/api/setores` e `/api/equipes[/{id}/membros]` (a consulta já existe, Issue #7) | #24 |
 | GET · PATCH | `/api/notificacoes[/{id}/lida]` | #25 |
 | POST | `/api/documentos/comparacao` | #26 |
 | POST | `/api/docia/perguntas` | #27 |
 | GET | `/api/relatorios/demandas[.csv]` | #28 |
+
+## Catálogos e estrutura (Implementado — Issue #7)
+
+Leitura, sem paginação. Catálogos: qualquer perfil autenticado. Setores, equipes e membros: **Admin e Gestor** (matriz de ARCHITECTURE §6); outros perfis recebem `403`.
+
+| Endpoint | Resposta |
+|---|---|
+| `GET /api/catalogos/municipios[?bioma=CERRADO]` | `200` array de `{id, nome, regiao, bioma, latitude, longitude}` — os 142 municípios de MT em ordem alfabética (`id` = código IBGE); `bioma` inválido → `400` |
+| `GET /api/catalogos/biomas` | `200` `[{codigo, rotulo, ordem}]` — `AMAZONIA`, `CERRADO`, `PANTANAL` |
+| `GET /api/catalogos/categorias` | `200` as 8 categorias: `DESMATAMENTO_ILEGAL`, `QUEIMADA_INCENDIO`, `RECURSOS_HIDRICOS`, `FAUNA_SILVESTRE`, `PESCA_IRREGULAR`, `MINERACAO_IRREGULAR`, `RESIDUOS_POLUICAO`, `AREA_PRESERVACAO_PERMANENTE` |
+| `GET /api/catalogos/origens` | `200` as 5 origens: `DENUNCIA`, `MONITORAMENTO`, `SOLICITACAO_INSTITUCIONAL`, `ACAO_PLANEJADA`, `ANALISE_AMBIENTAL` |
+| `GET /api/catalogos/prioridades` | `200` `BAIXA`, `MEDIA`, `ALTA`, `URGENTE` (da menor para a maior) |
+| `GET /api/catalogos/status` | `200` os 7 status na ordem do fluxo (`PENDENTE` … `FINALIZADA`). "Atrasada" **não** é status |
+| `GET /api/setores[?ativo=true]` | `200` array de `{id, sigla, nome, ativo}` por sigla |
+| `GET /api/equipes[?setorId=&ativo=]` | `200` array de `{id, nome, setorId, setorSigla, responsavel{id,nome}, totalMembros, ativo}` por nome |
+| `GET /api/equipes/{id}/membros` | `200` array de `{id, nome, email, perfil, ativo}` por nome (nunca senha/hash) · `404` equipe inexistente |
+
+## Contrato dos endpoints ainda não implementados (Issue #7)
+
+Os controllers, DTOs de requisição/resposta, validações e erros abaixo já existem e aparecem em `/v3/api-docs`; o Web gera os mocks (MSW) a partir deles. Os detalhes campo a campo estão nos schemas do OpenAPI (`DemandaRequest`, `DemandaDetalhe`, `DocumentoDetalhe`, …).
+
+**Demandas (Flux)** — `DemandaRequest` (cadastro e edição): `titulo` (5–200), `descricao`, `origem`, `categoria?`, `municipioId` (código IBGE de MT), `localidade?`, `latitude?`/`longitude?` (retângulo de MT), `dataRecebimento` (≤ hoje), `prioridade?`, `prazoSugerido?`, `observacoes?`. A resposta (`DemandaDetalhe`) traz `numero` (`DEM-AAAA/NNNN`), `status`, `atrasada` (derivada), `equipe`, `fiscal`, `prazo`, `fiscalizacao`, `totalDocumentos` e metadados. Operações de fluxo (`triagem/iniciar`, `triagem`, `distribuicao`, `inicio`, `fiscalizacao`, `conclusao`, `devolucao`) devolvem a demanda já no novo status; `atividades` devolve o evento criado (`HistoricoItem`, `201`).
+
+| Operação | Corpo | Transição |
+|---|---|---|
+| `POST /api/demandas/{id}/triagem` | `{decisao: CLASSIFICAR\|SOLICITAR_COMPLEMENTACAO, categoria?, prioridade?, justificativa}` — `CLASSIFICAR` exige categoria e prioridade | EM_TRIAGEM → AGUARDANDO_DISTRIBUICAO ou → PENDENTE |
+| `POST /api/demandas/{id}/distribuicao` | `{equipeId, fiscalId, prazo (≥ hoje), observacoes?}` | AGUARDANDO_DISTRIBUICAO → DISTRIBUIDA |
+| `POST /api/demandas/{id}/atividades` | `{descricao, data?}` | (sem mudança de status; demanda EM_ANDAMENTO) |
+| `POST /api/demandas/{id}/fiscalizacao` | `{data, atividades, resultado, evidencias, recomendacoes?}` | EM_ANDAMENTO → AGUARDANDO_CONCLUSAO |
+| `POST /api/demandas/{id}/conclusao` | `{resultadoFinal, justificativa}` | AGUARDANDO_CONCLUSAO → FINALIZADA |
+| `POST /api/demandas/{id}/devolucao` | `{justificativa}` | AGUARDANDO_CONCLUSAO → EM_ANDAMENTO |
+
+Listagem `GET /api/demandas`: filtros `q` (número ou título), `status`, `municipioId`, `categoria`, `prioridade`, `equipeId`, `fiscalId`, `atrasada`, `de`, `ate` + `page`, `size`, `sort`. `GET /api/equipes/{id}/demandas` aceita `status` + paginação.
+
+**Documentos (DocIA)** — upload `multipart/form-data` com `arquivo` (pdf, txt, md, csv ou docx; até 10 MB) e `titulo`, `descricao?`, `categoria`, `tipo`, `dataDocumento`, `municipioId?`, `palavrasChave?`, `demandaId?` (o responsável é o usuário autenticado). Listagem `GET /api/documentos`: `q` (título, descrição, palavras-chave e conteúdo — busca **textual**, não semântica), `categoria`, `tipo`, `municipioId`, `demandaId`, `de`, `ate` + paginação. Detalhes (`DocumentoDetalhe`) trazem `textoExtraido`, `sha256` e as demandas vinculadas. Vínculo: `POST /api/demandas/{id}/documentos` `{documentoId}`; `DELETE …/{documentoId}` remove só o vínculo.
+
+**Intelligence e dashboard** — `GET /api/intelligence/*` aceitam os filtros `de`, `ate`, `municipioId`, `bioma`, `categoria`, `status`. `resumo` → `ResumoIndicadores`; `serie-mensal`, `por-municipio`, `por-bioma`, `por-categoria`, `por-situacao` → `{demonstrativo, aviso, itens[]}`; `mapa` → `{demonstrativo, aviso, pontos[]}` (cada ponto com `coordenadaAproximada` quando usa o centroide do município); `GET /api/dashboard` → `{demonstrativo, aviso, resumo, porSituacao, atividadesRecentes}`.
 
 ## Exemplo: login
 

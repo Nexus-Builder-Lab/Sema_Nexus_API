@@ -6,6 +6,7 @@ import br.com.nexusbuilderlab.semanexus.core.auth.dto.LoginResponse;
 import br.com.nexusbuilderlab.semanexus.core.auth.dto.UsuarioResumo;
 import br.com.nexusbuilderlab.semanexus.security.UsuarioAutenticado;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -31,6 +32,8 @@ public class AuthController {
 
     @Operation(summary = "Autentica com e-mail e senha e devolve o token JWT",
             description = "401 para credenciais inválidas (mensagem genérica); 403 para usuário inativo.")
+    @ApiResponse(responseCode = "401", description = "E-mail ou senha inválidos (mensagem genérica).")
+    @ApiResponse(responseCode = "403", description = "Usuário inativo.")
     @SecurityRequirements
     @PostMapping("/login")
     public LoginResponse login(@Valid @RequestBody LoginRequest pedido) {
