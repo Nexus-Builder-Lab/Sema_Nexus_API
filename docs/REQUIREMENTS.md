@@ -9,7 +9,7 @@
 | Requisito | MVP | Status | Issues |
 |---|:-:|---|---|
 | Login por e-mail e senha com validação, mensagens de erro, sessão, logout, rotas protegidas e redirecionamento | P0 | Planejado | API#4, Web#4 |
-| Usuário de teste `admin@admin.com` (somente demo/dev) e trava de inicialização | P0 | Planejado | API#5, API#6 |
+| Usuário de teste `admin@admin.com` (somente demo/dev) e trava de inicialização | P0 | Implementado | API#5, API#6 |
 | Aviso de ambiente demonstrativo na tela de login | P0 | Planejado | API#4, Web#4 |
 | Dashboard inicial: demandas, em andamento, finalizadas, documentos, indicadores, atividades recentes, atalhos | P0 | Planejado | API#17, Web#8 |
 | Layout com menu lateral, breadcrumbs, faixa "AMBIENTE DEMONSTRATIVO — DADOS FICTÍCIOS" | P0 | Planejado | Web#3 |

@@ -15,7 +15,8 @@ Este repositório também concentra a **infraestrutura e a documentação transv
 | Imagem Docker da API: Dockerfile multi-stage, usuário não-root, healthcheck (Issue #2) | **Implementado** |
 | Conexão Oracle, Flyway e schema do Core com os 142 municípios de MT (Issue #3) | **Implementado** |
 | Seed demonstrativo base: usuário de teste, usuários, setores e equipes fictícios, só em `demo`/`dev` (Issue #5) | **Implementado** |
-| Trava do usuário de teste, docker-compose, scripts demo | **Planejado** — Sprint 1 (Issues #6, #8–#10) |
+| Trava de inicialização do usuário de teste fora de `demo`/`dev` (Issue #6) | **Implementado** |
+| docker-compose, scripts demo | **Planejado** — Sprint 1 (Issues #8–#10) |
 | Módulos Flux, Intelligence, DocIA | **Planejado** — Sprints 2 e 3 |
 
 Acompanhamento: [GitHub Project — SEMA NEXUS — Desenvolvimento](https://github.com/orgs/Nexus-Builder-Lab/projects/1) · [docs/SPRINTS.md](docs/SPRINTS.md)
@@ -75,7 +76,7 @@ Profiles: `dev` (padrão), `demo` (Docker/apresentação), `prod` (sem seed e se
 
 ## Usuário de teste
 
-O seed demonstrativo cria `admin@admin.com` / `12345678` (Administrador) **somente** nos profiles `demo` e `dev`, com senha gravada apenas como hash BCrypt. Se a API subir em outro profile e esse usuário existir, ela se recusa a iniciar. Demais usuários demonstrativos: [docs/DEMO.md](docs/DEMO.md).
+O seed demonstrativo cria `admin@admin.com` / `12345678` (Administrador) **somente** nos profiles `demo` e `dev`, com senha gravada apenas como hash BCrypt. Se a API subir em outro profile (por exemplo `SPRING_PROFILES_ACTIVE=prod`) e esse usuário existir no banco, ela **se recusa a iniciar**: o `TestUserProfileGuard` registra um log `ERROR` (sem senha) e lança `IllegalStateException`. Para resolver, remova o usuário do banco ou inicie com o profile `demo`/`dev`. A trava não atua no profile `openapi` (usado só pelo CI, sem banco). Demais usuários demonstrativos: [docs/DEMO.md](docs/DEMO.md).
 
 ## Documentação
 
