@@ -73,6 +73,12 @@ src/main/resources/  application*.yml   db/migration/V*.sql   demo/*.json
 - Trabalhe sempre a partir de uma Issue. Não marque Issue como finalizada sem os critérios atendidos.
 - Não invente resultados de CI ou de testes. Não faça merge, tag ou release sem autorização do proprietário.
 
+### Títulos de Issue (regra permanente)
+
+- Toda Issue deste repositório (backend **e** infraestrutura/docs transversais) começa com **`[SEMA_NEXUS_API]`**, seguido do módulo ou tipo e do título: `[SEMA_NEXUS_API][FLUX] Endpoint de cadastro de demanda`.
+- Issues do frontend começam com **`[SEMA_NEXUS_WEB]`** e ficam em `Sema_Nexus_Web`.
+- Tags após o prefixo: `[CORE]` `[INTELLIGENCE]` `[FLUX]` `[DOCIA]` `[DATABASE]` `[INFRA]` `[TEST]` `[DOCS]`. Não usar `[BACKEND]`/`[FRONTEND]` (o prefixo já indica o repositório).
+
 ### Branches, commits e PRs (regra permanente)
 
 - **Todo branch se chama `feature/GH-<número da Issue>`** — para qualquer tipo de trabalho (feature, bug, docs, tarefa). Nunca `fix/`, `chore/`, `docs/` ou sufixos.

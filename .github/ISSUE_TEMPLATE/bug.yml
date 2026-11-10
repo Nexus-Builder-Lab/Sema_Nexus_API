@@ -1,6 +1,6 @@
 name: Bug
 description: Comportamento incorreto em funcionalidade existente
-title: "[MÓDULO][CAMADA] Bug: "
+title: "[SEMA_NEXUS_API][MÓDULO] Bug: "
 labels: ["type:bug"]
 body:
   - type: dropdown

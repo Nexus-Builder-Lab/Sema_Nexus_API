@@ -15,6 +15,25 @@ Somente `main` + branches de trabalho. Não existe `develop`.
 Regras: um branch por Issue; sem prefixos `fix/`, `chore/`, `docs/`; sem sufixos; não crie branches antecipadamente; Issue mesclada que precisa de mais trabalho → nova Issue.
 Mudança que exige API e Web → uma Issue em cada repositório, ligadas por "Blocked by", um PR em cada repositório.
 
+## Títulos de Issue
+
+| Repositório | Prefixo | Exemplo |
+|---|---|---|
+| `Sema_Nexus_API` (backend, infraestrutura, docs transversais) | `[SEMA_NEXUS_API]` | `[SEMA_NEXUS_API][FLUX] Máquina de estados, triagem e distribuição de demandas` |
+| `Sema_Nexus_Web` (frontend) | `[SEMA_NEXUS_WEB]` | `[SEMA_NEXUS_WEB][FLUX] Tela de detalhes da demanda com histórico, triagem e distribuição` |
+
+Depois do prefixo vem o módulo ou tipo: `[CORE]` `[INTELLIGENCE]` `[FLUX]` `[DOCIA]` `[DATABASE]` `[INFRA]` `[TEST]` `[DOCS]`.
+
+## Views do Project
+
+| View | Uso |
+|---|---|
+| Board geral | Kanban de tudo por Status |
+| **Sprint 1 (10–13/11)** · **Sprint 2 (16–19/11)** · **Sprint 3 (23–25/11)** | Um quadro por sprint, colunas por Status — use no dia a dia |
+| Sprint atual | Tabela filtrada por `sprint:@current` |
+| Backlog futuro (P2) | Itens sem sprint |
+| Roadmap · Backlog · Por módulo · P0 — MVP · Por repositório | Planejamento e acompanhamento |
+
 ## Status do Project
 
 | Status | Significado | Quem move |
