@@ -8,11 +8,13 @@
 | Perfil | E-mail | Senha | Situação |
 |---|---|---|---|
 | Administrador | `admin@admin.com` | `12345678` | Ativo — **usuário de teste padrão** |
-| Gestor | `gestor@demo.semanexus.local` | definida na Issue #5 | Planejado |
-| Fiscal | `fiscal1@demo.semanexus.local` | definida na Issue #5 | Planejado |
-| Fiscal | `fiscal2@demo.semanexus.local` | definida na Issue #5 | Planejado |
-| Analista | `analista@demo.semanexus.local` | definida na Issue #5 | Planejado |
-| Consulta | `consulta@demo.semanexus.local` | definida na Issue #5 | Planejado |
+| Gestor | `gestor@demo.semanexus.local` | `Demo@Sema2026` | Ativo (seed — Issue #5) |
+| Fiscal | `fiscal1@demo.semanexus.local` | `Demo@Sema2026` | Ativo (seed — Issue #5) |
+| Fiscal | `fiscal2@demo.semanexus.local` | `Demo@Sema2026` | Ativo (seed — Issue #5) |
+| Analista | `analista@demo.semanexus.local` | `Demo@Sema2026` | Ativo (seed — Issue #5) |
+| Consulta | `consulta@demo.semanexus.local` | `Demo@Sema2026` | Ativo (seed — Issue #5) |
+
+Setores fictícios: `DEMO-GAB` (Gabinete), `DEMO-FISC` (Fiscalização), `DEMO-DOC` (Análise e Documentação). Equipes fictícias (setor `DEMO-FISC`): Alfa (responsável Fiscal 1), Bravo (Fiscal 2), Charlie (Fiscal 1; membros Fiscal 1 e 2), Delta (Gestor; membros Fiscal 2 e Analista). Todos os nomes e e-mails são simulados.
 
 Regras: essas contas existem **apenas** nos profiles `demo`/`dev`, são gravadas só com hash BCrypt e a API se recusa a subir em outro profile se `admin@admin.com` existir. Não reutilize essas senhas em nenhum outro sistema.
 
