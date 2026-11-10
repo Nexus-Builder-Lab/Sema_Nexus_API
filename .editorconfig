@@ -18,4 +18,6 @@ indent_size = 4
 trim_trailing_whitespace = false
 
 [*.ps1]
+# Windows PowerShell 5.1 lê .ps1 sem BOM como ANSI e quebra acentos/travessões
+charset = utf-8-bom
 end_of_line = crlf
