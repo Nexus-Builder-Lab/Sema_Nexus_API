@@ -1,8 +1,6 @@
 # SEMA NEXUS — Execução com Docker
 
-> **Status:** Planejado. O `docker-compose.yml`, os Dockerfiles e os scripts chegam pelas Issues API#2, Web#2, API#8 e API#9. A Issue API#10 completa este documento (requisitos validados e solução de problemas) após o primeiro `up` real. **Até lá, os comandos abaixo ainda não funcionam.**
->
-> **Implementado:** imagem da API (Issue API#2) — ver [Imagem da API](#imagem-da-api). **Planejado:** compose, imagem do Web e scripts.
+> **Status:** o `docker-compose.yml` e o `.env.example` estão **Implementados** (Issue API#8), assim como a imagem da API (API#2) e a do Web (Web#2). **Planejado:** scripts `demo-up/down/reset` (API#9) e a seção final de requisitos validados e solução de problemas (API#10).
 
 ## Imagem da API
 
@@ -42,9 +40,13 @@ projetos/
 
 | Serviço | Imagem / build | Porta no host | Observações |
 |---|---|---|---|
-| `oracle` | `gvenzl/oracle-free:23-slim-faststart` (tag fixada na Issue #8) | 1521 | volume `oradata`; healthcheck `healthcheck.sh`; `ORACLE_PASSWORD`, `APP_USER`, `APP_USER_PASSWORD` do `.env` |
-| `api` | build `.` | 8080 | depende de `oracle` saudável; profile `demo`; `jdbc:oracle:thin:@//oracle:1521/FREEPDB1`; volume `uploads`; healthcheck `/actuator/health` |
-| `web` | build `../Sema_Nexus_Web` | 3000 | depende de `api` saudável; Nginx com proxy `/api` → `api:8080` |
+| `oracle` | `gvenzl/oracle-free:23.26.3-slim-faststart` (tag fixada; mesma imagem do `23-slim-faststart` usado nos testes) | 1521 (`ORACLE_PORT`) | volume `oradata`; healthcheck `healthcheck.sh`; `ORACLE_PASSWORD`, `APP_USER`, `APP_USER_PASSWORD` do `.env` |
+| `api` | build `.` | 8080 (`API_PORT`) | depende de `oracle` saudável; profile `demo`; `jdbc:oracle:thin:@//oracle:1521/FREEPDB1`; volume `uploads`; healthcheck `/actuator/health` |
+| `web` | build `../Sema_Nexus_Web` | 3000 (`WEB_PORT`; container escuta 8080) | depende de `api` saudável; Nginx com proxy `/api` → `api:8080` |
+
+Volumes nomeados: `oradata` (`/opt/oracle/oradata`) e `uploads` (`/data/uploads`); o projeto compose se chama `sema-nexus`. Variáveis obrigatórias (o compose falha com mensagem clara se faltarem): `ORACLE_PASSWORD`, `APP_USER`, `APP_USER_PASSWORD`, `JWT_SECRET`. Se uma porta do host já estiver em uso, troque `API_PORT`, `WEB_PORT` ou `ORACLE_PORT` no `.env`.
+
+**Validado na Issue #8** (Docker 29 / Compose v5, Windows + WSL2): a partir de volumes novos, `docker compose up -d --build` deixou `oracle`, `api` e `web` `healthy` (Oracle em ~50 s com a imagem `faststart`); login com o usuário de teste via `http://localhost:3000/api/auth/login` (proxy do Nginx) retornou 200; após `down` + `up` o seed não duplicou (6 usuários, 4 equipes, 3 setores; log "Seed demonstrativo já existente"), o Flyway informou "up to date" e um arquivo gravado em `/data/uploads` continuou lá.
 
 ## Requisitos (a validar na Issue #10)
 
