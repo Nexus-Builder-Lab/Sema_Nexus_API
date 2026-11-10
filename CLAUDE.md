@@ -65,7 +65,7 @@ src/main/resources/  application*.yml   db/migration/V*.sql   demo/*.json
 - Toda funcionalidade deve continuar funcionando via `docker compose up -d --build` (compose na raiz deste repo, com `../Sema_Nexus_Web` ao lado). **Se quebrar a subida via Docker, não está concluído.**
 - Nunca colocar segredos em Dockerfile, imagem ou `docker-compose.yml`. Use `.env` (ignorado pelo Git) e mantenha `.env.example` atualizado.
 - **Nunca** executar `docker compose down -v`, `docker volume rm`, `docker system prune` ou equivalente sem confirmação explícita do proprietário.
-- Credencial `admin@admin.com` / `12345678` é **exclusivamente demonstrativa**: criada só nos profiles `demo`/`dev`, gravada só como hash BCrypt, com trava que impede a API de subir em outro profile se o usuário existir. O texto puro só pode aparecer em README, `docs/DEMO.md`, `docs/DOCKER.md` e testes — nunca em código de produção ou logs. Não replicar essa senha em outro lugar. Não relaxar validações (senha mínima 8) para acomodá-la.
+- Credencial `admin@admin.com` / `12345678` é **exclusivamente demonstrativa**: criada só nos profiles `demo`/`dev`, gravada só como hash BCrypt, com trava (`security/TestUserProfileGuard`, um `ApplicationRunner` carregado em todos os profiles exceto `openapi`, que roda sem banco) que impede a API de subir fora de `demo`/`dev` se o usuário existir — o log de erro explica o motivo e nunca traz a senha. O texto puro só pode aparecer em README, `docs/DEMO.md`, `docs/DOCKER.md` e testes — nunca em código de produção ou logs. Não replicar essa senha em outro lugar. Não relaxar validações (senha mínima 8) para acomodá-la.
 
 ## 8. GitHub
 
