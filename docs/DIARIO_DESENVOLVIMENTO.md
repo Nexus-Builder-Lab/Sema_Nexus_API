@@ -34,3 +34,13 @@
 - **Testes:** `mvn -B -ntp verify` → 14 testes, 0 falhas. Jar com profile `dev`: health UP, `/v3/api-docs` 200, Swagger 200, `/api/demandas` 401, sem senha gerada no log. Export do OpenAPI pelo profile `openapi` sem banco. CI do PR: 4 jobs verdes, artefatos `openapi` e `surefire-reports`.
 - **Docker:** não se aplica (Dockerfile é a #2).
 - **Pendências:** #3 remove as exclusões TEMPORÁRIAS em `application.yml`; #4 substitui a `SecurityConfig` mínima. Ambiente local: `JAVA_HOME` do sistema aponta para JDK 8; porta 8080 do host ocupada por outro serviço (usar 18080).
+
+## 2026-11-10 12:40 — GH-2 · Dockerfile multi-stage, .dockerignore e healthcheck da API
+- **PR:** (este PR) · **Status:** mesclado se o CI ficar verde
+- **Executado por:** autopilot (sessão API)
+- **O que foi feito:** `Dockerfile` multi-stage (build `maven:3.9-eclipse-temurin-21` com `dependency:go-offline` antes de copiar `src/`; runtime `eclipse-temurin:21-jre-alpine`), usuário não-root `semanexus` (UID/GID 10001), `/data/uploads` com dono do usuário, `EXPOSE 8080`, `JAVA_OPTS` por variável, `HEALTHCHECK` com `wget` em `/actuator/health`; `.dockerignore`.
+- **Decisões técnicas:** `ENTRYPOINT` com `exec` para a JVM ser PID 1 (recebe SIGTERM do `docker compose down`); `STORAGE_DIR=/data/uploads` e `SERVER_PORT=8080` como padrões não sensíveis; `/data/uploads` declarado como `VOLUME`; `.dockerignore` também exclui `docs/`, `scripts/`, `.github/`, `.claude/` e chaves (contexto só com `pom.xml` e `src/`).
+- **Arquivos principais:** `Dockerfile`, `.dockerignore`, `docs/DOCKER.md` (seção "Imagem da API"), `README.md`.
+- **Testes:** `mvn -B -ntp verify` → 14 testes, 0 falhas, BUILD SUCCESS. `docker build -t sema-nexus-api:gh2 .` → sucesso. `docker run --rm --entrypoint id` → `uid=10001(semanexus) gid=10001(semanexus)`. Container ficou `healthy`; `/actuator/health` → `{"status":"UP",...}`; processo Java como `semanexus`. `docker history --no-trunc` e `Config.Env` sem senhas/tokens (única ocorrência de "key" é o `gpg --recv-keys` público da imagem base). Tamanho: soma das camadas ≈ 283 MB descompactada (jar 70,7 MB + JRE 165 MB + base), 138 MB compactada; o `docker image ls` do containerd mostra 421 MB porque soma o conteúdo compactado e o descompactado.
+- **Docker:** imagem validada isoladamente (o `docker-compose.yml` ainda não existe — Issue #8).
+- **Pendências / observações:** #8 deve montar o volume `uploads` em `/data/uploads` e passar segredos só pelo `.env`; com o Oracle habilitado (#3) o healthcheck passa a refletir o estado do banco.

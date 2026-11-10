@@ -1,6 +1,32 @@
 # SEMA NEXUS — Execução com Docker
 
 > **Status:** Planejado. O `docker-compose.yml`, os Dockerfiles e os scripts chegam pelas Issues API#2, Web#2, API#8 e API#9. A Issue API#10 completa este documento (requisitos validados e solução de problemas) após o primeiro `up` real. **Até lá, os comandos abaixo ainda não funcionam.**
+>
+> **Implementado:** imagem da API (Issue API#2) — ver [Imagem da API](#imagem-da-api). **Planejado:** compose, imagem do Web e scripts.
+
+## Imagem da API
+
+**Status:** Implementado (Issue API#2). Arquivos: `Dockerfile` e `.dockerignore` na raiz deste repositório.
+
+| Item | Valor |
+|---|---|
+| Stage `build` | `maven:3.9-eclipse-temurin-21`; `dependency:go-offline` antes de copiar `src/` (cache de dependências); `mvn -B -DskipTests package` |
+| Stage `runtime` | `eclipse-temurin:21-jre-alpine` |
+| Usuário | `semanexus`, UID/GID 10001 (não-root) |
+| Diretórios | `/app/app.jar`; `/data/uploads` (dono UID 10001, declarado como `VOLUME`, `STORAGE_DIR=/data/uploads`) |
+| Porta | `EXPOSE 8080` (`SERVER_PORT`) |
+| JVM | `JAVA_OPTS` (padrão `-XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError`); Java roda como PID 1 (`exec`) |
+| Healthcheck | `wget -qO- http://localhost:${SERVER_PORT}/actuator/health` a cada 15 s (início tolerado: 60 s) |
+| Tamanho | ~283 MB descompactada (soma das camadas), ~138 MB compactada |
+| Segredos | nenhum `ENV`/`ARG` sensível; credenciais só em tempo de execução (`.env` → compose) |
+
+```bash
+docker build -t sema-nexus-api .
+docker run --rm --entrypoint id sema-nexus-api            # uid=10001(semanexus)
+docker run -d --name api-teste -p 18080:8080 sema-nexus-api
+docker inspect api-teste --format '{{.State.Health.Status}}'   # healthy
+docker rm -f api-teste
+```
 
 ## Estrutura
 
