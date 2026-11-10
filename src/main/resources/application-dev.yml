@@ -1,4 +1,10 @@
 # Profile dev — desenvolvimento local. Habilita o seed demonstrativo (Issue #5) e CORS para o Vite (Issue #4).
+# Oracle local: `docker compose up -d oracle` (Issue #8) ou o `docker run` do README.
+# A URL abaixo é só um padrão não sensível; usuário e senha continuam vindo do ambiente.
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:oracle:thin:@//localhost:1521/FREEPDB1}
+
 logging:
   level:
     br.com.nexusbuilderlab.semanexus: DEBUG

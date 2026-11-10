@@ -10,11 +10,18 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
-/** Sobe o contexto completo (profile padrão dev) e verifica os endpoints públicos e a proteção padrão. */
+/**
+ * Sobe o contexto web (profile dev) e verifica os endpoints públicos e a proteção padrão.
+ *
+ * <p>O profile {@code openapi} é somado só para desligar o banco: testes unitários não dependem de
+ * Oracle. O contexto completo com Oracle real é coberto por {@code CoreSchemaOracleTest} (tag oracle).
+ */
 @SpringBootTest
 @AutoConfigureMockMvc
+@ActiveProfiles({"dev", "openapi"})
 class SemaNexusApplicationTests {
 
     @Autowired

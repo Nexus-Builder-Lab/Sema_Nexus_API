@@ -13,7 +13,8 @@ Este repositório também concentra a **infraestrutura e a documentação transv
 | Planejamento, backlog (3 sprints), Project, CI, templates, documentação | **Implementado** (10/11/2026) |
 | Esqueleto Spring Boot: profiles, erros RFC 9457, paginação, OpenAPI/Swagger, health (Issue #1) | **Implementado** |
 | Imagem Docker da API: Dockerfile multi-stage, usuário não-root, healthcheck (Issue #2) | **Implementado** |
-| Conexão Oracle, autenticação, seed, docker-compose | **Planejado** — Sprint 1 (Issues #3–#10) |
+| Conexão Oracle, Flyway e schema do Core com os 142 municípios de MT (Issue #3) | **Implementado** |
+| Autenticação, seed, docker-compose | **Planejado** — Sprint 1 (Issues #4–#10) |
 | Módulos Flux, Intelligence, DocIA | **Planejado** — Sprints 2 e 3 |
 
 Acompanhamento: [GitHub Project — SEMA NEXUS — Desenvolvimento](https://github.com/orgs/Nexus-Builder-Lab/projects/1) · [docs/SPRINTS.md](docs/SPRINTS.md)
@@ -49,7 +50,19 @@ mvn -B verify                                          # build + testes
 mvn spring-boot:run -Dspring-boot.run.profiles=dev     # http://localhost:8080
 ```
 
-Até a Issue #3, a API sobe **sem banco** (health, Swagger e o padrão de erros já funcionam; as rotas `/api/**` respondem 401). A partir da Issue #3 será preciso o Oracle: `docker compose up -d oracle` e as variáveis do `.env` exportadas no shell.
+A API precisa do **Oracle** (Issue #3): na primeira subida o Flyway cria o schema e carrega os 142 municípios; nas seguintes, nada muda. Até o `docker-compose.yml` existir (Issue #8), suba o Oracle avulso e informe a conexão por variáveis de ambiente (escolha a senha você mesmo; nunca a versione):
+
+```powershell
+docker run -d --name sema-oracle -p 1521:1521 -e ORACLE_PASSWORD=<senha> -e APP_USER=SEMANEXUS -e APP_USER_PASSWORD=<senha> gvenzl/oracle-free:23-slim-faststart
+$env:SPRING_DATASOURCE_URL = 'jdbc:oracle:thin:@//localhost:1521/FREEPDB1'   # padrão do profile dev
+$env:SPRING_DATASOURCE_USERNAME = 'SEMANEXUS'
+$env:SPRING_DATASOURCE_PASSWORD = '<senha>'
+mvn spring-boot:run -Dspring-boot.run.profiles=dev
+```
+
+Depois da Issue #8: `docker compose up -d oracle` e as variáveis do `.env` exportadas no shell.
+
+Testes: `mvn -B verify` roda só os testes **sem** Oracle. Os testes de integração com Oracle real (Testcontainers, tag `oracle`, exigem Docker) rodam com `mvn -B verify -Poracle`.
 
 | URL | O que é |
 |---|---|

@@ -80,7 +80,9 @@ projetos/
 └── Sema_Nexus_Web/
 ```
 
-Execução via Docker: [DOCKER.md](DOCKER.md). Execução da API fora do Docker (após a Issue #1): Oracle em container + `mvn spring-boot:run -Dspring-boot.run.profiles=dev`.
+Execução via Docker: [DOCKER.md](DOCKER.md). Execução da API fora do Docker (após a Issue #1): Oracle em container + `mvn spring-boot:run -Dspring-boot.run.profiles=dev` (passo a passo no README).
+
+Testes da API: `mvn -B verify` exclui a tag `oracle` (unitários, sem banco); `mvn -B verify -Poracle` roda só os testes com Oracle real via Testcontainers (exige Docker).
 
 ## CI (GitHub Actions)
 
