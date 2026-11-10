@@ -35,6 +35,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     static final URI TYPE_VALIDACAO = URI.create("https://semanexus.demo/problemas/validacao");
     static final URI TYPE_NAO_ENCONTRADO = URI.create("https://semanexus.demo/problemas/nao-encontrado");
     static final URI TYPE_CONFLITO = URI.create("https://semanexus.demo/problemas/conflito");
+    static final URI TYPE_CREDENCIAIS = URI.create("https://semanexus.demo/problemas/credenciais-invalidas");
+    static final URI TYPE_USUARIO_INATIVO = URI.create("https://semanexus.demo/problemas/usuario-inativo");
     static final URI TYPE_ERRO_INTERNO = URI.create("https://semanexus.demo/problemas/erro-interno");
 
     /** Erro de validação de um campo: nome do campo e mensagem legível. */
@@ -76,6 +78,22 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
         problem.setTitle("Conflito com o estado atual do recurso");
         problem.setType(TYPE_CONFLITO);
+        return problem;
+    }
+
+    @ExceptionHandler(CredenciaisInvalidasException.class)
+    public ProblemDetail handleCredenciaisInvalidas(CredenciaisInvalidasException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, ex.getMessage());
+        problem.setTitle("Credenciais inválidas");
+        problem.setType(TYPE_CREDENCIAIS);
+        return problem;
+    }
+
+    @ExceptionHandler(UsuarioInativoException.class)
+    public ProblemDetail handleUsuarioInativo(UsuarioInativoException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, ex.getMessage());
+        problem.setTitle("Usuário inativo");
+        problem.setType(TYPE_USUARIO_INATIVO);
         return problem;
     }
 
