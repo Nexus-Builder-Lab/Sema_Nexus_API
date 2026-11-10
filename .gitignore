@@ -1,0 +1,42 @@
+# Build Maven
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+*.swp
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Variáveis de ambiente e segredos (NUNCA versionar)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+wallet/
+Wallet_*/
+cwallet.sso
+ewallet.p12
+tnsnames.ora
+sqlnet.ora
+
+# Dados locais (volumes e uploads)
+oradata/
+uploads/
+data/
+*.dmp
+
+# Claude Code — configurações locais
+.claude/settings.local.json

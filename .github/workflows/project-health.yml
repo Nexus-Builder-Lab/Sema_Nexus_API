@@ -1,0 +1,37 @@
+name: Project health
+
+# Resumo diário da saúde do projeto (API + Web). Somente leitura: não altera Issues nem status.
+# Agenda: 12:00 UTC ≈ 08:00 em Cuiabá (UTC−4). O GitHub não garante horário exato de execuções agendadas.
+# Para desativar após a apresentação: gh workflow disable project-health.yml -R Nexus-Builder-Lab/Sema_Nexus_API
+
+on:
+  schedule:
+    - cron: "0 12 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+  actions: read
+
+concurrency:
+  group: project-health
+  cancel-in-progress: true
+
+jobs:
+  health:
+    name: Resumo de saúde do projeto
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Gerar resumo
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Opcional (pendente de autorização do proprietário): token somente leitura com acesso
+          # a Sema_Nexus_Web e ao Project V2 da organização. Sem ele, o relatório cobre só a API.
+          PROJECT_HEALTH_TOKEN: ${{ secrets.PROJECT_HEALTH_TOKEN }}
+        run: node .github/scripts/project-health.mjs >> "$GITHUB_STEP_SUMMARY"
