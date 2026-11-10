@@ -1,0 +1,51 @@
+# SEMA NEXUS API — configuração base (todos os profiles).
+# Toda configuração sensível vem de variáveis de ambiente (ver .env.example). Nada de segredos aqui.
+spring:
+  application:
+    name: sema-nexus-api
+  profiles:
+    default: dev
+  autoconfigure:
+    # TEMPORÁRIO (Issue #1): sem banco até a Issue #3, que habilita a conexão Oracle e o Flyway
+    # removendo as três primeiras linhas. UserDetailsServiceAutoConfiguration fica excluída de vez:
+    # a autenticação é própria (JWT, Issue #4) e assim o Spring não gera senha padrão no log.
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+      - org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration
+      - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
+  jpa:
+    open-in-view: false
+  jackson:
+    default-property-inclusion: non_null
+    time-zone: America/Cuiaba
+  mvc:
+    problemdetails:
+      enabled: true
+
+server:
+  port: ${SERVER_PORT:8080}
+  error:
+    include-stacktrace: never
+    include-message: never
+    include-exception: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: alpha
+    tags-sorter: alpha
+  default-produces-media-type: application/json

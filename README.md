@@ -11,7 +11,8 @@ Este repositório também concentra a **infraestrutura e a documentação transv
 | Item | Status |
 |---|---|
 | Planejamento, backlog (3 sprints), Project, CI, templates, documentação | **Implementado** (10/11/2026) |
-| Código da API, Dockerfile, docker-compose | **Planejado** — Sprint 1 (Issues #1–#10) |
+| Esqueleto Spring Boot: profiles, erros RFC 9457, paginação, OpenAPI/Swagger, health (Issue #1) | **Implementado** |
+| Conexão Oracle, autenticação, seed, Dockerfile, docker-compose | **Planejado** — Sprint 1 (Issues #2–#10) |
 | Módulos Flux, Intelligence, DocIA | **Planejado** — Sprints 2 e 3 |
 
 Acompanhamento: [GitHub Project — SEMA NEXUS — Desenvolvimento](https://github.com/orgs/Nexus-Builder-Lab/projects/1) · [docs/SPRINTS.md](docs/SPRINTS.md)
@@ -36,13 +37,26 @@ docker compose ps
 
 Detalhes, requisitos e reset: [docs/DOCKER.md](docs/DOCKER.md).
 
-## Executar localmente sem Docker para a API (após a Issue #1)
+## Executar localmente sem Docker
 
-```bash
-docker compose up -d oracle                                  # só o banco
-mvn spring-boot:run -Dspring-boot.run.profiles=dev           # variáveis do .env exportadas no shell
-mvn -B verify                                                # build + testes unitários
+Requisitos: **JDK 21** e Maven 3.9. O Maven usa o JDK do `JAVA_HOME` (não o do `PATH`); se ele apontar para JDK 8, o build para com a mensagem "SEMA NEXUS exige JDK 21".
+
+```powershell
+# Windows (só na sessão atual)
+$env:JAVA_HOME = 'C:\Program Files\Java\jdk-21'
+mvn -B verify                                          # build + testes
+mvn spring-boot:run -Dspring-boot.run.profiles=dev     # http://localhost:8080
 ```
+
+Até a Issue #3, a API sobe **sem banco** (health, Swagger e o padrão de erros já funcionam; as rotas `/api/**` respondem 401). A partir da Issue #3 será preciso o Oracle: `docker compose up -d oracle` e as variáveis do `.env` exportadas no shell.
+
+| URL | O que é |
+|---|---|
+| http://localhost:8080/actuator/health | Healthcheck (público) |
+| http://localhost:8080/swagger-ui.html | Swagger UI (público; desligado em `prod`) |
+| http://localhost:8080/v3/api-docs | Contrato OpenAPI (público) |
+
+Profiles: `dev` (padrão), `demo` (Docker/apresentação), `prod` (sem seed e sem Swagger), `openapi` (só para o CI exportar o contrato, sem banco).
 
 ## Usuário de teste
 
