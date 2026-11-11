@@ -31,7 +31,7 @@ param(
   [int]$MaxIteracoes = 80,
   [int]$EsperaErroMin = 20,
   [int]$EsperaSemTrabalhoMin = 15,
-  [int]$MaxSemTrabalho = 12,
+  [int]$MaxSemTrabalho = 96,   # verificações sem trabalho não gastam tokens (proxima.mjs)
   [int]$MaxFalhasSeguidas = 3,
   [int]$MaxTurnos = 400,
   [string]$Modelo = 'sonnet',          # Sonnet 5.5
@@ -81,7 +81,7 @@ function Invoke-Iteracao([int]$n, [string]$p, [string]$modelo, [string]$esforco,
   $resultado = $null
   try { $resultado = ($texto | ConvertFrom-Json).result } catch { }
   if (-not $resultado) { $resultado = $texto }
-  $marcador = ([regex]::Matches([string]$resultado, 'AUTOPILOT: (MERGED|AGUARDANDO_DEPENDENCIA|FALHOU|SEM_TRABALHO)[^\r\n]*') | Select-Object -Last 1).Value
+  $marcador = ([regex]::Matches([string]$resultado, 'AUTOPILOT: (MERGED|AGUARDANDO_DEPENDENCIA|FALHOU_AMBIENTE|FALHOU|SEM_TRABALHO)[^\r\n]*') | Select-Object -Last 1).Value
   [pscustomobject]@{ Codigo = $codigo; Marcador = $marcador; Dur = $dur; Saida = $saida; Texto = [string]$texto }
 }
 
@@ -111,25 +111,48 @@ if ($Repo -eq 'WEB' -and -not (Get-Command npm -ErrorAction SilentlyContinue)) {
 Log "Início. Repositório: $repoDir. Modelo padrão: $Modelo/$Esforco; reforço: $ModeloReforco/$EsforcoReforco. Máx. iterações: $MaxIteracoes."
 $semTrabalho = 0
 $falhasSeguidas = 0
-$reforcadas = @{}   # Issues que já tiveram a retentativa com o modelo de reforço
+$reforcadas = @{}
+$seletor = Join-Path $PSScriptRoot 'proxima.mjs'
+if (-not (Test-Path $seletor)) { $seletor = Join-Path $Raiz 'Sema_Nexus_API\scripts\autopilot\proxima.mjs' }   # Issues que já tiveram a retentativa com o modelo de reforço
 
 try {
   for ($i = 1; $i -le $MaxIteracoes; $i++) {
     if (DeveParar) { Log 'Arquivo STOP encontrado. Encerrando.'; break }
 
-    $r = Invoke-Iteracao $i $Prompt $Modelo $Esforco ''
+    # ---- Seleção SEM tokens (proxima.mjs): só chama o Claude quando há trabalho
+    $p = $Prompt
+    if ($Prompt -eq '/next-issue') {
+      $sel = $null
+      $eap = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+      try { $sel = (& node $seletor --repo $Repo --raiz $Raiz 2>$null | Select-Object -Last 1) | ConvertFrom-Json } catch { }
+      $ErrorActionPreference = $eap
+      if (-not $sel -or $sel.acao -eq 'erro') {
+        Log "Seleção falhou ($(if ($sel) { $sel.motivo } else { 'sem resposta' })). Aguardando $EsperaErroMin min."
+        Start-Sleep -Seconds ($EsperaErroMin * 60); continue
+      }
+      if ($sel.acao -eq 'nada') {
+        $semTrabalho++
+        if ($semTrabalho -ge $MaxSemTrabalho) { Log "Sem trabalho por $semTrabalho verificações. Encerrando."; break }
+        Log "Sem trabalho agora (0 tokens): $($sel.motivo). Nova verificação em $EsperaSemTrabalhoMin min."
+        Start-Sleep -Seconds ($EsperaSemTrabalhoMin * 60); $i--; continue
+      }
+      $p = if ($sel.acao -eq 'merge-pendente') { "/next-issue pr $($sel.pr)" } else { "/next-issue $($sel.issue)" }
+      Log "Selecionado: $($sel.acao) $(if ($sel.pr) { 'PR #' + $sel.pr } else { 'Issue #' + $sel.issue })"
+    }
+
+    $r = Invoke-Iteracao $i $p $Modelo $Esforco ''
 
     if ($r.Codigo -ne 0 -or -not $r.Marcador) {
       $trecho = $r.Texto
       if ($trecho.Length -gt 400) { $trecho = $trecho.Substring($trecho.Length - 400) }
       Log "Execução terminou sem marcador (código $($r.Codigo), $($r.Dur) min). Provável limite de uso ou erro. Trecho: $($trecho -replace '\s+', ' ')"
-      Log "Aguardando $EsperaErroMin min antes de tentar de novo (o /next-issue retoma o branch em andamento)."
+      Log "Aguardando $EsperaErroMin min antes de tentar de novo (o branch em andamento é retomado)."
       Start-Sleep -Seconds ($EsperaErroMin * 60)
       continue
     }
     Log "$($r.Marcador) ($($r.Dur) min). Saída: $($r.Saida)"
 
-    # ---- Falhou em Sonnet: uma retentativa da mesma Issue com Opus (esforço médio)
+    # ---- Falha de CÓDIGO em Sonnet: uma retentativa com Opus. Falha de AMBIENTE não tem retentativa.
     $m = [regex]::Match($r.Marcador, 'FALHOU #(\d+)')
     if ($m.Success -and -not $reforcadas.ContainsKey($m.Groups[1].Value) -and $ModeloReforco -ne $Modelo) {
       $issue = $m.Groups[1].Value
@@ -139,7 +162,7 @@ try {
       $eap = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
       & gh issue edit $issue -R $ghRepo --remove-label autopilot-falhou 2>$null | Out-Null
       $ErrorActionPreference = $eap
-      $r2 = Invoke-Iteracao $i "/next-issue $issue" $ModeloReforco $EsforcoReforco '-reforco'
+      $r2 = Invoke-Iteracao $i "/next-issue $issue reforco" $ModeloReforco $EsforcoReforco '-reforco'
       if ($r2.Marcador) {
         Log "Reforço: $($r2.Marcador) ($($r2.Dur) min). Saída: $($r2.Saida)"
         $r = $r2
@@ -159,14 +182,7 @@ try {
           Log "$falhasSeguidas falhas seguidas. Parando para revisão humana. Veja $apDir\RELATORIO_ERROS.md."
         }
       }
-      'SEM_TRABALHO' {
-        $semTrabalho++
-        if ($semTrabalho -ge $MaxSemTrabalho) { Log "Sem trabalho disponível por $semTrabalho verificações. Encerrando." }
-        else {
-          Log "Nada desbloqueado agora (a outra sessão pode liberar). Aguardando $EsperaSemTrabalhoMin min."
-          Start-Sleep -Seconds ($EsperaSemTrabalhoMin * 60)
-        }
-      }
+      'SEM_TRABALHO' { $semTrabalho++ }
     }
     if ($falhasSeguidas -ge $MaxFalhasSeguidas -or $semTrabalho -ge $MaxSemTrabalho) { break }
   }

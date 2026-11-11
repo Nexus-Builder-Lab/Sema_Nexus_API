@@ -1,67 +1,57 @@
-# SEMA NEXUS — Agentes, subagentes e fluxo multiagente
+# SEMA NEXUS — Agentes e fluxo multiagente
 
-> **Status:** Implementado em 11/11/2026 (estrutura). Será usado na próxima retomada do autopilot, que continua **pausado** até ordem do proprietário.
+> **Status:** Implementado. Versão econômica desde 11/11/2026 (Issue #55): mesmos modelos e esforços, muito menos tokens por Issue.
 
-## Visão geral
-
-Em vez de uma única sessão fazer tudo, cada Issue passa por **subagentes especializados** coordenados por um **orquestrador**:
+## Fluxo de uma Issue
 
 ```
-                       ┌──────────────────────────┐
-                       │ ORQUESTRADOR (/next-issue)│  decide · branch · PR · merge · labels · Status
-                       └────────────┬─────────────┘
-          ┌─────────────────────────┼─────────────────────────┐
-          ▼                         ▼                         ▼
-   planejador-issue  ──▶  implementador-(backend|frontend)  ──▶  em paralelo:
-                                                                 ├─ validador-qa
-                                                                 ├─ revisor-codigo
-                                                                 ├─ revisor-seguranca         (quando aplicável)
-                                                                 └─ revisor-ui-acessibilidade (Web, telas)
-                                      ▲                               │
-                                      └──── até 3 ciclos de correção ─┘
-                                             (diagnosticador · Opus após o 2º)
-                                                                 │
-                                                                 ▼
-                                                           documentador ──▶ orquestrador abre PR, espera CI, faz merge
+autopilot.ps1 ──(proxima.mjs, 0 tokens)──▶ há trabalho?  não → dorme e verifica de novo
+                                              │ sim
+                                              ▼
+                    ORQUESTRADOR (/next-issue <n>)   decide · branch · PR · merge · labels · Status
+                                              │
+                    [planejador-issue — só em Issues grandes]
+                                              ▼
+                          implementador-(backend|frontend)   planeja, implementa, testes afetados, diário
+                                              ▼
+                      em paralelo:  validador-qa  ∥  revisor
+                                              │  (até 3 ciclos de correção; diagnosticador Opus após o 2º)
+                                              ▼
+                              orquestrador: PR → CI → merge condicionado
 ```
 
-Há **dois níveis de multiagente**:
-1. **Entre repositórios:** duas sessões do autopilot em paralelo (API e Web), coordenadas pelas dependências "Blocked by" e pela label `aguardando-dependencia`; a trava `docker.lock` evita subidas simultâneas do compose.
-2. **Dentro de cada Issue:** o orquestrador e os subagentes acima; validação e revisões rodam em paralelo.
+Dois níveis de multiagente: **entre repositórios** (sessões API e Web em paralelo, coordenadas por "Blocked by", `aguardando-dependencia` e a trava `docker.lock`) e **dentro da Issue** (orquestrador + agentes).
 
 ## Agentes
 
-| Agente | Repositórios | Papel | Ferramentas | Modelo · esforço |
-|---|---|---|---|---|
-| `selecionador-issue` | API, Web | Escolhe a próxima Issue pelas regras de prioridade, sprint e dependências; o orquestrador confere | Bash/PowerShell + leitura | **Haiku 5.5 · baixo** |
-| `planejador-issue` | API, Web | Lê a Issue, dependências e código; devolve plano, testes previstos, mapa dos critérios e riscos | leitura + Bash/PowerShell | Sonnet 5.5 · médio |
-| `implementador-backend` | API | Implementa e corrige o escopo (código, migrations, testes, docs técnicos), roda `mvn verify`, commita | leitura + edição + Bash/PowerShell | Sonnet 5.5 · médio |
-| `implementador-frontend` | Web | Implementa e corrige telas/componentes, mocks e testes; roda lint/test/build; commita | leitura + edição + Bash/PowerShell | Sonnet 5.5 · médio |
-| `validador-qa` | API, Web | Build, testes, Docker (com trava) e evidência de cada critério de aceitação | leitura + Bash/PowerShell (não edita) | Sonnet 5.5 · médio |
-| `revisor-codigo` | API, Web | Revisão independente do diff: defeitos, regras do projeto, testes, docs | somente leitura | Sonnet 5.5 · médio |
-| `revisor-seguranca` | API, Web | Autorização, JWT, credencial demonstrativa, uploads, segredos, logs, CORS, XSS | somente leitura | Sonnet 5.5 · médio |
-| `revisor-ui-acessibilidade` | Web | Identidade visual, responsividade, estados, acessibilidade, faixa demonstrativa | somente leitura | Sonnet 5.5 · médio |
-| `documentador` | API, Web | Entrada no diário, status nos docs, rascunho do corpo do PR | leitura + edição (só docs) | **Haiku 5.5 · baixo** |
-| `diagnosticador` | API, Web | Causa raiz de falha persistente ou de integração; separa defeito de bloqueio de ambiente | somente leitura | **Opus 5.5 · médio** (esporádico) |
+| Agente | Repo | Papel | Edita? | Modelo · esforço |
+|---|---|---|:-:|---|
+| `implementador-backend` | API | Planeja e implementa o escopo, testes afetados, docs técnicos e diário | sim | Sonnet 5.5 · médio |
+| `implementador-frontend` | Web | Idem para o frontend | sim | Sonnet 5.5 · médio |
+| `validador-qa` | ambos | Suíte completa (uma vez), Docker (uma vez, quando aplicável), evidência por critério | não | Sonnet 5.5 · médio |
+| `revisor` | ambos | Revisão única: defeitos, regras, testes, segurança e (Web) interface/acessibilidade | não | Sonnet 5.5 · médio |
+| `planejador-issue` | ambos | Plano curto, **só** para Issues grandes ou arriscadas | não | Sonnet 5.5 · médio |
+| `diagnosticador` | ambos | Causa raiz após 2 ciclos sem sucesso; separa defeito de bloqueio de ambiente | não | Opus 5.5 · médio |
 
-Arquivos: `.claude/agents/<nome>.md` em cada repositório (frontmatter `name`, `description`, `tools`, `model`, `effort`).
+A **seleção** da próxima Issue é feita pelo script `scripts/autopilot/proxima.mjs` (Node + `gh`), sem modelo.
 
-## Regras de segurança da estrutura
+## Medidas de economia (11/11/2026)
 
-- **Somente o orquestrador** cria branch, faz push, abre PR, faz merge, altera labels/Status no Project e escreve no `RELATORIO_ERROS.md`.
-- Agentes de revisão, validação e diagnóstico não recebem ferramentas de edição.
-- As regras `deny` do `.claude/settings.json` valem para todos os agentes (sem force push, sem apagar volumes, sem mexer em permissões/visibilidade).
-- Um veredito sem evidência não conta como aprovação. O merge exige: CI verde, `validador-qa` aprovado, critérios comprovados, Docker quando aplicável, dependências fechadas e nenhum achado bloqueante/crítico/alto dos revisores.
+A análise das 24 primeiras iterações mostrou que o custo vem do **contexto relido a cada turno** (1,5–6 milhões de tokens de cache por Issue), não do texto gerado. Por isso:
 
-## Custo de tokens
+| Medida | Efeito |
+|---|---|
+| Saídas de comando para arquivo; só resumo/erro no contexto (Maven `-q`, `--reporter=dot`, `docker compose ... > log`, `gh pr checks --watch > $null`) | Contexto menor em todos os turnos seguintes |
+| Seleção por `proxima.mjs`; espera sem chamar o Claude | Fim das iterações `SEM_TRABALHO` (antes ~US$ 0,95 em 7 iterações) |
+| Não desenvolver contra dependências abertas de outro repo | Fim do trabalho que ficava parado em `AGUARDANDO_DEPENDENCIA` (~US$ 3,18 em 3 iterações) |
+| Revisores fundidos em um `revisor`; sem `documentador` e `selecionador`; planejador só em Issues grandes | Menos agentes relendo o mesmo código |
+| Implementador roda só testes afetados; suíte completa e Docker uma vez, no validador; na correção só reroda quem reprovou | Menos execuções e menos logs |
+| `CLAUDE.md` e `/next-issue` enxutos (detalhes em `docs/`) | Contexto fixo menor em todo agente e turno |
+| Sem retentativa Opus para falha de ambiente (`FALHOU_AMBIENTE`) | Sem gasto de Opus quando repetir não resolve |
 
-Mais agentes = mais leituras do mesmo código. Para conter o custo (política de 11/11/2026):
-- **Sonnet 5.5 · médio** como padrão; **Haiku 5.5 · baixo** para tarefas simples (`selecionador-issue`, `documentador` e consultas mecânicas delegadas pelo orquestrador); **Opus 5.5 · médio** só no `diagnosticador`, após 2 ciclos sem sucesso, e na retentativa automática após falha;
-- Haiku nunca escreve código de produção, revisa segurança ou decide merge;
-- `revisor-seguranca` e `revisor-ui-acessibilidade` só quando a Issue toca nesses temas;
-- na correção, só os agentes que reprovaram rodam de novo (além do `validador-qa`);
-- os relatórios dos subagentes são curtos, para o orquestrador não carregar arquivos grandes.
+## Regras
 
-## Como usar fora do autopilot
-
-Numa sessão interativa do Claude Code em um dos repositórios, peça, por exemplo: "use o revisor-codigo no branch atual" ou "use o planejador-issue na Issue 12". O comando `/agents` lista e edita os agentes.
+- **Só o orquestrador** faz push, abre PR, faz merge, altera labels/Status e escreve no `RELATORIO_ERROS.md`.
+- `validador-qa`, `revisor`, `planejador-issue` e `diagnosticador` não editam código.
+- Merge exige: CI verde, validador aprovado, critérios comprovados, Docker quando aplicável, dependências fechadas, revisor sem bloqueante.
+- As regras `deny` do `.claude/settings.json` valem para todos.
