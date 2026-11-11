@@ -205,3 +205,13 @@
 - **Arquivos principais:** `docia/documento/{DocumentoService,DocumentoController,DemandaDocumentoController,DocumentoSpecification,DocumentoRepository}.java`, `dto/DocumentoDetalhe.java`, `flux/demanda/DemandaService.java`, `core/auditoria/{AuditService,AuditoriaRepository}.java`, testes `DocumentoServiceTest`, `DocumentoOracleTest`, `EndpointsContratoWebMvcTest`, `ContratoOpenApiTest`, `docs/API.md`.
 - **Testes:** a confirmar pelo validador (implementador: DocumentoServiceTest, EndpointsContratoWebMvcTest, ContratoOpenApiTest, DemandaServiceTest, AuditServiceTest = 75 testes, 0 falhas; DocumentoOracleTest `-Poracle` = 3, 0 falhas).
 - **Pendências:** `totalDocumentos` do dashboard (#17) continua 0 (fora do escopo da #16); busca é textual, semântica é P2.
+
+
+## 2026-11-11 · GH-18 · Seed de demandas e documentos fictícios coerentes para a demonstração
+- **PR:** (a preencher pelo orquestrador) · **Status:** aguardando validação
+- **Agentes que atuaram:** `implementador-backend`
+- **O que foi feito:** massa demonstrativa idempotente (`DemoMassaRunner` → `DemoMassaService`, após o `DemoSeedRunner`): 120 demandas em 26 municípios de MT (3 biomas, 7 status, algumas atrasadas), histórico, distribuições e 46 fiscalizações coerentes com o status, 12 documentos fictícios (PDF gerados com PDFBox e TXT) no volume, incluindo as duas versões do "Parecer Técnico nº 014/2026", vinculados às demandas do cenário fixo; cenário documentado em `docs/DEMO.md`.
+- **Decisões técnicas:** JDBC direto (preserva datas retroativas e evita a regra de máquina de estados); `DemoMassaGerador` puro e determinístico (semente fixa, datas relativas ao dia); idempotência pela marca `[DEMO-SEED]` em `OBSERVACOES` (demandas) e por (título, arquivo) (documentos); `NUMERACAO_DEMANDA` atualizada; execução fora do `DemoSeedRunner` para não acoplar o teste de profile (ordem via `@Order`). Textos autorais adaptados (o `seed-docs.js` do protótipo não estava acessível). Sem migration.
+- **Arquivos principais:** `demo/{DemoMassaGerador,DemoMassaDocumentos,DemoMassaService,DemoMassaRunner}.java`, testes `DemoMassaGeradorTest`, `DemoMassaDocumentosTest`, `DemoSeedOracleTest`, `docs/DEMO.md`, `docs/DATABASE.md`.
+- **Testes:** a confirmar pelo validador (implementador: DemoMassa*Test e DemoSeed*Test sem Oracle: 0 falhas; DemoSeedOracleTest `-Poracle`: 4 testes, 0 falhas).
+- **Pendências:** Docker/`demo-reset` com volume real não exercitado; "números do dashboard conferem" cobertos por contagens SQL, não por chamada ao `/api/dashboard`.
