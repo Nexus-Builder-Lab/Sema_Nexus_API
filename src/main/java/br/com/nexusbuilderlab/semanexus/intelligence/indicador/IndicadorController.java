@@ -1,5 +1,7 @@
 package br.com.nexusbuilderlab.semanexus.intelligence.indicador;
 
+import br.com.nexusbuilderlab.semanexus.security.Autorizacao;
+import org.springframework.security.access.prepost.PreAuthorize;
 import br.com.nexusbuilderlab.semanexus.intelligence.indicador.dto.ContagemItem;
 import br.com.nexusbuilderlab.semanexus.intelligence.indicador.dto.ContagemMunicipio;
 import br.com.nexusbuilderlab.semanexus.intelligence.indicador.dto.IndicadorFiltro;
@@ -19,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
  * dados fictícios.
  */
 @RestController
+@PreAuthorize(Autorizacao.AUTENTICADO)
 @RequestMapping("/api/intelligence")
 @Tag(name = "Intelligence — Indicadores", description = "Indicadores ambientais agregados (dados simulados)")
 public class IndicadorController {

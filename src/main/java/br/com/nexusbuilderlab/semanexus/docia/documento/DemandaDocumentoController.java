@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 /** Associação documento ↔ demanda (Issue #16): vínculo registrado no histórico da demanda e na auditoria. */
 @RestController
+@PreAuthorize(Autorizacao.AUTENTICADO)
 @RequestMapping("/api/demandas/{id}/documentos")
 @Tag(name = "DocIA — Documentos")
 public class DemandaDocumentoController {

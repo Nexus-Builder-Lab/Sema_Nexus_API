@@ -215,3 +215,12 @@
 - **Arquivos principais:** `demo/{DemoMassaGerador,DemoMassaDocumentos,DemoMassaService,DemoMassaRunner}.java`, testes `DemoMassaGeradorTest`, `DemoMassaDocumentosTest`, `DemoSeedOracleTest`, `docs/DEMO.md`, `docs/DATABASE.md`.
 - **Testes:** a confirmar pelo validador (implementador: DemoMassa*Test e DemoSeed*Test sem Oracle: 0 falhas; DemoSeedOracleTest `-Poracle`: 4 testes, 0 falhas).
 - **Pendências:** Docker/`demo-reset` com volume real não exercitado; "números do dashboard conferem" cobertos por contagens SQL, não por chamada ao `/api/dashboard`.
+
+## 2026-11-11 · GH-19 · Cobertura de testes dos serviços críticos e revisão de segurança da API
+- **PR:** (a preencher pelo orquestrador) · **Status:** aguardando validação
+- **Agentes que atuaram:** `implementador-backend`
+- **O que foi feito:** `RevisaoSegurancaApiTest` (checklist automatizado: `@PreAuthorize` em todos os endpoints, cabeçalhos de segurança, actuator só health, erros sem stacktrace, CORS fora do dev, logs sem segredos); `docs/REVISAO_SEGURANCA.md` com o checklist e evidências. Achado corrigido: leituras de demandas/documentos/catálogos/indicadores sem `@PreAuthorize` explícito; agora `@PreAuthorize(Autorizacao.AUTENTICADO)` na classe (sem mudança de comportamento).
+- **Decisões técnicas:** os testes de máquina de estados, numeração concorrente (Oracle), território, upload, trava e perfis já existiam; não foram duplicados.
+- **Arquivos principais:** `security/Autorizacao.java`, controllers de flux/docia/core/intelligence, `security/RevisaoSegurancaApiTest.java`, `docs/REVISAO_SEGURANCA.md`.
+- **Testes:** a confirmar pelo validador (implementador: RevisaoSegurancaApiTest, EndpointsContratoWebMvcTest, *WebMvcTest, ContratoOpenApiTest: 0 falhas).
+- **Pendências:** varredura de CVE em dependências não executada (sem scanner no projeto).

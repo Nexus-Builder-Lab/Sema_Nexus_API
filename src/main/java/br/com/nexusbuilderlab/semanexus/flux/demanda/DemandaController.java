@@ -43,6 +43,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
  * `docs/ARCHITECTURE.md` §5.
  */
 @RestController
+@PreAuthorize(Autorizacao.AUTENTICADO)
 @RequestMapping("/api/demandas")
 @Tag(name = "Flux — Demandas", description = "Demandas de fiscalização ambiental: cadastro, triagem, distribuição, "
         + "acompanhamento, fiscalização, conclusão e devolução")

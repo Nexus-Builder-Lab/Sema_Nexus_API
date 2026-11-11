@@ -1,5 +1,7 @@
 package br.com.nexusbuilderlab.semanexus.core.catalogo;
 
+import br.com.nexusbuilderlab.semanexus.security.Autorizacao;
+import org.springframework.security.access.prepost.PreAuthorize;
 import br.com.nexusbuilderlab.semanexus.core.catalogo.dto.ItemCatalogo;
 import br.com.nexusbuilderlab.semanexus.core.catalogo.dto.MunicipioDto;
 import br.com.nexusbuilderlab.semanexus.core.municipio.Bioma;
@@ -14,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 /** Catálogos de domínio (leitura, qualquer usuário autenticado). Sem paginação: listas curtas e estáveis. */
 @RestController
+@PreAuthorize(Autorizacao.AUTENTICADO)
 @RequestMapping("/api/catalogos")
 @Tag(name = "Catálogos", description = "Municípios de MT, biomas, categorias, origens, prioridades e status das demandas")
 public class CatalogoController {
