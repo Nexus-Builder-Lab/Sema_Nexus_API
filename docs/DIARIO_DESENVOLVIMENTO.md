@@ -186,3 +186,13 @@
 - **Testes:** a confirmar pelo validador (implementador: IndicadorServiceTest, DashboardServiceTest, EndpointsContratoWebMvcTest, ContratoOpenApiTest e IndicadorOracleTest com Testcontainers: 0 falhas).
 - **Pendências:** `totalDocumentos` = 0 (TODO até a #15).
 - **Observações:** agregados, mapa e dashboard são visão institucional aberta a todos os perfis autenticados (sem escopo de FISCAL); `atividadesRecentes` vem de `DemandaHistorico` (desvio da AUDITORIA citada na Issue, justificado pelo DTO publicado); `de`/`ate` aplicam-se à data de recebimento; campos novos nos DTOs (`ResumoIndicadores`, `DashboardResponse`): avisar o Web; mapa medido em 10–19 ms com 7 demandas do seed; `IndicadorOracleTest` cobre cadastro e finalização alterando `resumo` e `por-situacao`.
+
+## 2026-11-11 · GH-15 · DocIA: schema, armazenamento em volume, upload, download e extração de texto
+- **PR:** (a preencher pelo orquestrador) · **Status:** aguardando validação
+- **Agentes que atuaram:** `implementador-backend`
+- **O que foi feito:** `V4__docia.sql` (`DOCUMENTO`, `DOCUMENTO_DEMANDA`); `StorageService` + `LocalFileStorageService` (`${STORAGE_DIR}/AAAA/MM/<uuid>`, chave confinada à raiz); `TipoArquivo` (extensão + bytes iniciais), `TextExtractor` (PDFBox/UTF-8; DOCX sem extração), `DocumentoService` (SHA-256, auditoria `UPLOAD`, vínculo opcional por `demandaId`); `POST /api/documentos` e `GET /api/documentos/{id}/arquivo` saíram do contrato `501`. Erros 415/413 no `GlobalExceptionHandler`; limite multipart 10 MB no `application.yml`; `STORAGE_DIR` no `.env.example`.
+- **Decisões técnicas:** nome original saneado (sem caminho nem controles) só no banco; palavras-chave em coluna única separada por vírgula; texto sem extração (PDF ilegível/criptografado, DOCX) fica nulo; download sempre `octet-stream` + `attachment` + `nosniff`; arquivo órfão é removido se a persistência falhar. SHA256 em `VARCHAR2(64)` (o Hibernate valida CHAR como outro tipo). Dependência nova: `pdfbox 3.0.4`.
+- **Arquivos principais:** `docia/storage/*`, `docia/documento/{Documento,DocumentoRepository,DocumentoService,DocumentoController,TipoArquivo,TextExtractor}.java`, `V4__docia.sql`, testes `DocumentoServiceTest`, `LocalFileStorageServiceTest`, `DocumentoOracleTest`, `EndpointsContratoWebMvcTest`, `ContratoOpenApiTest`.
+- **Testes:** a confirmar pelo validador (implementador: DocumentoServiceTest, LocalFileStorageServiceTest, EndpointsContratoWebMvcTest, ContratoOpenApiTest e DocumentoOracleTest `-Poracle`: 0 falhas).
+- **Pendências:** persistência após `docker compose down`/`up` não verificada (volume `uploads` já está no compose); `totalDocumentos` do dashboard (#17) ainda 0, a ligar na #16.
+

@@ -8,6 +8,9 @@ import br.com.nexusbuilderlab.semanexus.docia.documento.dto.DocumentoFiltro;
 import br.com.nexusbuilderlab.semanexus.docia.documento.dto.DocumentoResumo;
 import br.com.nexusbuilderlab.semanexus.docia.documento.dto.DocumentoUploadRequest;
 import br.com.nexusbuilderlab.semanexus.security.Autorizacao;
+import br.com.nexusbuilderlab.semanexus.security.UsuarioAutenticado;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -16,21 +19,23 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Pageable;
-import org.springframework.http.HttpStatus;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 /**
- * Contrato do DocIA (documentos). Os endpoints respondem {@code 501} até a Issue de cada
- * {@link ContratoPendente}: upload e download (#15); biblioteca, filtros e detalhes (#16).
+ * Contrato do DocIA (documentos). Upload e download (#15) implementados; biblioteca,
+ * filtros e detalhes respondem {@code 501} até a Issue #16 ({@link ContratoPendente}).
  * O arquivo fica no volume ({@code STORAGE_DIR}); o Oracle guarda só metadados e texto extraído.
  */
 @RestController
@@ -38,16 +43,25 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "DocIA — Documentos", description = "Upload, biblioteca documental, detalhes, texto extraído e download")
 public class DocumentoController {
 
+    private final DocumentoService service;
+
+    public DocumentoController(DocumentoService service) {
+        this.service = service;
+    }
+
     @Operation(summary = "Envia um documento (multipart: metadados + parte `arquivo`)",
             description = "Perfis: ADMIN, GESTOR, FISCAL, ANALISTA (CONSULTA não envia). Extensões pdf, txt, md, csv, docx; "
                     + "máximo 10 MB; o tipo é verificado pelos bytes iniciais. Extração de texto: PDF, TXT, MD e CSV.")
     @ApiResponse(responseCode = "201", description = "Documento criado; `Location` aponta para `/api/documentos/{id}`")
+    @ApiResponse(responseCode = "413", description = "Arquivo acima de 10 MB")
+    @ApiResponse(responseCode = "415", description = "Extensão não permitida ou conteúdo incompatível com a extensão")
     @PreAuthorize(Autorizacao.ESCRITA_DOCUMENTO)
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @ResponseStatus(HttpStatus.CREATED)
-    @ContratoPendente(issue = 15)
-    public DocumentoDetalhe enviar(@Valid @ModelAttribute DocumentoUploadRequest pedido) {
-        throw new ContratoPendenteException(15);
+    public ResponseEntity<DocumentoDetalhe> enviar(@AuthenticationPrincipal UsuarioAutenticado ator,
+                                                   @Valid @ModelAttribute DocumentoUploadRequest pedido) {
+        DocumentoDetalhe criado = service.enviar(ator, pedido);
+        URI local = ServletUriComponentsBuilder.fromCurrentRequest().path("/{id}").buildAndExpand(criado.id()).toUri();
+        return ResponseEntity.created(local).body(criado);
     }
 
     @Operation(summary = "Biblioteca documental: pesquisa textual, filtros combináveis, paginação e ordenação",
@@ -73,8 +87,14 @@ public class DocumentoController {
                     content = @Content(mediaType = MediaType.APPLICATION_OCTET_STREAM_VALUE,
                             schema = @Schema(type = "string", format = "binary"))))
     @GetMapping(value = "/{id}/arquivo", produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)
-    @ContratoPendente(issue = 15)
     public ResponseEntity<byte[]> baixar(@PathVariable Long id) {
-        throw new ContratoPendenteException(15);
+        DocumentoService.ArquivoBaixado arquivo = service.baixar(id);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.attachment().filename(arquivo.nome(), StandardCharsets.UTF_8).build().toString())
+                .header("X-Content-Type-Options", "nosniff")
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .contentLength(arquivo.conteudo().length)
+                .body(arquivo.conteudo());
     }
 }

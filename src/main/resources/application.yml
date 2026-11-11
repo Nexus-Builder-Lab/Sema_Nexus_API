@@ -34,11 +34,19 @@ spring:
   jackson:
     default-property-inclusion: non_null
     time-zone: America/Cuiaba
+  servlet:
+    multipart:
+      # Limite de upload do DocIA (10 MB por arquivo; o restante do corpo são só metadados).
+      max-file-size: 10MB
+      max-request-size: 11MB
   mvc:
     problemdetails:
       enabled: true
 
 semanexus:
+  storage:
+    # Diretório (volume) dos arquivos do DocIA. Nunca no banco.
+    dir: ${STORAGE_DIR:/data/uploads}
   jwt:
     # Segredo HS256 SOMENTE por variável de ambiente (mínimo 32 caracteres). Obrigatório fora de dev/openapi.
     secret: ${JWT_SECRET:}

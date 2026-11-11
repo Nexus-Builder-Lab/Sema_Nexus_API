@@ -58,8 +58,8 @@ class ContratoOpenApiTest {
     static final Map<String, Integer> PENDENTES = Map.ofEntries(
             Map.entry("GET /api/demandas/{id}/documentos", 16), Map.entry("POST /api/demandas/{id}/documentos", 16),
             Map.entry("DELETE /api/demandas/{id}/documentos/{documentoId}", 16),
-            Map.entry("POST /api/documentos", 15), Map.entry("GET /api/documentos", 16),
-            Map.entry("GET /api/documentos/{id}", 16), Map.entry("GET /api/documentos/{id}/arquivo", 15));
+            Map.entry("GET /api/documentos", 16),
+            Map.entry("GET /api/documentos/{id}", 16));
 
     static JsonNode contrato;
 
@@ -184,7 +184,7 @@ class ContratoOpenApiTest {
         assertThat(detalhe.has("404")).isTrue();
 
         JsonNode upload = operacao("POST /api/documentos").path("responses");
-        for (String codigo : List.of("201", "400", "403", "413", "415", "501")) {
+        for (String codigo : List.of("201", "400", "403", "413", "415")) {
             assertThat(upload.has(codigo)).as("upload %s", codigo).isTrue();
         }
 

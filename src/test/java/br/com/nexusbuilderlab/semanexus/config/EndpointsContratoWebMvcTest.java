@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -34,6 +35,8 @@ import br.com.nexusbuilderlab.semanexus.core.usuario.Usuario;
 import br.com.nexusbuilderlab.semanexus.core.usuario.UsuarioRepository;
 import br.com.nexusbuilderlab.semanexus.docia.documento.DemandaDocumentoController;
 import br.com.nexusbuilderlab.semanexus.docia.documento.DocumentoController;
+import br.com.nexusbuilderlab.semanexus.docia.documento.DocumentoService;
+import br.com.nexusbuilderlab.semanexus.docia.documento.dto.DocumentoDetalhe;
 import br.com.nexusbuilderlab.semanexus.core.catalogo.StatusDemanda;
 import br.com.nexusbuilderlab.semanexus.flux.demanda.DemandaController;
 import br.com.nexusbuilderlab.semanexus.flux.demanda.DemandaService;
@@ -99,6 +102,8 @@ class EndpointsContratoWebMvcTest {
 
     @MockitoBean
     UsuarioRepository usuarios;
+    @MockitoBean
+    DocumentoService documentoService;
     @MockitoBean
     CatalogoService catalogos;
     @MockitoBean
@@ -269,14 +274,14 @@ class EndpointsContratoWebMvcTest {
 
     @Test
     void endpointPendenteRespondeNaoImplementadoComAIssue() throws Exception {
-        como(Perfil.FISCAL).faz(get("/api/documentos/1/arquivo"))
+        como(Perfil.FISCAL).faz(get("/api/documentos/1"))
                 .andExpect(status().isNotImplemented())
                 .andExpect(content().contentTypeCompatibleWith(PROBLEM_JSON))
                 .andExpect(jsonPath("$.status").value(501))
                 .andExpect(jsonPath("$.title").value("Endpoint ainda não implementado"))
                 .andExpect(jsonPath("$.type").value("https://semanexus.demo/problemas/nao-implementado"))
-                .andExpect(jsonPath("$.issue").value(15))
-                .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("Issue #15")));
+                .andExpect(jsonPath("$.issue").value(16))
+                .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("Issue #16")));
     }
 
     @Test
@@ -398,8 +403,12 @@ class EndpointsContratoWebMvcTest {
 
     @Test
     void uploadMultipartExigeArquivoEPerfilComEscrita() throws Exception {
+        when(documentoService.enviar(any(), any())).thenReturn(new DocumentoDetalhe(7L, "Laudo de teste", null,
+                "Relatório técnico", "Laudo", LocalDate.now(), null, List.of(), "laudo.txt", "text/plain", 3L, "abc",
+                "texto", List.of(), null, null, null));
         como(Perfil.ANALISTA).faz(uploadValido())
-                .andExpect(status().isNotImplemented()).andExpect(jsonPath("$.issue").value(15));
+                .andExpect(status().isCreated()).andExpect(header().string("Location", org.hamcrest.Matchers.endsWith("/api/documentos/7")))
+                .andExpect(jsonPath("$.id").value(7));
         como(Perfil.CONSULTA).faz(uploadValido()).andExpect(status().isForbidden());
         // Sem a parte "arquivo" e sem campos obrigatórios: 400 com erros por campo.
         como(Perfil.ANALISTA).faz(multipart("/api/documentos").param("titulo", "ab"))
@@ -446,10 +455,14 @@ class EndpointsContratoWebMvcTest {
     }
 
     @Test
-    void downloadEDetalhesDeDocumentoExigemAutenticacaoEChegamAo501() throws Exception {
+    void downloadDeDocumentoExigeAutenticacaoEDetalhesChegamAo501() throws Exception {
         mvc.perform(get("/api/documentos/7/arquivo")).andExpect(status().isUnauthorized());
-        como(Perfil.CONSULTA).faz(get("/api/documentos/7/arquivo")).andExpect(status().isNotImplemented())
-                .andExpect(jsonPath("$.issue").value(15));
+        when(documentoService.baixar(7L)).thenReturn(
+                new DocumentoService.ArquivoBaixado("laudo ç.txt", "text/plain", "abc".getBytes()));
+        como(Perfil.CONSULTA).faz(get("/api/documentos/7/arquivo")).andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.startsWith("attachment")))
+                .andExpect(header().string("X-Content-Type-Options", "nosniff"))
+                .andExpect(content().bytes("abc".getBytes()));
         como(Perfil.CONSULTA).faz(get("/api/documentos/7")).andExpect(status().isNotImplemented())
                 .andExpect(jsonPath("$.issue").value(16));
         como(Perfil.CONSULTA).faz(get("/api/documentos").param("q", "queimada").param("demandaId", "1"))

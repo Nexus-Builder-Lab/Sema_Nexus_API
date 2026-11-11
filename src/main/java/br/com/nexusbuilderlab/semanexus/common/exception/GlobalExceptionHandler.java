@@ -14,6 +14,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.lang.NonNull;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
+import br.com.nexusbuilderlab.semanexus.docia.documento.ArquivoMuitoGrandeException;
+import br.com.nexusbuilderlab.semanexus.docia.documento.ArquivoNaoSuportadoException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -38,6 +40,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     static final URI TYPE_CREDENCIAIS = URI.create("https://semanexus.demo/problemas/credenciais-invalidas");
     static final URI TYPE_USUARIO_INATIVO = URI.create("https://semanexus.demo/problemas/usuario-inativo");
     static final URI TYPE_NAO_IMPLEMENTADO = URI.create("https://semanexus.demo/problemas/nao-implementado");
+    static final URI TYPE_ARQUIVO_NAO_SUPORTADO = URI.create("https://semanexus.demo/problemas/arquivo-nao-suportado");
+    static final URI TYPE_ARQUIVO_GRANDE = URI.create("https://semanexus.demo/problemas/arquivo-muito-grande");
     static final URI TYPE_ERRO_INTERNO = URI.create("https://semanexus.demo/problemas/erro-interno");
 
     /** Erro de validação de um campo: nome do campo e mensagem legível. */
@@ -84,6 +88,23 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
         problem.setTitle("Conflito com o estado atual do recurso");
         problem.setType(TYPE_CONFLITO);
+        return problem;
+    }
+
+    @ExceptionHandler(ArquivoNaoSuportadoException.class)
+    public ProblemDetail handleArquivoNaoSuportado(ArquivoNaoSuportadoException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.UNSUPPORTED_MEDIA_TYPE, ex.getMessage());
+        problem.setTitle("Tipo de arquivo não suportado");
+        problem.setType(TYPE_ARQUIVO_NAO_SUPORTADO);
+        return problem;
+    }
+
+    @ExceptionHandler(ArquivoMuitoGrandeException.class)
+    public ProblemDetail handleArquivoGrande(ArquivoMuitoGrandeException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.PAYLOAD_TOO_LARGE,
+                "O arquivo excede o limite de 10 MB.");
+        problem.setTitle("Arquivo muito grande");
+        problem.setType(TYPE_ARQUIVO_GRANDE);
         return problem;
     }
 
