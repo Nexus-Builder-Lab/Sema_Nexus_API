@@ -54,8 +54,6 @@ class ContratoOpenApiTest {
 
     /** Endpoints com contrato publicado que ainda respondem 501 (saem desta lista quando a Issue os implementa). */
     static final Map<String, Integer> PENDENTES = Map.ofEntries(
-            Map.entry("POST /api/demandas/{id}/triagem/iniciar", 12), Map.entry("POST /api/demandas/{id}/triagem", 12),
-            Map.entry("POST /api/demandas/{id}/distribuicao", 12), Map.entry("GET /api/equipes/{id}/demandas", 12),
             Map.entry("POST /api/demandas/{id}/inicio", 13), Map.entry("POST /api/demandas/{id}/atividades", 13),
             Map.entry("POST /api/demandas/{id}/fiscalizacao", 13), Map.entry("POST /api/demandas/{id}/conclusao", 13),
             Map.entry("POST /api/demandas/{id}/devolucao", 13),
@@ -182,7 +180,7 @@ class ContratoOpenApiTest {
         assertThat(cadastro.has("404")).isFalse();
 
         JsonNode distribuicao = operacao("POST /api/demandas/{id}/distribuicao").path("responses");
-        for (String codigo : List.of("200", "400", "401", "403", "404", "409", "501")) {
+        for (String codigo : List.of("200", "400", "401", "403", "404", "409")) {
             assertThat(distribuicao.has(codigo)).as("distribuição %s", codigo).isTrue();
         }
 

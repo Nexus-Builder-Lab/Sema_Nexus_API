@@ -159,6 +159,17 @@ public class DemandaService {
         return PageResponse.of(pagina, d -> resumo(d, hoje));
     }
 
+    /** Demandas atribuídas a uma equipe (404 se a equipe não existe), opcionalmente filtradas por status. */
+    @Transactional(readOnly = true)
+    public PageResponse<DemandaResumo> listarPorEquipe(UsuarioAutenticado ator, Long equipeId, StatusDemanda status,
+                                                       Pageable paginacao) {
+        if (!equipes.existsById(equipeId)) {
+            throw RecursoNaoEncontradoException.de("Equipe", equipeId);
+        }
+        DemandaFiltro filtro = new DemandaFiltro(null, status, null, null, null, equipeId, null, null, null, null);
+        return listar(ator, filtro, paginacao);
+    }
+
     @Transactional(readOnly = true)
     public DemandaDetalhe detalhar(UsuarioAutenticado ator, Long id) {
         Demanda demanda = obter(id);
