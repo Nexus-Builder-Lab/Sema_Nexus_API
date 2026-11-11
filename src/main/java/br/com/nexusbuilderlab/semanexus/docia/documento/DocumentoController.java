@@ -36,6 +36,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
  * O arquivo fica no volume ({@code STORAGE_DIR}); o Oracle guarda só metadados e texto extraído.
  */
 @RestController
+@PreAuthorize(Autorizacao.AUTENTICADO)
 @RequestMapping("/api/documentos")
 @Tag(name = "DocIA — Documentos", description = "Upload, biblioteca documental, detalhes, texto extraído e download")
 public class DocumentoController {

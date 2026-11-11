@@ -23,5 +23,8 @@ public final class Autorizacao {
     public static final String ESCRITA_DOCUMENTO = "hasAnyRole('ADMIN','GESTOR','FISCAL','ANALISTA')";
 
     /** Somente Admin. */
+    /** Qualquer perfil autenticado (leituras; o escopo do FISCAL é aplicado no Service). */
+    public static final String AUTENTICADO = "isAuthenticated()";
+
     public static final String SOMENTE_ADMIN = "hasRole('ADMIN')";
 }

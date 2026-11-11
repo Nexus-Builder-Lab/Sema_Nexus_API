@@ -1,5 +1,7 @@
 package br.com.nexusbuilderlab.semanexus.intelligence.mapa;
 
+import br.com.nexusbuilderlab.semanexus.security.Autorizacao;
+import org.springframework.security.access.prepost.PreAuthorize;
 import br.com.nexusbuilderlab.semanexus.intelligence.indicador.IndicadorService;
 import br.com.nexusbuilderlab.semanexus.intelligence.indicador.dto.IndicadorFiltro;
 import br.com.nexusbuilderlab.semanexus.intelligence.mapa.dto.MapaResponse;
@@ -12,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 /** Pontos do mapa (Issue #17). Qualquer perfil autenticado consulta. */
 @RestController
+@PreAuthorize(Autorizacao.AUTENTICADO)
 @RequestMapping("/api/intelligence")
 @Tag(name = "Intelligence — Indicadores")
 public class MapaController {
