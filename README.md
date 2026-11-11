@@ -97,6 +97,7 @@ O seed demonstrativo cria `admin@admin.com` / `12345678` (Administrador) **somen
 | [DEMO.md](docs/DEMO.md) | Credenciais demonstrativas e roteiro de 10 minutos |
 | [DEFINITION_OF_DONE.md](docs/DEFINITION_OF_DONE.md) | Critérios de conclusão |
 | [PROJECT_HEALTH.md](docs/PROJECT_HEALTH.md) | Monitoramento diário |
+| [AGENTES.md](docs/AGENTES.md) | Subagentes especializados e fluxo multiagente |
 | [AUTOPILOT.md](docs/AUTOPILOT.md) | Desenvolvimento autônomo: como iniciar, acompanhar e parar |
 | [DIARIO_DESENVOLVIMENTO.md](docs/DIARIO_DESENVOLVIMENTO.md) | Histórico de tudo o que foi feito, decidido e testado |
 | [CLAUDE.md](CLAUDE.md) | Regras permanentes para sessões com Claude Code |
