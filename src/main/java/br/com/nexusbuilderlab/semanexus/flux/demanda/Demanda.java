@@ -147,9 +147,9 @@ public class Demanda {
         return prazo != null && prazo.isBefore(hoje) && status != StatusDemanda.FINALIZADA;
     }
 
-    /** Marca a exclusão lógica. */
-    public void excluir() {
-        excluidoEm = LocalDateTime.now();
+    /** Marca a exclusão lógica no instante informado (o service usa o relógio no fuso de Mato Grosso). */
+    public void excluir(LocalDateTime em) {
+        excluidoEm = em;
     }
 
     public Long getId() {

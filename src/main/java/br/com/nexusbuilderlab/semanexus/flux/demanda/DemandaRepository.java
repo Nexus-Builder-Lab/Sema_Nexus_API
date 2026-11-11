@@ -1,6 +1,8 @@
 package br.com.nexusbuilderlab.semanexus.flux.demanda;
 
+import jakarta.persistence.LockModeType;
 import java.util.Optional;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -18,4 +20,9 @@ public interface DemandaRepository extends JpaRepository<Demanda, Long>, JpaSpec
               left join fetch d.fiscal
             where d.id = :id""")
     Optional<Demanda> buscarDetalhe(@Param("id") Long id);
+
+    /** Lock pessimista para editar/excluir (sem fetch join: o Oracle não aceita FOR UPDATE com outer join). */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select d from Demanda d where d.id = :id")
+    Optional<Demanda> buscarParaEscrita(@Param("id") Long id);
 }

@@ -28,6 +28,7 @@ import br.com.nexusbuilderlab.semanexus.security.UsuarioAutenticado;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
@@ -104,7 +105,7 @@ public class DemandaService {
     @Transactional
     public DemandaDetalhe editar(UsuarioAutenticado ator, Long id, DemandaRequest pedido) {
         LocalDate hoje = hoje();
-        Demanda demanda = obter(id);
+        Demanda demanda = obterParaEscrita(id);
         if (demanda.getStatus() != StatusDemanda.PENDENTE && demanda.getStatus() != StatusDemanda.EM_TRIAGEM) {
             throw new ConflitoException("A demanda só pode ser editada nos status Pendente ou Em triagem "
                     + "(status atual: " + demanda.getStatus().rotulo() + ").");
@@ -127,14 +128,14 @@ public class DemandaService {
     /** Exclusão lógica; somente em PENDENTE (senão 409). A autorização (ADMIN) é aplicada no controller. */
     @Transactional
     public void excluir(UsuarioAutenticado ator, Long id) {
-        Demanda demanda = obter(id);
+        Demanda demanda = obterParaEscrita(id);
         if (demanda.getStatus() != StatusDemanda.PENDENTE) {
             throw new ConflitoException("Somente demandas Pendentes podem ser excluídas "
                     + "(status atual: " + demanda.getStatus().rotulo() + ").");
         }
         registrarHistorico(demanda, TipoHistorico.EXCLUSAO, demanda.getStatus(), null,
                 "Demanda excluída logicamente.", usuario(ator));
-        demanda.excluir();
+        demanda.excluir(LocalDateTime.now(clock.withZone(FUSO)));
         demandas.save(demanda);
         auditoria.registrar("EXCLUIR", ENTIDADE, String.valueOf(demanda.getId()),
                 "Demanda " + demanda.getNumero() + " excluída logicamente.");
@@ -180,6 +181,11 @@ public class DemandaService {
 
     private Demanda obter(Long id) {
         return demandas.buscarDetalhe(id).orElseThrow(() -> RecursoNaoEncontradoException.de("Demanda", id));
+    }
+
+    /** Lê a demanda com lock pessimista (SELECT ... FOR UPDATE): serializa edições/exclusões concorrentes. */
+    private Demanda obterParaEscrita(Long id) {
+        return demandas.buscarParaEscrita(id).orElseThrow(() -> RecursoNaoEncontradoException.de("Demanda", id));
     }
 
     private Usuario usuario(UsuarioAutenticado ator) {

@@ -414,6 +414,21 @@ class EndpointsContratoWebMvcTest {
     }
 
     @Test
+    void cadastroValidoResponde201ComLocationENumero() throws Exception {
+        var criada = new br.com.nexusbuilderlab.semanexus.flux.demanda.dto.DemandaDetalhe(7L, "DEM-2026/0007",
+                "Título de teste", "Descrição fictícia", null, null, null, null, null, null, LocalDate.now(), null,
+                null, null, StatusDemanda.PENDENTE, false, null, null, null, null, null, null, null, 0, null, null,
+                null);
+        when(demandas.cadastrar(any(), any())).thenReturn(criada);
+        como(Perfil.ANALISTA).faz(post("/api/demandas").contentType(MediaType.APPLICATION_JSON).content(demandaValida()))
+                .andExpect(status().isCreated())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                        .string("Location", org.hamcrest.Matchers.endsWith("/api/demandas/7")))
+                .andExpect(jsonPath("$.numero").value("DEM-2026/0007"))
+                .andExpect(jsonPath("$.status").value("PENDENTE"));
+    }
+
+    @Test
     void edicaoDeDemandaUsaOMesmoContratoDoCadastro() throws Exception {
         como(Perfil.GESTOR).faz(put("/api/demandas/1").contentType(MediaType.APPLICATION_JSON).content(demandaValida()))
                 .andExpect(status().isOk());
