@@ -3,6 +3,7 @@ package br.com.nexusbuilderlab.semanexus.docia.documento.dto;
 import br.com.nexusbuilderlab.semanexus.common.dto.DemandaRef;
 import br.com.nexusbuilderlab.semanexus.common.dto.MunicipioRef;
 import br.com.nexusbuilderlab.semanexus.common.dto.UsuarioRef;
+import br.com.nexusbuilderlab.semanexus.core.auditoria.dto.AuditoriaDto;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -23,10 +24,12 @@ public record DocumentoDetalhe(
         @Schema(example = "application/pdf") String mime,
         @Schema(description = "Tamanho em bytes", example = "184320") long tamanho,
         @Schema(description = "SHA-256 do arquivo (hex)") String sha256,
-        @Schema(description = "Texto extraído (PDF, TXT, MD, CSV). Ausente quando não houve extração (ex.: DOCX no MVP)",
+        @Schema(description = "Trecho do texto extraído (até 2000 caracteres; PDF, TXT, MD, CSV). Ausente quando não houve extração (ex.: DOCX no MVP)",
                 nullable = true) String textoExtraido,
         @Schema(description = "Demandas às quais o documento está vinculado") List<DemandaRef> demandas,
         UsuarioRef responsavel,
         LocalDateTime criadoEm,
-        @Schema(nullable = true) LocalDateTime atualizadoEm) {
+        @Schema(nullable = true) LocalDateTime atualizadoEm,
+        @Schema(description = "Histórico do documento (auditoria: upload, vínculos), do mais recente ao mais antigo")
+        List<AuditoriaDto> historico) {
 }

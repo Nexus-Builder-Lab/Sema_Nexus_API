@@ -1,8 +1,6 @@
 package br.com.nexusbuilderlab.semanexus.docia.documento;
 
 import br.com.nexusbuilderlab.semanexus.common.dto.PageResponse;
-import br.com.nexusbuilderlab.semanexus.common.exception.ContratoPendenteException;
-import br.com.nexusbuilderlab.semanexus.common.openapi.ContratoPendente;
 import br.com.nexusbuilderlab.semanexus.docia.documento.dto.DocumentoDetalhe;
 import br.com.nexusbuilderlab.semanexus.docia.documento.dto.DocumentoFiltro;
 import br.com.nexusbuilderlab.semanexus.docia.documento.dto.DocumentoResumo;
@@ -34,8 +32,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 /**
- * Contrato do DocIA (documentos). Upload e download (#15) implementados; biblioteca,
- * filtros e detalhes respondem {@code 501} até a Issue #16 ({@link ContratoPendente}).
+ * DocIA (documentos): upload e download (#15); biblioteca, filtros e detalhes (#16).
  * O arquivo fica no volume ({@code STORAGE_DIR}); o Oracle guarda só metadados e texto extraído.
  */
 @RestController
@@ -68,17 +65,15 @@ public class DocumentoController {
             description = "Qualquer perfil autenticado. Ordenação: `sort=campo,asc|desc` "
                     + "(campos: titulo, dataDocumento, categoria, criadoEm). A pesquisa é textual, não semântica.")
     @GetMapping
-    @ContratoPendente(issue = 16)
     public PageResponse<DocumentoResumo> listar(@ParameterObject DocumentoFiltro filtro, @ParameterObject Pageable paginacao) {
-        throw new ContratoPendenteException(16);
+        return service.listar(filtro, paginacao);
     }
 
     @Operation(summary = "Detalhes do documento, com texto extraído e demandas vinculadas",
             description = "Qualquer perfil autenticado.")
     @GetMapping("/{id}")
-    @ContratoPendente(issue = 16)
     public DocumentoDetalhe detalhar(@PathVariable Long id) {
-        throw new ContratoPendenteException(16);
+        return service.detalhar(id);
     }
 
     @Operation(summary = "Baixa o arquivo original",

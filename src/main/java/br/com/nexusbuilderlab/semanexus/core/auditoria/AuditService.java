@@ -72,6 +72,14 @@ public class AuditService {
         return lista.stream().map(a -> paraDto(a, nomes)).toList();
     }
 
+    /** Histórico (até 50 registros, do mais recente) de uma entidade específica. */
+    @Transactional(readOnly = true)
+    public List<AuditoriaDto> historicoDaEntidade(String entidade, String entidadeId) {
+        List<Auditoria> lista = repositorio.findTop50ByEntidadeAndEntidadeIdOrderByDataDescIdDesc(entidade, entidadeId);
+        Map<Long, String> nomes = nomes(lista);
+        return lista.stream().map(a -> paraDto(a, nomes)).toList();
+    }
+
     private static Specification<Auditoria> especificacao(AuditoriaFiltro f) {
         return (raiz, consulta, cb) -> {
             List<Predicate> ps = new ArrayList<>();
