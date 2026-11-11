@@ -10,4 +10,7 @@ public interface DocumentoRepository extends JpaRepository<Documento, Long>, Jpa
 
     @Query("select d from Documento d where d.id = :id and d.excluidoEm is null")
     Optional<Documento> buscarAtivo(@Param("id") Long id);
+
+    @Query("select count(d) from Documento d where d.excluidoEm is null")
+    long contarAtivos();
 }

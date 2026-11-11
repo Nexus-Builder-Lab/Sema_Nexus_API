@@ -39,6 +39,21 @@ Regras: essas contas existem **apenas** nos profiles `demo`/`dev`, são gravadas
 
 Use os **mesmos registros** do começo ao fim (cenário definido na Issue API#18).
 
+## Massa e cenário fixo do seed (Implementado — Issue #18)
+
+Após `demo-reset` (ou na primeira subida `demo`/`dev`) a API cria sempre o mesmo conjunto fictício: **120 demandas** em 26 municípios de MT (Amazônia 11, Cerrado 10, Pantanal 5), nos 7 status (10 Pendente · 10 Em triagem · 12 Aguardando distribuição · 16 Distribuída · 26 Em andamento · 16 Aguardando conclusão · 30 Finalizada), com fiscalização registrada nas 46 em Aguardando conclusão/Finalizada, algumas atrasadas, e **12 documentos** (PDF/TXT) vinculados. As datas são relativas ao dia da subida (últimos 12 meses; queimadas concentradas em jul–out); o **número** `DEM-AAAA/NNNN` depende do dia, por isso o roteiro identifica os registros pelo **título**. Rodar o seed de novo não duplica nada.
+
+| Chave | Demanda (título, fictícia) | Status | Uso no roteiro | Documentos vinculados |
+|---|---|---|---|---|
+| C4 | Descarte irregular de resíduos — Sinop (cenário de demonstração) | Pendente | Triagem ao vivo | Termo de Denúncia — Sinop |
+| C3 | Pesca irregular em período de defeso — Barão de Melgaço (cenário de demonstração) | Aguardando distribuição | Distribuição ao vivo | Ofício de Solicitação de Vistoria — Barão de Melgaço |
+| C2 | Desmatamento ilegal em área de floresta — Colniza (cenário de demonstração) | Em andamento | Registro de fiscalização ao vivo | Relatório de Monitoramento de Desmatamento — Colniza; Guia de Procedimentos de Fiscalização Ambiental |
+| C1 | Queimada em pastagem e vegetação nativa — Cáceres (cenário de demonstração) | Aguardando conclusão | Conclusão pelo gestor; comparação de versões | **Parecer Técnico nº 014/2026 — versão 1** e **versão 2**; Relatório de Vistoria — Cáceres |
+| C6 | Foco de queimada com prazo vencido — Poconé (cenário de demonstração) | Distribuída (atrasada) | Indicador de atrasadas | Nota Técnica — Focos de Calor em Julho a Outubro; Instrução Normativa Demonstrativa sobre Queimadas; Boletim Mensal de Focos de Calor (simulado) |
+| C5 | Captação irregular de recursos hídricos — Primavera do Leste (cenário de demonstração) | Finalizada | Histórico completo | Laudo de Recursos Hídricos — Primavera do Leste; Relatório Final de Fiscalização — Primavera do Leste |
+
+Pesquisas sugeridas no DocIA: `queimada`, `parecer`, `outorga`, `defeso`. Todos os textos trazem "AMBIENTE DEMONSTRATIVO — DADOS FICTÍCIOS".
+
 ## Limitações e futuro (a confirmar em 26/11)
 
 - Dados exclusivamente fictícios; sem integração com sistemas institucionais.

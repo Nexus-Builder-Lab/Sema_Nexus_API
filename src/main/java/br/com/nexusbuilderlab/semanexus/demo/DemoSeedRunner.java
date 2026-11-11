@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
  * outro profile este bean não é carregado. Não registra senhas nem hashes.
  */
 @Component
+@org.springframework.core.annotation.Order(10)
 @Profile(DemoSeedService.PROFILES)
 public class DemoSeedRunner implements ApplicationRunner {
 

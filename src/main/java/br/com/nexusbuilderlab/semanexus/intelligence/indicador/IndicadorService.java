@@ -1,5 +1,6 @@
 package br.com.nexusbuilderlab.semanexus.intelligence.indicador;
 
+import br.com.nexusbuilderlab.semanexus.docia.documento.DocumentoRepository;
 import br.com.nexusbuilderlab.semanexus.common.dto.AvisoDemonstrativo;
 import br.com.nexusbuilderlab.semanexus.core.catalogo.CategoriaFiscalizacao;
 import br.com.nexusbuilderlab.semanexus.core.catalogo.StatusDemanda;
@@ -39,14 +40,21 @@ public class IndicadorService {
 
     private final IndicadorRepository repositorio;
     private final Clock clock;
+    private final DocumentoRepository documentos;
 
-    public IndicadorService(IndicadorRepository repositorio, Clock clock) {
+    public IndicadorService(IndicadorRepository repositorio, Clock clock, DocumentoRepository documentos) {
+        this.documentos = documentos;
         this.repositorio = repositorio;
         this.clock = clock;
     }
 
+    /** Total de documentos ativos da biblioteca DocIA (visão institucional, sem filtros). */
+    public long totalDocumentos() {
+        return documentos.contarAtivos();
+    }
+
     public ResumoIndicadores resumo(IndicadorFiltro filtro) {
-        return resumir(repositorio.demandas(filtro), repositorio.contarFiscalizacoes(filtro), 0L);
+        return resumir(repositorio.demandas(filtro), repositorio.contarFiscalizacoes(filtro), totalDocumentos());
     }
 
     /** Resumo com contagem de documentos informada (a biblioteca documental chega com a Issue #15: até lá, 0). */

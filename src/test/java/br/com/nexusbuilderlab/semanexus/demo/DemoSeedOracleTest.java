@@ -36,6 +36,15 @@ class DemoSeedOracleTest {
     @ServiceConnection
     static final OracleContainer ORACLE = new OracleContainer("gvenzl/oracle-free:23-slim-faststart");
 
+    @org.springframework.test.context.DynamicPropertySource
+    static void armazenamento(org.springframework.test.context.DynamicPropertyRegistry registry)
+            throws java.io.IOException {
+        var dir = java.nio.file.Files.createTempDirectory("semanexus-demo");
+        registry.add("semanexus.storage.dir", dir::toString);
+    }
+
+    @Autowired
+    DemoMassaService massa;
     @Autowired
     DemoSeedService seed;
     @Autowired
@@ -75,6 +84,33 @@ class DemoSeedOracleTest {
                 "SELECT COUNT(*) FROM USUARIO WHERE EMAIL = 'admin@admin.com' AND PERFIL = 'ADMIN' AND ATIVO AND DEMO",
                 Integer.class)).isEqualTo(1);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM USUARIO WHERE NOT DEMO", Integer.class)).isZero();
+    }
+
+    @Test
+    void massaDemonstrativaCobreStatusBiomasEDocumentosERepetidaNaoDuplica() {
+        int demandas = contar("DEMANDA");
+        int documentos = contar("DOCUMENTO");
+        int historico = contar("DEMANDA_HISTORICO");
+        assertThat(demandas).isEqualTo(DemoMassaGerador.TOTAL);
+        assertThat(documentos).isEqualTo(12);
+        assertThat(jdbc.queryForObject("SELECT COUNT(DISTINCT STATUS) FROM DEMANDA", Integer.class)).isEqualTo(7);
+        assertThat(jdbc.queryForObject("SELECT COUNT(DISTINCT m.BIOMA) FROM DEMANDA d JOIN MUNICIPIO m "
+                + "ON m.ID = d.MUNICIPIO_ID", Integer.class)).isEqualTo(3);
+        assertThat(jdbc.queryForObject("SELECT COUNT(DISTINCT MUNICIPIO_ID) FROM DEMANDA", Integer.class))
+                .isGreaterThanOrEqualTo(25);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM DEMANDA WHERE PRAZO < TRUNC(SYSDATE) "
+                + "AND STATUS <> 'FINALIZADA'", Integer.class)).isPositive();
+        assertThat(contar("FISCALIZACAO")).isEqualTo(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM DEMANDA WHERE STATUS IN ('AGUARDANDO_CONCLUSAO', 'FINALIZADA')", Integer.class));
+        assertThat(contar("DOCUMENTO_DEMANDA")).isEqualTo(12);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM DOCUMENTO WHERE TITULO LIKE 'Parecer Técnico nº 014/2026%'",
+                Integer.class)).isEqualTo(2);
+
+        assertThat(massa.aplicar().vazio()).isTrue();
+
+        assertThat(contar("DEMANDA")).isEqualTo(demandas);
+        assertThat(contar("DOCUMENTO")).isEqualTo(documentos);
+        assertThat(contar("DEMANDA_HISTORICO")).isEqualTo(historico);
     }
 
     @Test
