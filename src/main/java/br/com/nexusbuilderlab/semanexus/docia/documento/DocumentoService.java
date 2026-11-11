@@ -9,7 +9,11 @@ import br.com.nexusbuilderlab.semanexus.core.auditoria.AuditService;
 import br.com.nexusbuilderlab.semanexus.core.municipio.Municipio;
 import br.com.nexusbuilderlab.semanexus.core.municipio.MunicipioRepository;
 import br.com.nexusbuilderlab.semanexus.core.usuario.UsuarioRepository;
+import br.com.nexusbuilderlab.semanexus.common.dto.PageResponse;
+import br.com.nexusbuilderlab.semanexus.common.exception.ConflitoException;
 import br.com.nexusbuilderlab.semanexus.docia.documento.dto.DocumentoDetalhe;
+import br.com.nexusbuilderlab.semanexus.docia.documento.dto.DocumentoFiltro;
+import br.com.nexusbuilderlab.semanexus.docia.documento.dto.DocumentoResumo;
 import br.com.nexusbuilderlab.semanexus.docia.documento.dto.DocumentoUploadRequest;
 import br.com.nexusbuilderlab.semanexus.docia.storage.StorageService;
 import br.com.nexusbuilderlab.semanexus.flux.demanda.DemandaService;
@@ -25,6 +29,11 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,6 +44,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class DocumentoService {
 
     static final String ENTIDADE = "DOCUMENTO";
+    static final int TRECHO_MAX = 2000;
     static final long LIMITE_BYTES = 10L * 1024 * 1024;
     private static final Logger log = LoggerFactory.getLogger(DocumentoService.class);
 
@@ -121,6 +131,113 @@ public class DocumentoService {
         }
     }
 
+    // ------------------------------------------------------------------ biblioteca
+
+    @Transactional(readOnly = true)
+    public PageResponse<DocumentoResumo> listar(DocumentoFiltro filtro, Pageable paginacao) {
+        if (filtro.de() != null && filtro.ate() != null && filtro.de().isAfter(filtro.ate())) {
+            throw new DadosInvalidosException("de", "A data inicial não pode ser posterior à data final.");
+        }
+        Sort ordenacao = ordenacao(paginacao.getSort());
+        List<Long> ids = null;
+        if (filtro.demandaId() != null) {
+            ids = jdbc.queryForList("SELECT DOCUMENTO_ID FROM DOCUMENTO_DEMANDA WHERE DEMANDA_ID = ?", Long.class,
+                    filtro.demandaId());
+        }
+        if (filtro.q() != null && !filtro.q().isBlank()) {
+            String padrao = DocumentoSpecification.padraoBusca(filtro.q());
+            List<Long> achados = jdbc.queryForList(DocumentoSpecification.SQL_BUSCA, Long.class,
+                    padrao, padrao, padrao, padrao);
+            if (ids == null) {
+                ids = achados;
+            } else {
+                ids.retainAll(achados);
+            }
+        }
+        Page<Documento> pagina = documentos.findAll(DocumentoSpecification.listagem(filtro, ids, ordenacao),
+                PageRequest.of(paginacao.getPageNumber(), paginacao.getPageSize()));
+        return PageResponse.of(pagina, DocumentoService::resumo);
+    }
+
+    @Transactional(readOnly = true)
+    public DocumentoDetalhe detalhar(Long id) {
+        return detalhe(ativo(id));
+    }
+
+    /** Documentos vinculados à demanda (404/403 conforme a demanda e o escopo do fiscal). */
+    @Transactional(readOnly = true)
+    public List<DocumentoResumo> listarDaDemanda(UsuarioAutenticado ator, Long demandaId) {
+        demandas.detalhar(ator, demandaId);
+        return listar(new DocumentoFiltro(null, null, null, null, demandaId, null, null),
+                PageRequest.of(0, 100, Sort.by(Sort.Order.desc("criadoEm")))).content();
+    }
+
+    @Transactional
+    public DocumentoResumo vincular(UsuarioAutenticado ator, Long demandaId, Long documentoId) {
+        demandas.detalhar(ator, demandaId);
+        Documento d = ativo(documentoId);
+        Integer existentes = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM DOCUMENTO_DEMANDA WHERE DOCUMENTO_ID = ? AND DEMANDA_ID = ?", Integer.class,
+                documentoId, demandaId);
+        if (existentes != null && existentes > 0) {
+            throw new ConflitoException("O documento já está vinculado a esta demanda.");
+        }
+        try {
+            jdbc.update("INSERT INTO DOCUMENTO_DEMANDA (DOCUMENTO_ID, DEMANDA_ID, VINCULADO_POR) VALUES (?, ?, ?)",
+                    documentoId, demandaId, ator.id());
+        } catch (DuplicateKeyException e) {
+            throw new ConflitoException("O documento já está vinculado a esta demanda.");
+        }
+        demandas.registrarEventoDocumento(ator, demandaId,
+                "Documento vinculado: " + d.getTitulo() + " (#" + documentoId + ").");
+        auditoria.registrar("VINCULAR", ENTIDADE, String.valueOf(documentoId), "Vinculado à demanda " + demandaId);
+        return resumo(d);
+    }
+
+    @Transactional
+    public void desvincular(UsuarioAutenticado ator, Long demandaId, Long documentoId) {
+        demandas.detalhar(ator, demandaId);
+        Documento d = ativo(documentoId);
+        int removidos = jdbc.update("DELETE FROM DOCUMENTO_DEMANDA WHERE DOCUMENTO_ID = ? AND DEMANDA_ID = ?",
+                documentoId, demandaId);
+        if (removidos == 0) {
+            throw RecursoNaoEncontradoException.de("Vínculo do documento com a demanda", documentoId);
+        }
+        demandas.registrarEventoDocumento(ator, demandaId,
+                "Documento desvinculado: " + d.getTitulo() + " (#" + documentoId + ").");
+        auditoria.registrar("DESVINCULAR", ENTIDADE, String.valueOf(documentoId),
+                "Desvinculado da demanda " + demandaId);
+    }
+
+    private Documento ativo(Long id) {
+        return documentos.buscarAtivo(id).orElseThrow(() -> RecursoNaoEncontradoException.de("Documento", id));
+    }
+
+    private static Sort ordenacao(Sort pedida) {
+        if (pedida.isUnsorted()) {
+            return Sort.by(Sort.Order.desc("criadoEm"));
+        }
+        List<String> invalidos = pedida.stream().map(Sort.Order::getProperty)
+                .filter(p -> !DocumentoSpecification.CAMPOS_ORDENAVEIS.contains(p)).toList();
+        if (!invalidos.isEmpty()) {
+            throw new DadosInvalidosException("sort", "Campo de ordenação inválido: " + invalidos.get(0)
+                    + ". Use: " + DocumentoSpecification.CAMPOS_ORDENAVEIS.stream().sorted()
+                    .collect(Collectors.joining(", ")) + ".");
+        }
+        return pedida;
+    }
+
+    private static DocumentoResumo resumo(Documento d) {
+        Municipio m = d.getMunicipio();
+        return new DocumentoResumo(d.getId(), d.getTitulo(), d.getCategoria(), d.getTipo(), d.getDataDocumento(),
+                m == null ? null : new MunicipioRef(m.getId(), m.getNome(), m.getBioma()), listaPalavras(d),
+                d.getNomeArquivo(), d.getMime(), d.getTamanho(), UsuarioRef.de(d.getResponsavel()), d.getCriadoEm());
+    }
+
+    private static List<String> listaPalavras(Documento d) {
+        return d.getPalavrasChave() == null ? List.of() : Arrays.asList(d.getPalavrasChave().split(","));
+    }
+
     // ------------------------------------------------------------------ apoio
 
     /** Remove qualquer caminho e caracteres de controle; o nome original só vai para o banco, nunca para o disco. */
@@ -187,10 +304,13 @@ public class DocumentoService {
                         + "WHERE dd.DOCUMENTO_ID = ? AND dm.EXCLUIDO_EM IS NULL ORDER BY dm.ID",
                 (rs, n) -> new DemandaRef(rs.getLong(1), rs.getString(2), rs.getString(3)), d.getId());
         Municipio m = d.getMunicipio();
-        List<String> palavras = d.getPalavrasChave() == null ? List.of() : Arrays.asList(d.getPalavrasChave().split(","));
+        List<String> palavras = listaPalavras(d);
+        String texto = d.getTextoExtraido();
+        String trecho = texto == null || texto.length() <= TRECHO_MAX ? texto : texto.substring(0, TRECHO_MAX);
         return new DocumentoDetalhe(d.getId(), d.getTitulo(), d.getDescricao(), d.getCategoria(), d.getTipo(),
                 d.getDataDocumento(), m == null ? null : new MunicipioRef(m.getId(), m.getNome(), m.getBioma()),
-                palavras, d.getNomeArquivo(), d.getMime(), d.getTamanho(), d.getSha256(), d.getTextoExtraido(), refs,
-                UsuarioRef.de(d.getResponsavel()), d.getCriadoEm(), d.getAtualizadoEm());
+                palavras, d.getNomeArquivo(), d.getMime(), d.getTamanho(), d.getSha256(), trecho, refs,
+                UsuarioRef.de(d.getResponsavel()), d.getCriadoEm(), d.getAtualizadoEm(),
+                auditoria.historicoDaEntidade(ENTIDADE, String.valueOf(d.getId())));
     }
 }

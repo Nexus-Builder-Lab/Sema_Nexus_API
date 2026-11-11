@@ -139,4 +139,31 @@ class DocumentoServiceTest {
                 .isInstanceOf(IllegalStateException.class);
         verify(storage).delete("2026/11/uuid");
     }
+
+    @Test
+    void normalizarRemoveAcentosECaixa() {
+        assertThat(DocumentoSpecification.normalizar("FISCALIZAÇÃO Ação")).isEqualTo("fiscalizacao acao");
+        assertThat(DocumentoSpecification.escaparLike("10%_a")).isEqualTo("10\\%\\_a");
+    }
+
+    @Test
+    void vincularDuplicadoResponde409SemInserir() {
+        Documento d = mock(Documento.class);
+        when(d.getTitulo()).thenReturn("Laudo");
+        when(documentos.buscarAtivo(7L)).thenReturn(Optional.of(d));
+        when(jdbc.queryForObject(any(String.class), org.mockito.ArgumentMatchers.eq(Integer.class), any(Object[].class)))
+                .thenReturn(1);
+        assertThatThrownBy(() -> service.vincular(ator, 1L, 7L))
+                .isInstanceOf(br.com.nexusbuilderlab.semanexus.common.exception.ConflitoException.class);
+        verify(jdbc, never()).update(any(String.class), any(Object[].class));
+    }
+
+    @Test
+    void desvincularInexistenteResponde404() {
+        Documento d = mock(Documento.class);
+        when(documentos.buscarAtivo(7L)).thenReturn(Optional.of(d));
+        when(jdbc.update(any(String.class), any(Object[].class))).thenReturn(0);
+        assertThatThrownBy(() -> service.desvincular(ator, 1L, 7L))
+                .isInstanceOf(br.com.nexusbuilderlab.semanexus.common.exception.RecursoNaoEncontradoException.class);
+    }
 }

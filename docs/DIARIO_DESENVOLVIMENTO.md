@@ -196,3 +196,12 @@
 - **Testes:** a confirmar pelo validador (implementador: DocumentoServiceTest, LocalFileStorageServiceTest, EndpointsContratoWebMvcTest, ContratoOpenApiTest e DocumentoOracleTest `-Poracle`: 0 falhas).
 - **Pendências:** persistência após `docker compose down`/`up` não verificada (volume `uploads` já está no compose); `totalDocumentos` do dashboard (#17) ainda 0, a ligar na #16.
 
+
+## 2026-11-11 · GH-16 · DocIA: biblioteca documental, pesquisa textual, detalhes e vínculo com demandas
+- **PR:** (a preencher pelo orquestrador) · **Status:** aguardando validação
+- **Agentes que atuaram:** `implementador-backend`
+- **O que foi feito:** implementados `GET /api/documentos` (paginado; `q`, categoria, tipo, município, demanda, `de`/`ate`, ordenação), `GET /api/documentos/{id}` (metadados, trecho do texto, demandas vinculadas, histórico) e `GET|POST|DELETE /api/demandas/{id}/documentos` (removido `@ContratoPendente`; `PENDENTES` do `ContratoOpenApiTest` ficou vazio). Vínculo/desvínculo gravam evento `DOCUMENTO` no histórico da demanda (`DemandaService.registrarEventoDocumento`) e `VINCULAR`/`DESVINCULAR` na auditoria; duplicado → 409.
+- **Decisões técnicas:** pesquisa ignora caixa e acento via `TRANSLATE(coluna, ...) LIKE ? ESCAPE ''` em SQL parametrizado (a Criteria API do Hibernate recusa funções de texto sobre CLOB), com o termo normalizado no Java (`Normalizer`); ids encontrados alimentam a Specification dos demais filtros; `BINARY_AI` não foi usado para não alterar NLS da sessão; mantido o contrato publicado na #7 (`POST /api/demandas/{id}/documentos` com corpo `{documentoId}`, não `/{docId}`); `DocumentoDetalhe` ganhou `historico` (aditivo) e `textoExtraido` passou a ser trecho de 2000 caracteres; `AuditService.historicoDaEntidade` (até 50).
+- **Arquivos principais:** `docia/documento/{DocumentoService,DocumentoController,DemandaDocumentoController,DocumentoSpecification,DocumentoRepository}.java`, `dto/DocumentoDetalhe.java`, `flux/demanda/DemandaService.java`, `core/auditoria/{AuditService,AuditoriaRepository}.java`, testes `DocumentoServiceTest`, `DocumentoOracleTest`, `EndpointsContratoWebMvcTest`, `ContratoOpenApiTest`, `docs/API.md`.
+- **Testes:** a confirmar pelo validador (implementador: DocumentoServiceTest, EndpointsContratoWebMvcTest, ContratoOpenApiTest, DemandaServiceTest, AuditServiceTest = 75 testes, 0 falhas; DocumentoOracleTest `-Poracle` = 3, 0 falhas).
+- **Pendências:** `totalDocumentos` do dashboard (#17) continua 0 (fora do escopo da #16); busca é textual, semântica é P2.

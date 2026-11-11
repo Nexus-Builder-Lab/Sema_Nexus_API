@@ -273,18 +273,6 @@ class EndpointsContratoWebMvcTest {
     // ------------------------------------------------------------------ contratos pendentes (501)
 
     @Test
-    void endpointPendenteRespondeNaoImplementadoComAIssue() throws Exception {
-        como(Perfil.FISCAL).faz(get("/api/documentos/1"))
-                .andExpect(status().isNotImplemented())
-                .andExpect(content().contentTypeCompatibleWith(PROBLEM_JSON))
-                .andExpect(jsonPath("$.status").value(501))
-                .andExpect(jsonPath("$.title").value("Endpoint ainda não implementado"))
-                .andExpect(jsonPath("$.type").value("https://semanexus.demo/problemas/nao-implementado"))
-                .andExpect(jsonPath("$.issue").value(16))
-                .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("Issue #16")));
-    }
-
-    @Test
     void endpointsPendentesExigemAutenticacao() throws Exception {
         mvc.perform(get("/api/demandas")).andExpect(status().isUnauthorized());
         mvc.perform(get("/api/documentos")).andExpect(status().isUnauthorized());
@@ -405,7 +393,7 @@ class EndpointsContratoWebMvcTest {
     void uploadMultipartExigeArquivoEPerfilComEscrita() throws Exception {
         when(documentoService.enviar(any(), any())).thenReturn(new DocumentoDetalhe(7L, "Laudo de teste", null,
                 "Relatório técnico", "Laudo", LocalDate.now(), null, List.of(), "laudo.txt", "text/plain", 3L, "abc",
-                "texto", List.of(), null, null, null));
+                "texto", List.of(), null, null, null, List.of()));
         como(Perfil.ANALISTA).faz(uploadValido())
                 .andExpect(status().isCreated()).andExpect(header().string("Location", org.hamcrest.Matchers.endsWith("/api/documentos/7")))
                 .andExpect(jsonPath("$.id").value(7));
@@ -442,20 +430,22 @@ class EndpointsContratoWebMvcTest {
 
     @Test
     void vinculoDeDocumentoExigeCorpoEPerfilComEscrita() throws Exception {
-        como(Perfil.CONSULTA).faz(get("/api/demandas/1/documentos")).andExpect(status().isNotImplemented());
+        when(documentoService.listarDaDemanda(any(), org.mockito.ArgumentMatchers.eq(1L))).thenReturn(List.of());
+        como(Perfil.CONSULTA).faz(get("/api/demandas/1/documentos")).andExpect(status().isOk())
+                .andExpect(content().json("[]"));
         como(Perfil.CONSULTA).faz(post("/api/demandas/1/documentos").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"documentoId\":7}")).andExpect(status().isForbidden());
         como(Perfil.ANALISTA).faz(post("/api/demandas/1/documentos").contentType(MediaType.APPLICATION_JSON)
                 .content("{}")).andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors[0].campo").value("documentoId"));
         como(Perfil.ANALISTA).faz(post("/api/demandas/1/documentos").contentType(MediaType.APPLICATION_JSON)
-                .content("{\"documentoId\":7}")).andExpect(status().isNotImplemented())
-                .andExpect(jsonPath("$.issue").value(16));
-        como(Perfil.FISCAL).faz(delete("/api/demandas/1/documentos/7")).andExpect(status().isNotImplemented());
+                .content("{\"documentoId\":7}")).andExpect(status().isCreated());
+        como(Perfil.CONSULTA).faz(delete("/api/demandas/1/documentos/7")).andExpect(status().isForbidden());
+        como(Perfil.FISCAL).faz(delete("/api/demandas/1/documentos/7")).andExpect(status().isNoContent());
     }
 
     @Test
-    void downloadDeDocumentoExigeAutenticacaoEDetalhesChegamAo501() throws Exception {
+    void downloadEDetalhesDeDocumento() throws Exception {
         mvc.perform(get("/api/documentos/7/arquivo")).andExpect(status().isUnauthorized());
         when(documentoService.baixar(7L)).thenReturn(
                 new DocumentoService.ArquivoBaixado("laudo ç.txt", "text/plain", "abc".getBytes()));
@@ -463,10 +453,15 @@ class EndpointsContratoWebMvcTest {
                 .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.startsWith("attachment")))
                 .andExpect(header().string("X-Content-Type-Options", "nosniff"))
                 .andExpect(content().bytes("abc".getBytes()));
-        como(Perfil.CONSULTA).faz(get("/api/documentos/7")).andExpect(status().isNotImplemented())
-                .andExpect(jsonPath("$.issue").value(16));
+        when(documentoService.detalhar(7L)).thenReturn(new DocumentoDetalhe(7L, "Laudo", null, "Relatório técnico",
+                "Laudo", LocalDate.now(), null, List.of(), "laudo.txt", "text/plain", 3L, "abc", "texto", List.of(),
+                null, null, null, List.of()));
+        como(Perfil.CONSULTA).faz(get("/api/documentos/7")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(7));
+        when(documentoService.listar(any(), any())).thenReturn(
+                new br.com.nexusbuilderlab.semanexus.common.dto.PageResponse<>(List.of(), 0, 20, 0, 0));
         como(Perfil.CONSULTA).faz(get("/api/documentos").param("q", "queimada").param("demandaId", "1"))
-                .andExpect(status().isNotImplemented());
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(0));
     }
 
     @Test

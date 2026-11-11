@@ -141,6 +141,18 @@ public class DemandaService {
                 "Demanda " + demanda.getNumero() + " excluída logicamente.");
     }
 
+    /**
+     * Registra no histórico da demanda o vínculo/desvínculo de documento (tipo DOCUMENTO). Respeita o escopo
+     * do FISCAL (403) e devolve 404 se a demanda não existe. Usado pelo DocIA.
+     */
+    @Transactional
+    public void registrarEventoDocumento(UsuarioAutenticado ator, Long id, String texto) {
+        Demanda demanda = obterParaEscrita(id);
+        verificarEscopo(ator, demanda);
+        registrarHistorico(demanda, TipoHistorico.DOCUMENTO, demanda.getStatus(), demanda.getStatus(), texto,
+                usuario(ator));
+    }
+
     // ------------------------------------------------------------------ leitura
 
     /** Lista com filtros combináveis; o perfil FISCAL só enxerga as demandas da sua equipe ou atribuídas a ele. */
