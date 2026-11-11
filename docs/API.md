@@ -54,8 +54,8 @@ A ordem de avaliação é **autenticação (401) → perfil (403) → validaçã
 | POST · GET | `/api/documentos` (multipart; Admin, Gestor, Fiscal, Analista) · `/api/documentos/{id}/arquivo` | ver ARCHITECTURE §6 | #15 | 📄 |
 | GET | `/api/documentos` (biblioteca com filtros) · `/api/documentos/{id}` | qualquer autenticado | #16 | 📄 |
 | GET · POST · DELETE | `/api/demandas/{id}/documentos[/{documentoId}]` | ver ARCHITECTURE §6 | #16 | 📄 |
-| GET | `/api/intelligence/{resumo,serie-mensal,por-municipio,por-bioma,por-categoria,por-situacao,mapa}` | qualquer autenticado | #17 | 📄 |
-| GET | `/api/dashboard` | qualquer autenticado | #17 | 📄 |
+| GET | `/api/intelligence/{resumo,serie-mensal,por-municipio,por-bioma,por-categoria,por-situacao,mapa}` | qualquer autenticado | #17 | ✅ |
+| GET | `/api/dashboard` | qualquer autenticado | #17 | ✅ |
 | GET | `/actuator/health` | público | #1 | ✅ |
 
 Cada operação do contrato publicado traz no OpenAPI `x-implementado: false` e `x-issue: <n>`, além do aviso no início da `description`. Quando a Issue implementa o endpoint, remove-se `@ContratoPendente` do método e a operação deixa de declarar `501` (o contrato — caminhos, DTOs e erros — **não** muda; mudança incompatível exige avisar o Web e atualizar este arquivo). O teste `ContratoOpenApiTest` mantém a lista de pendentes: ao implementar um endpoint, retire-o de `PENDENTES`.
@@ -105,7 +105,7 @@ Listagem `GET /api/demandas`: filtros `q` (número ou título), `status`, `munic
 
 **Documentos (DocIA)** — upload `multipart/form-data` com `arquivo` (pdf, txt, md, csv ou docx; até 10 MB) e `titulo`, `descricao?`, `categoria`, `tipo`, `dataDocumento`, `municipioId?`, `palavrasChave?`, `demandaId?` (o responsável é o usuário autenticado). Listagem `GET /api/documentos`: `q` (título, descrição, palavras-chave e conteúdo — busca **textual**, não semântica), `categoria`, `tipo`, `municipioId`, `demandaId`, `de`, `ate` + paginação. Detalhes (`DocumentoDetalhe`) trazem `textoExtraido`, `sha256` e as demandas vinculadas. Vínculo: `POST /api/demandas/{id}/documentos` `{documentoId}`; `DELETE …/{documentoId}` remove só o vínculo.
 
-**Intelligence e dashboard** — `GET /api/intelligence/*` aceitam os filtros `de`, `ate`, `municipioId`, `bioma`, `categoria`, `status`. `resumo` → `ResumoIndicadores`; `serie-mensal`, `por-municipio`, `por-bioma`, `por-categoria`, `por-situacao` → `{demonstrativo, aviso, itens[]}`; `mapa` → `{demonstrativo, aviso, pontos[]}` (cada ponto com `coordenadaAproximada` quando usa o centroide do município); `GET /api/dashboard` → `{demonstrativo, aviso, resumo, porSituacao, atividadesRecentes}`.
+**Intelligence e dashboard** — `GET /api/intelligence/*` aceitam os filtros `de`, `ate`, `municipioId`, `bioma`, `categoria`, `status`. `resumo` → `ResumoIndicadores`; `serie-mensal`, `por-municipio`, `por-bioma`, `por-categoria`, `por-situacao` → `{demonstrativo, aviso, itens[]}`; `mapa` → `{demonstrativo, aviso, pontos[]}` (cada ponto com `coordenadaAproximada` quando usa o centroide do município); `GET /api/dashboard` → `{demonstrativo, aviso, resumo, porSituacao, atividadesRecentes, porBioma, porCategoria}`. **Implementado (#17):** números calculados a cada consulta sobre as demandas (excluídas ficam de fora), então cadastrar ou finalizar uma demanda os altera na consulta seguinte. `resumo` inclui `fiscalizacoes`, `percentualConclusao` (%) e `tempoMedioAtendimentoDias` (média simulada recebimento→conclusão das finalizadas; nulo sem finalizadas); `totalDocumentos` é 0 até a #15 (biblioteca documental). `por-situacao`/`por-bioma`/`por-categoria` incluem itens com zero; `serie-mensal` preenche meses sem demandas; `mapa` usa o centroide do município quando a demanda não tem coordenada. `atividadesRecentes` traz os 10 últimos eventos do histórico das demandas.
 
 ## Exemplo: login
 

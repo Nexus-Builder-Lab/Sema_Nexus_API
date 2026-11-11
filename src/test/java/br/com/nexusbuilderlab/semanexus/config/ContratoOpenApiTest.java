@@ -59,11 +59,7 @@ class ContratoOpenApiTest {
             Map.entry("GET /api/demandas/{id}/documentos", 16), Map.entry("POST /api/demandas/{id}/documentos", 16),
             Map.entry("DELETE /api/demandas/{id}/documentos/{documentoId}", 16),
             Map.entry("POST /api/documentos", 15), Map.entry("GET /api/documentos", 16),
-            Map.entry("GET /api/documentos/{id}", 16), Map.entry("GET /api/documentos/{id}/arquivo", 15),
-            Map.entry("GET /api/intelligence/resumo", 17), Map.entry("GET /api/intelligence/serie-mensal", 17),
-            Map.entry("GET /api/intelligence/por-municipio", 17), Map.entry("GET /api/intelligence/por-bioma", 17),
-            Map.entry("GET /api/intelligence/por-categoria", 17), Map.entry("GET /api/intelligence/por-situacao", 17),
-            Map.entry("GET /api/intelligence/mapa", 17), Map.entry("GET /api/dashboard", 17));
+            Map.entry("GET /api/documentos/{id}", 16), Map.entry("GET /api/documentos/{id}/arquivo", 15));
 
     static JsonNode contrato;
 

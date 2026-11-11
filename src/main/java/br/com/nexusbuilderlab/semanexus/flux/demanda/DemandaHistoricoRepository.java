@@ -14,4 +14,12 @@ public interface DemandaHistoricoRepository extends JpaRepository<DemandaHistori
             where h.demanda.id = :demandaId
             order by h.data desc, h.id desc""")
     List<DemandaHistorico> findLinhaDoTempo(@Param("demandaId") Long demandaId);
+
+    /** Eventos mais recentes entre todas as demandas (alimenta o dashboard). */
+    @Query("""
+            select h from DemandaHistorico h
+              join fetch h.usuario
+              join fetch h.demanda
+            order by h.data desc, h.id desc""")
+    List<DemandaHistorico> findRecentes(org.springframework.data.domain.Pageable pagina);
 }

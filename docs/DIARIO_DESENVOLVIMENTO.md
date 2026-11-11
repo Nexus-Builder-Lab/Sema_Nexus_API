@@ -177,3 +177,11 @@
 - **Arquivos principais:** `core/auditoria/{AuditService,AuditoriaController,AuditoriaRepository}.java`, `core/auditoria/dto/*`, testes `AuditServiceTest`, `AuditoriaControllerWebMvcTest`, `docs/API.md`.
 - **Testes:** a confirmar pelo validador (implementador rodou AuditServiceTest, AuditoriaControllerWebMvcTest, EndpointsContratoWebMvcTest, AuthServiceTest: 0 falhas).
 - **Pendências:** sem teste Oracle do filtro; validador pode rodar `-Poracle`.
+## 2026-11-11 · GH-17 · Indicadores agregados, pontos do mapa e dashboard inicial
+- **PR:** (a preencher pelo orquestrador) · **Status:** aguardando validação
+- **Agentes que atuaram:** `implementador-backend`
+- **O que foi feito:** implementados `GET /api/intelligence/{resumo,serie-mensal,por-municipio,por-bioma,por-categoria,por-situacao,mapa}` e `GET /api/dashboard` (removido `@ContratoPendente`). Novos `IndicadorRepository` (Criteria API, filtros `de/ate/municipioId/bioma/categoria/status`), `IndicadorService` e `DashboardService`. `ResumoIndicadores` ganhou `fiscalizacoes`, `percentualConclusao`, `tempoMedioAtendimentoDias`; `DashboardResponse` ganhou `porBioma` e `porCategoria` (campos aditivos).
+- **Decisões técnicas:** agregação em memória sobre as demandas filtradas (volume demonstrativo; uma consulta); documentos = 0 até a #15; atividades recentes vêm de `DemandaHistorico` (`findRecentes`, contrato já publicado da #7), não da tabela AUDITORIA; hoje calculado no fuso America/Cuiaba. Sem migration.
+- **Arquivos principais:** `intelligence/indicador/{IndicadorRepository,IndicadorService,IndicadorController}.java`, `intelligence/mapa/MapaController.java`, `core/dashboard/{DashboardService,DashboardController}.java`, `flux/demanda/DemandaHistoricoRepository.java`, testes `IndicadorServiceTest`, `DashboardServiceTest`, `IndicadorOracleTest`, `docs/API.md`.
+- **Testes:** a confirmar pelo validador (implementador: IndicadorServiceTest, DashboardServiceTest, EndpointsContratoWebMvcTest, ContratoOpenApiTest e IndicadorOracleTest com Testcontainers: 0 falhas).
+- **Pendências:** tempo de resposta do mapa < 1 s com o seed completo não medido; documentos reais na #15.

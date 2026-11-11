@@ -12,5 +12,9 @@ public record ResumoIndicadores(
         @Schema(description = "Status EM_ANDAMENTO", example = "22") long emAndamento,
         @Schema(description = "Status FINALIZADA", example = "58") long finalizadas,
         @Schema(description = "Derivado: prazo < hoje e status ≠ FINALIZADA", example = "9") long atrasadas,
-        @Schema(description = "Documentos na biblioteca", example = "47") long totalDocumentos) {
+        @Schema(description = "Documentos na biblioteca", example = "47") long totalDocumentos,
+        @Schema(description = "Fiscalizações registradas nas demandas filtradas", example = "30") long fiscalizacoes,
+        @Schema(description = "Finalizadas / total, em % (0 sem demandas)", example = "48.3") double percentualConclusao,
+        @Schema(description = "Média simulada, em dias, entre o recebimento e a conclusão das finalizadas (nulo sem finalizadas)",
+                nullable = true, example = "12.5") Double tempoMedioAtendimentoDias) {
 }
