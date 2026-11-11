@@ -24,7 +24,7 @@ class DashboardServiceTest {
         when(repo.contarFiscalizacoes(any())).thenReturn(0L);
         when(historico.findRecentes(any())).thenReturn(List.of());
 
-        var r = new DashboardService(new IndicadorService(repo, Clock.systemUTC()), historico).dashboard();
+        var r = new DashboardService(new IndicadorService(repo, Clock.systemUTC(), mock(br.com.nexusbuilderlab.semanexus.docia.documento.DocumentoRepository.class)), historico).dashboard();
 
         assertThat(r.demonstrativo()).isTrue();
         assertThat(r.aviso()).contains("DEMONSTRATIVO");

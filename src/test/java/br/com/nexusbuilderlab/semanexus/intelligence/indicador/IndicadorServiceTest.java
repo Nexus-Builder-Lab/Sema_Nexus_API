@@ -37,10 +37,14 @@ class IndicadorServiceTest {
     Municipio cuiaba = municipio(5103403, "Cuiabá", Bioma.CERRADO, "-15.601", "-56.097");
     Municipio sinop = municipio(5107909, "Sinop", Bioma.AMAZONIA, "-11.864", "-55.509");
 
+    private br.com.nexusbuilderlab.semanexus.docia.documento.DocumentoRepository docs;
+
     @BeforeEach
     void preparar() {
         Clock clock = Clock.fixed(Instant.parse("2026-11-10T15:00:00Z"), ZoneId.of("UTC"));
-        service = new IndicadorService(repo, clock);
+        docs = mock(br.com.nexusbuilderlab.semanexus.docia.documento.DocumentoRepository.class);
+        when(docs.contarAtivos()).thenReturn(12L);
+        service = new IndicadorService(repo, clock, docs);
     }
 
     static Municipio municipio(int id, String nome, Bioma bioma, String lat, String lon) {
@@ -93,7 +97,7 @@ class IndicadorServiceTest {
         assertThat(r.emAndamento()).isEqualTo(1);
         assertThat(r.finalizadas()).isEqualTo(2);
         assertThat(r.atrasadas()).isEqualTo(1);
-        assertThat(r.totalDocumentos()).isZero();
+        assertThat(r.totalDocumentos()).isEqualTo(12L);
         assertThat(r.fiscalizacoes()).isEqualTo(3);
         assertThat(r.percentualConclusao()).isEqualTo(50.0);
         assertThat(r.tempoMedioAtendimentoDias()).isEqualTo(7.0);

@@ -38,7 +38,7 @@ public class DashboardService {
                         UsuarioRef.de(h.getUsuario())))
                 .toList();
         return new DashboardResponse(true, AvisoDemonstrativo.TEXTO,
-                indicadores.resumir(demandas, indicadores.fiscalizacoes(semFiltro), 0L),
+                indicadores.resumir(demandas, indicadores.fiscalizacoes(semFiltro), indicadores.totalDocumentos()),
                 IndicadorService.contagemSituacao(demandas), atividades,
                 IndicadorService.contagemBioma(demandas), IndicadorService.contagemCategoria(demandas));
     }
