@@ -66,6 +66,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return validacao(erros);
     }
 
+    @ExceptionHandler(DadosInvalidosException.class)
+    public ProblemDetail handleDadosInvalidos(DadosInvalidosException ex) {
+        return validacao(ex.getErros().stream().sorted(Comparator.comparing(ErroCampo::campo)).toList());
+    }
+
     @ExceptionHandler(RecursoNaoEncontradoException.class)
     public ProblemDetail handleNaoEncontrado(RecursoNaoEncontradoException ex) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
