@@ -48,8 +48,8 @@ A ordem de avaliação é **autenticação (401) → perfil (403) → validaçã
 | GET | `/api/demandas/{id}/historico` | consulta | #11 | ✅ |
 | POST | `/api/demandas/{id}/triagem/iniciar` · `/triagem` (transição inválida 409; fiscal fora da equipe 400) | Admin, Gestor, Analista | #12 | ✅ |
 | POST | `/api/demandas/{id}/distribuicao` · GET `/api/equipes/{id}/demandas` | Admin, Gestor | #12 | ✅ |
-| POST | `/api/demandas/{id}/inicio` · `/atividades` · `/fiscalizacao` | fiscal designado, Gestor, Admin | #13 | 📄 |
-| POST | `/api/demandas/{id}/conclusao` · `/devolucao` | Gestor, Admin | #13 | 📄 |
+| POST | `/api/demandas/{id}/inicio` · `/atividades` · `/fiscalizacao` | fiscal designado, Gestor, Admin | #13 | ✅ |
+| POST | `/api/demandas/{id}/conclusao` · `/devolucao` | Gestor, Admin | #13 | ✅ |
 | GET | `/api/auditoria` | Admin | #14 | Planejado |
 | POST · GET | `/api/documentos` (multipart; Admin, Gestor, Fiscal, Analista) · `/api/documentos/{id}/arquivo` | ver ARCHITECTURE §6 | #15 | 📄 |
 | GET | `/api/documentos` (biblioteca com filtros) · `/api/documentos/{id}` | qualquer autenticado | #16 | 📄 |
