@@ -30,6 +30,7 @@ public record DemandaDetalhe(
         @Schema(nullable = true) BigDecimal longitude,
         LocalDate dataRecebimento,
         @Schema(nullable = true) Prioridade prioridade,
+        @Schema(description = "Prazo sugerido no cadastro (>= data de recebimento)", nullable = true) LocalDate prazoSugerido,
         @Schema(description = "Prazo definido na distribuição", nullable = true) LocalDate prazo,
         StatusDemanda status,
         @Schema(description = "Derivada: prazo < hoje e status ≠ FINALIZADA", example = "false") boolean atrasada,

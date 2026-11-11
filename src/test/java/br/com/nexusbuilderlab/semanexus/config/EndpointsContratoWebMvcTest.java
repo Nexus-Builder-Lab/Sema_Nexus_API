@@ -1,6 +1,10 @@
 package br.com.nexusbuilderlab.semanexus.config;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -30,7 +34,12 @@ import br.com.nexusbuilderlab.semanexus.core.usuario.Usuario;
 import br.com.nexusbuilderlab.semanexus.core.usuario.UsuarioRepository;
 import br.com.nexusbuilderlab.semanexus.docia.documento.DemandaDocumentoController;
 import br.com.nexusbuilderlab.semanexus.docia.documento.DocumentoController;
+import br.com.nexusbuilderlab.semanexus.core.catalogo.StatusDemanda;
 import br.com.nexusbuilderlab.semanexus.flux.demanda.DemandaController;
+import br.com.nexusbuilderlab.semanexus.flux.demanda.DemandaService;
+import br.com.nexusbuilderlab.semanexus.flux.demanda.dto.DemandaFiltro;
+import org.mockito.ArgumentCaptor;
+import org.springframework.data.domain.Pageable;
 import br.com.nexusbuilderlab.semanexus.flux.demanda.EquipeDemandasController;
 import br.com.nexusbuilderlab.semanexus.intelligence.indicador.IndicadorController;
 import br.com.nexusbuilderlab.semanexus.intelligence.mapa.MapaController;
@@ -90,6 +99,8 @@ class EndpointsContratoWebMvcTest {
     SetorService setores;
     @MockitoBean
     EquipeService equipes;
+    @MockitoBean
+    DemandaService demandas;
 
     private String bearer(Perfil perfil) {
         Usuario u = new Usuario("Usuário Teste", perfil.name().toLowerCase() + "@exemplo.test", "hash", perfil);
@@ -238,14 +249,14 @@ class EndpointsContratoWebMvcTest {
 
     @Test
     void endpointPendenteRespondeNaoImplementadoComAIssue() throws Exception {
-        como(Perfil.ANALISTA).faz(post("/api/demandas").contentType(MediaType.APPLICATION_JSON).content(demandaValida()))
+        como(Perfil.ANALISTA).faz(post("/api/demandas/1/triagem/iniciar"))
                 .andExpect(status().isNotImplemented())
                 .andExpect(content().contentTypeCompatibleWith(PROBLEM_JSON))
                 .andExpect(jsonPath("$.status").value(501))
                 .andExpect(jsonPath("$.title").value("Endpoint ainda não implementado"))
                 .andExpect(jsonPath("$.type").value("https://semanexus.demo/problemas/nao-implementado"))
-                .andExpect(jsonPath("$.issue").value(11))
-                .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("Issue #11")));
+                .andExpect(jsonPath("$.issue").value(12))
+                .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("Issue #12")));
     }
 
     @Test
@@ -279,7 +290,7 @@ class EndpointsContratoWebMvcTest {
         como(Perfil.ANALISTA).faz(post("/api/demandas/1/inicio")).andExpect(status().isForbidden());
         // Só ADMIN exclui demanda.
         como(Perfil.GESTOR).faz(delete("/api/demandas/1")).andExpect(status().isForbidden());
-        como(Perfil.ADMIN).faz(delete("/api/demandas/1")).andExpect(status().isNotImplemented());
+        como(Perfil.ADMIN).faz(delete("/api/demandas/1")).andExpect(status().isNoContent());
     }
 
     @Test
@@ -291,7 +302,7 @@ class EndpointsContratoWebMvcTest {
         como(Perfil.GESTOR).faz(post("/api/demandas/1/distribuicao").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"equipeId\":1,\"fiscalId\":2,\"prazo\":\"" + LocalDate.now().plusDays(5) + "\"}"))
                 .andExpect(status().isNotImplemented()).andExpect(jsonPath("$.issue").value(12));
-        como(Perfil.CONSULTA).faz(get("/api/demandas/1/historico")).andExpect(status().isNotImplemented());
+        como(Perfil.CONSULTA).faz(get("/api/demandas/1/historico")).andExpect(status().isOk());
         como(Perfil.GESTOR).faz(get("/api/equipes/1/demandas")).andExpect(status().isNotImplemented())
                 .andExpect(jsonPath("$.issue").value(12));
     }
@@ -331,7 +342,18 @@ class EndpointsContratoWebMvcTest {
                         .param("status", "EM_ANDAMENTO").param("municipioId", "5103403").param("atrasada", "true")
                         .param("de", "2026-01-01").param("ate", "2026-12-31").param("q", "DEM-2026")
                         .param("page", "0").param("size", "10").param("sort", "prazo,asc"))
-                .andExpect(status().isNotImplemented());
+                .andExpect(status().isOk());
+        ArgumentCaptor<DemandaFiltro> filtro = ArgumentCaptor.forClass(DemandaFiltro.class);
+        ArgumentCaptor<Pageable> pagina = ArgumentCaptor.forClass(Pageable.class);
+        verify(demandas).listar(any(), filtro.capture(), pagina.capture());
+        assertThat(filtro.getValue().status()).isEqualTo(StatusDemanda.EM_ANDAMENTO);
+        assertThat(filtro.getValue().municipioId()).isEqualTo(5103403);
+        assertThat(filtro.getValue().atrasada()).isTrue();
+        assertThat(filtro.getValue().de()).isEqualTo(LocalDate.of(2026, 1, 1));
+        assertThat(filtro.getValue().ate()).isEqualTo(LocalDate.of(2026, 12, 31));
+        assertThat(filtro.getValue().q()).isEqualTo("DEM-2026");
+        assertThat(pagina.getValue().getPageSize()).isEqualTo(10);
+        assertThat(pagina.getValue().getSort().getOrderFor("prazo")).isNotNull();
 
         como(Perfil.CONSULTA).faz(get("/api/demandas").param("status", "ATRASADA"))
                 .andExpect(status().isBadRequest())
@@ -394,7 +416,8 @@ class EndpointsContratoWebMvcTest {
     @Test
     void edicaoDeDemandaUsaOMesmoContratoDoCadastro() throws Exception {
         como(Perfil.GESTOR).faz(put("/api/demandas/1").contentType(MediaType.APPLICATION_JSON).content(demandaValida()))
-                .andExpect(status().isNotImplemented()).andExpect(jsonPath("$.issue").value(11));
+                .andExpect(status().isOk());
+        verify(demandas).editar(any(), eq(1L), any());
         como(Perfil.FISCAL).faz(put("/api/demandas/1").contentType(MediaType.APPLICATION_JSON).content(demandaValida()))
                 .andExpect(status().isForbidden());
     }
