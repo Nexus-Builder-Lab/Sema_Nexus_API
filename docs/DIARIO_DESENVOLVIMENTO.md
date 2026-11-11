@@ -159,3 +159,12 @@
 - **Arquivos principais:** `flux/demanda/{DemandaStateMachine,TriagemService,DistribuicaoService,Distribuicao,DistribuicaoRepository,DemandaController,EquipeDemandasController,DemandaService}.java`, testes `DemandaStateMachineTest`, `TriagemDistribuicaoServiceTest`, `EndpointsContratoWebMvcTest`, `ContratoOpenApiTest`, `docs/API.md`.
 - **Testes:** a confirmar pelo validador (implementador rodou só os afetados).
 - **Pendências:** teste Oracle de ponta a ponta da distribuição não incluído (validador pode rodar `-Poracle`).
+
+## 2026-11-11 · GH-13 · Acompanhamento, fiscalização, conclusão e devolução de demandas
+- **PR:** (a preencher pelo orquestrador) · **Status:** aguardando validação
+- **Agentes que atuaram:** `implementador-backend`
+- **O que foi feito:** `AcompanhamentoService` (`POST /inicio` DISTRIBUIDA → EM_ANDAMENTO e `POST /atividades` com registro no histórico), `FiscalizacaoService` (`POST /fiscalizacao`: grava/atualiza `FISCALIZACAO` 1:1 e vai para AGUARDANDO_CONCLUSAO) e `ConclusaoService` (`POST /conclusao` → FINALIZADA com `resultadoFinal`, justificativa e `concluidaEm`; `POST /devolucao` → EM_ANDAMENTO). Todos usam a máquina de estados, lock pessimista, histórico e auditoria. Endpoints saíram do contrato `501`.
+- **Decisões técnicas:** FISCAL só age se for o fiscal designado (senão 403); GESTOR/ADMIN em qualquer demanda. Conclusão sem registro de fiscalização responde 409 (além da exigência de status). Demanda FINALIZADA não aceita nenhuma transição (409). Reenvio da fiscalização após devolução atualiza o mesmo registro (1:1). Mantido o contrato do DTO da #7 (`descricao`/`data` em atividades) em vez de `{texto}` do texto da Issue. Textos do histórico limitados a 2000 caracteres. Sem migration nova.
+- **Arquivos principais:** `flux/demanda/{AcompanhamentoService,FiscalizacaoService,ConclusaoService,ExecucaoSuporte,DemandaController,Fiscalizacao,FiscalizacaoRepository}.java`, testes `ExecucaoServicosTest`, `EndpointsContratoWebMvcTest`, `ContratoOpenApiTest`, `docs/API.md`.
+- **Testes:** a confirmar pelo validador (implementador rodou só os afetados).
+- **Pendências:** sem teste Oracle ponta a ponta do fluxo completo (validador pode rodar `-Poracle`).

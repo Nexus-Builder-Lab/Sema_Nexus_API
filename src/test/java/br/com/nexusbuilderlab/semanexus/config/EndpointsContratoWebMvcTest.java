@@ -105,6 +105,12 @@ class EndpointsContratoWebMvcTest {
     br.com.nexusbuilderlab.semanexus.flux.demanda.TriagemService triagem;
     @MockitoBean
     br.com.nexusbuilderlab.semanexus.flux.demanda.DistribuicaoService distribuicao;
+    @MockitoBean
+    br.com.nexusbuilderlab.semanexus.flux.demanda.AcompanhamentoService acompanhamento;
+    @MockitoBean
+    br.com.nexusbuilderlab.semanexus.flux.demanda.FiscalizacaoService fiscalizacaoService;
+    @MockitoBean
+    br.com.nexusbuilderlab.semanexus.flux.demanda.ConclusaoService conclusao;
 
     private String bearer(Perfil perfil) {
         Usuario u = new Usuario("Usuário Teste", perfil.name().toLowerCase() + "@exemplo.test", "hash", perfil);
@@ -253,14 +259,14 @@ class EndpointsContratoWebMvcTest {
 
     @Test
     void endpointPendenteRespondeNaoImplementadoComAIssue() throws Exception {
-        como(Perfil.FISCAL).faz(post("/api/demandas/1/inicio"))
+        como(Perfil.FISCAL).faz(get("/api/dashboard"))
                 .andExpect(status().isNotImplemented())
                 .andExpect(content().contentTypeCompatibleWith(PROBLEM_JSON))
                 .andExpect(jsonPath("$.status").value(501))
                 .andExpect(jsonPath("$.title").value("Endpoint ainda não implementado"))
                 .andExpect(jsonPath("$.type").value("https://semanexus.demo/problemas/nao-implementado"))
-                .andExpect(jsonPath("$.issue").value(13))
-                .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("Issue #13")));
+                .andExpect(jsonPath("$.issue").value(17))
+                .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("Issue #17")));
     }
 
     @Test
@@ -299,10 +305,9 @@ class EndpointsContratoWebMvcTest {
 
     @Test
     void perfisComPermissaoChegamAo501() throws Exception {
-        como(Perfil.FISCAL).faz(post("/api/demandas/1/inicio")).andExpect(status().isNotImplemented());
+        como(Perfil.FISCAL).faz(post("/api/demandas/1/inicio")).andExpect(status().isOk());
         como(Perfil.FISCAL).faz(post("/api/demandas/1/atividades").contentType(MediaType.APPLICATION_JSON)
-                .content("{\"descricao\":\"Vistoria agendada\"}")).andExpect(status().isNotImplemented())
-                .andExpect(jsonPath("$.issue").value(13));
+                .content("{\"descricao\":\"Vistoria agendada\"}")).andExpect(status().isCreated());
         como(Perfil.GESTOR).faz(post("/api/demandas/1/distribuicao").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"equipeId\":1,\"fiscalId\":2,\"prazo\":\"" + LocalDate.now().plusDays(5) + "\"}"))
                 .andExpect(status().isOk());

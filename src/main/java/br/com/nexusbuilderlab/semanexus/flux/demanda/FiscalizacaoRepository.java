@@ -14,4 +14,6 @@ public interface FiscalizacaoRepository extends JpaRepository<Fiscalizacao, Long
               join fetch f.registradoPor
             where f.demanda.id = :demandaId""")
     Optional<Fiscalizacao> buscarPorDemanda(@Param("demandaId") Long demandaId);
+
+    boolean existsByDemandaId(Long demandaId);
 }
