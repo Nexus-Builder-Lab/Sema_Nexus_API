@@ -41,8 +41,8 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 /**
  * Flux (demandas de fiscalização). Cadastro, edição, listagem, detalhes, histórico e exclusão estão implementados
- * (#11); os demais endpoints respondem `501` até a Issue indicada em cada {@link ContratoPendente}: triagem e
- * distribuição (#12), acompanhamento, fiscalização, conclusão e devolução (#13). Máquina de estados em
+ * (#11); triagem e distribuição estão implementadas (#12); os demais respondem `501` até a Issue indicada em cada
+ * {@link ContratoPendente}: acompanhamento, fiscalização, conclusão e devolução (#13). Máquina de estados em
  * `docs/ARCHITECTURE.md` §5.
  */
 @RestController
@@ -52,9 +52,13 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 public class DemandaController {
 
     private final DemandaService service;
+    private final TriagemService triagem;
+    private final DistribuicaoService distribuicao;
 
-    public DemandaController(DemandaService service) {
+    public DemandaController(DemandaService service, TriagemService triagem, DistribuicaoService distribuicao) {
         this.service = service;
+        this.triagem = triagem;
+        this.distribuicao = distribuicao;
     }
 
     // ----------------------------------------------------------------- Issue #11 — cadastro e consulta
@@ -118,30 +122,31 @@ public class DemandaController {
 
     // ----------------------------------------------------------------- Issue #12 — triagem e distribuição
 
-    @Operation(summary = "Inicia a triagem (PENDENTE → EM_TRIAGEM)", description = "Perfis: ADMIN, GESTOR, ANALISTA.")
+    @Operation(summary = "Inicia a triagem (PENDENTE → EM_TRIAGEM)", description = "Perfis: ADMIN, GESTOR, ANALISTA. Fora de PENDENTE responde 409.")
     @PreAuthorize(Autorizacao.ADMIN_GESTOR_ANALISTA)
     @PostMapping("/{id}/triagem/iniciar")
-    @ContratoPendente(issue = 12)
-    public DemandaDetalhe iniciarTriagem(@PathVariable Long id) {
-        throw new ContratoPendenteException(12);
+    public DemandaDetalhe iniciarTriagem(@AuthenticationPrincipal UsuarioAutenticado ator, @PathVariable Long id) {
+        return triagem.iniciar(ator, id);
     }
 
     @Operation(summary = "Conclui a triagem (EM_TRIAGEM → AGUARDANDO_DISTRIBUICAO) ou solicita complementação (→ PENDENTE)",
-            description = "Perfis: ADMIN, GESTOR, ANALISTA. CLASSIFICAR exige categoria, prioridade e justificativa.")
+            description = "Perfis: ADMIN, GESTOR, ANALISTA. CLASSIFICAR exige categoria, prioridade e justificativa (400 por campo). "
+                    + "Fora de EM_TRIAGEM responde 409.")
     @PreAuthorize(Autorizacao.ADMIN_GESTOR_ANALISTA)
     @PostMapping("/{id}/triagem")
-    @ContratoPendente(issue = 12)
-    public DemandaDetalhe triar(@PathVariable Long id, @Valid @RequestBody TriagemRequest pedido) {
-        throw new ContratoPendenteException(12);
+    public DemandaDetalhe triar(@AuthenticationPrincipal UsuarioAutenticado ator, @PathVariable Long id,
+                              @Valid @RequestBody TriagemRequest pedido) {
+        return triagem.triar(ator, id, pedido);
     }
 
     @Operation(summary = "Distribui a demanda (AGUARDANDO_DISTRIBUICAO → DISTRIBUIDA)",
-            description = "Perfis: ADMIN, GESTOR. Exige equipe, fiscal membro da equipe e prazo >= hoje.")
+            description = "Perfis: ADMIN, GESTOR. Exige equipe, fiscal membro da equipe e prazo >= hoje "
+                    + "(400 se o fiscal não é membro da equipe). Fora de AGUARDANDO_DISTRIBUICAO responde 409.")
     @PreAuthorize(Autorizacao.ADMIN_GESTOR)
     @PostMapping("/{id}/distribuicao")
-    @ContratoPendente(issue = 12)
-    public DemandaDetalhe distribuir(@PathVariable Long id, @Valid @RequestBody DistribuicaoRequest pedido) {
-        throw new ContratoPendenteException(12);
+    public DemandaDetalhe distribuir(@AuthenticationPrincipal UsuarioAutenticado ator, @PathVariable Long id,
+                                  @Valid @RequestBody DistribuicaoRequest pedido) {
+        return distribuicao.distribuir(ator, id, pedido);
     }
 
     // ----------------------------------------------------------------- Issue #13 — acompanhamento e conclusão

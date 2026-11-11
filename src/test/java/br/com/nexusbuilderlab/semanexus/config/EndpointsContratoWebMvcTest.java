@@ -101,6 +101,10 @@ class EndpointsContratoWebMvcTest {
     EquipeService equipes;
     @MockitoBean
     DemandaService demandas;
+    @MockitoBean
+    br.com.nexusbuilderlab.semanexus.flux.demanda.TriagemService triagem;
+    @MockitoBean
+    br.com.nexusbuilderlab.semanexus.flux.demanda.DistribuicaoService distribuicao;
 
     private String bearer(Perfil perfil) {
         Usuario u = new Usuario("Usuário Teste", perfil.name().toLowerCase() + "@exemplo.test", "hash", perfil);
@@ -249,14 +253,14 @@ class EndpointsContratoWebMvcTest {
 
     @Test
     void endpointPendenteRespondeNaoImplementadoComAIssue() throws Exception {
-        como(Perfil.ANALISTA).faz(post("/api/demandas/1/triagem/iniciar"))
+        como(Perfil.FISCAL).faz(post("/api/demandas/1/inicio"))
                 .andExpect(status().isNotImplemented())
                 .andExpect(content().contentTypeCompatibleWith(PROBLEM_JSON))
                 .andExpect(jsonPath("$.status").value(501))
                 .andExpect(jsonPath("$.title").value("Endpoint ainda não implementado"))
                 .andExpect(jsonPath("$.type").value("https://semanexus.demo/problemas/nao-implementado"))
-                .andExpect(jsonPath("$.issue").value(12))
-                .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("Issue #12")));
+                .andExpect(jsonPath("$.issue").value(13))
+                .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("Issue #13")));
     }
 
     @Test
@@ -301,10 +305,25 @@ class EndpointsContratoWebMvcTest {
                 .andExpect(jsonPath("$.issue").value(13));
         como(Perfil.GESTOR).faz(post("/api/demandas/1/distribuicao").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"equipeId\":1,\"fiscalId\":2,\"prazo\":\"" + LocalDate.now().plusDays(5) + "\"}"))
-                .andExpect(status().isNotImplemented()).andExpect(jsonPath("$.issue").value(12));
+                .andExpect(status().isOk());
         como(Perfil.CONSULTA).faz(get("/api/demandas/1/historico")).andExpect(status().isOk());
-        como(Perfil.GESTOR).faz(get("/api/equipes/1/demandas")).andExpect(status().isNotImplemented())
-                .andExpect(jsonPath("$.issue").value(12));
+        como(Perfil.GESTOR).faz(get("/api/equipes/1/demandas")).andExpect(status().isOk());
+        como(Perfil.FISCAL).faz(get("/api/equipes/1/demandas")).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void triagemExigePerfilETransicaoInvalidaRetorna409() throws Exception {
+        como(Perfil.FISCAL).faz(post("/api/demandas/1/triagem/iniciar")).andExpect(status().isForbidden());
+        como(Perfil.CONSULTA).faz(post("/api/demandas/1/triagem").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"decisao\":\"CLASSIFICAR\",\"justificativa\":\"x\"}")).andExpect(status().isForbidden());
+        como(Perfil.ANALISTA).faz(post("/api/demandas/1/triagem/iniciar")).andExpect(status().isOk());
+
+        when(triagem.iniciar(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(2L)))
+                .thenThrow(new br.com.nexusbuilderlab.semanexus.common.exception.ConflitoException("Transição inválida"));
+        como(Perfil.ANALISTA).faz(post("/api/demandas/2/triagem/iniciar"))
+                .andExpect(status().isConflict())
+                .andExpect(content().contentTypeCompatibleWith(PROBLEM_JSON))
+                .andExpect(jsonPath("$.status").value(409));
     }
 
     @Test

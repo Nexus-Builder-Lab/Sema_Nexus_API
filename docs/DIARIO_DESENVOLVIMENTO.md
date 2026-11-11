@@ -151,3 +151,11 @@
   - Achados baixos do `revisor-seguranca` (nÃ£o bloqueantes): (1) FISCAL que consulta demanda de outra equipe recebe 403 em vez de 404, o que revela a existÃªncia do id; (2) nÃ£o hÃ¡ `@Version` (lock otimista), apenas o pessimista; (3) a mensagem de erro de ordenaÃ§Ã£o (`sort`) ecoa o nome do campo informado. O relatÃ³rio de seguranÃ§a citou 4 achados baixos, mas sÃ³ 3 foram repassados a este registro; o 4Âº deve ser conferido com o `revisor-seguranca` antes do merge.
   - Documentos anexados Ã  demanda (`totalDocumentos` com conteÃºdo real) dependem da Issue #16; triagem, distribuiÃ§Ã£o e fiscalizaÃ§Ã£o sÃ£o #12 e #13.
 
+## 2026-11-11 · GH-12 · Máquina de estados, triagem e distribuição de demandas
+- **PR:** (a preencher pelo orquestrador) · **Status:** aguardando validação
+- **Agentes que atuaram:** `implementador-backend`
+- **O que foi feito:** `DemandaStateMachine` (todas as transições de ARCHITECTURE §5; ação fora do status de origem gera 409), `TriagemService` (`POST /triagem/iniciar` e `/triagem` com `decisao` CLASSIFICAR ou SOLICITAR_COMPLEMENTACAO), `DistribuicaoService` (`POST /distribuicao`: fiscal deve ser membro da equipe ativa e prazo >= hoje em Cuiabá, senão 400; grava `DISTRIBUICAO`, equipe/fiscal/prazo da demanda), entidade `Distribuicao` e `GET /api/equipes/{id}/demandas`. Toda transição grava `DEMANDA_HISTORICO` (status anterior/novo, texto, usuário, data) e auditoria, com lock pessimista na demanda.
+- **Decisões técnicas:** mantido o contrato já publicado na #7 (`decisao`/`CLASSIFICAR|SOLICITAR_COMPLEMENTACAO`) em vez de `acao: CONCLUIR|COMPLEMENTAR` do texto da Issue; a máquina também expõe as ações da #13 (início, fiscalização, conclusão, devolução) para reaproveitamento; sem migration nova (tabelas já em V3).
+- **Arquivos principais:** `flux/demanda/{DemandaStateMachine,TriagemService,DistribuicaoService,Distribuicao,DistribuicaoRepository,DemandaController,EquipeDemandasController,DemandaService}.java`, testes `DemandaStateMachineTest`, `TriagemDistribuicaoServiceTest`, `EndpointsContratoWebMvcTest`, `ContratoOpenApiTest`, `docs/API.md`.
+- **Testes:** a confirmar pelo validador (implementador rodou só os afetados).
+- **Pendências:** teste Oracle de ponta a ponta da distribuição não incluído (validador pode rodar `-Poracle`).
