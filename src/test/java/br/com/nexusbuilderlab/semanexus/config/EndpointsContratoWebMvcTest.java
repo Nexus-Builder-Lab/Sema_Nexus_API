@@ -41,6 +41,12 @@ import br.com.nexusbuilderlab.semanexus.flux.demanda.dto.DemandaFiltro;
 import org.mockito.ArgumentCaptor;
 import org.springframework.data.domain.Pageable;
 import br.com.nexusbuilderlab.semanexus.flux.demanda.EquipeDemandasController;
+import br.com.nexusbuilderlab.semanexus.core.dashboard.DashboardService;
+import br.com.nexusbuilderlab.semanexus.core.dashboard.dto.DashboardResponse;
+import br.com.nexusbuilderlab.semanexus.intelligence.indicador.IndicadorService;
+import br.com.nexusbuilderlab.semanexus.intelligence.indicador.dto.IndicadorLista;
+import br.com.nexusbuilderlab.semanexus.intelligence.indicador.dto.ResumoIndicadores;
+import br.com.nexusbuilderlab.semanexus.intelligence.mapa.dto.MapaResponse;
 import br.com.nexusbuilderlab.semanexus.intelligence.indicador.IndicadorController;
 import br.com.nexusbuilderlab.semanexus.intelligence.mapa.MapaController;
 import br.com.nexusbuilderlab.semanexus.security.JwtService;
@@ -111,6 +117,10 @@ class EndpointsContratoWebMvcTest {
     br.com.nexusbuilderlab.semanexus.flux.demanda.FiscalizacaoService fiscalizacaoService;
     @MockitoBean
     br.com.nexusbuilderlab.semanexus.flux.demanda.ConclusaoService conclusao;
+    @MockitoBean
+    IndicadorService indicadores;
+    @MockitoBean
+    DashboardService dashboard;
 
     private String bearer(Perfil perfil) {
         Usuario u = new Usuario("Usuário Teste", perfil.name().toLowerCase() + "@exemplo.test", "hash", perfil);
@@ -259,14 +269,14 @@ class EndpointsContratoWebMvcTest {
 
     @Test
     void endpointPendenteRespondeNaoImplementadoComAIssue() throws Exception {
-        como(Perfil.FISCAL).faz(get("/api/dashboard"))
+        como(Perfil.FISCAL).faz(get("/api/documentos/1/arquivo"))
                 .andExpect(status().isNotImplemented())
                 .andExpect(content().contentTypeCompatibleWith(PROBLEM_JSON))
                 .andExpect(jsonPath("$.status").value(501))
                 .andExpect(jsonPath("$.title").value("Endpoint ainda não implementado"))
                 .andExpect(jsonPath("$.type").value("https://semanexus.demo/problemas/nao-implementado"))
-                .andExpect(jsonPath("$.issue").value(17))
-                .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("Issue #17")));
+                .andExpect(jsonPath("$.issue").value(15))
+                .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("Issue #15")));
     }
 
     @Test
@@ -401,13 +411,22 @@ class EndpointsContratoWebMvcTest {
     }
 
     @Test
-    void intelligenceDashboardEMapaAceitamFiltrosERespondem501() throws Exception {
+    void intelligenceDashboardEMapaAceitamFiltrosERespondem200() throws Exception {
+        when(indicadores.resumo(any())).thenReturn(new ResumoIndicadores(true, "aviso", 0, 0, 0, 0, 0, 0, 0, 0, null));
+        when(indicadores.serieMensal(any())).thenReturn(new IndicadorLista<>(true, "aviso", List.of()));
+        when(indicadores.porMunicipio(any())).thenReturn(new IndicadorLista<>(true, "aviso", List.of()));
+        when(indicadores.porBioma(any())).thenReturn(new IndicadorLista<>(true, "aviso", List.of()));
+        when(indicadores.porCategoria(any())).thenReturn(new IndicadorLista<>(true, "aviso", List.of()));
+        when(indicadores.porSituacao(any())).thenReturn(new IndicadorLista<>(true, "aviso", List.of()));
+        when(indicadores.mapa(any())).thenReturn(new MapaResponse(true, "aviso", List.of()));
+        when(dashboard.dashboard()).thenReturn(new DashboardResponse(true, "aviso", null, List.of(), List.of(), List.of(), List.of()));
         for (String caminho : List.of("resumo", "serie-mensal", "por-municipio", "por-bioma", "por-categoria", "por-situacao", "mapa")) {
             como(Perfil.CONSULTA).faz(get("/api/intelligence/" + caminho)
                             .param("bioma", "AMAZONIA").param("categoria", "QUEIMADA_INCENDIO").param("de", "2026-01-01"))
-                    .andExpect(status().isNotImplemented()).andExpect(jsonPath("$.issue").value(17));
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.demonstrativo").value(true));
         }
-        como(Perfil.FISCAL).faz(get("/api/dashboard")).andExpect(status().isNotImplemented());
+        como(Perfil.FISCAL).faz(get("/api/dashboard")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.demonstrativo").value(true));
         como(Perfil.CONSULTA).faz(get("/api/intelligence/resumo").param("bioma", "DESERTO"))
                 .andExpect(status().isBadRequest());
     }

@@ -13,5 +13,7 @@ public record DashboardResponse(
         ResumoIndicadores resumo,
         @Schema(description = "Demandas por situação, na ordem do fluxo") List<ContagemItem> porSituacao,
         @Schema(description = "Últimos eventos das demandas (até 10), do mais recente ao mais antigo")
-        List<AtividadeRecente> atividadesRecentes) {
+        List<AtividadeRecente> atividadesRecentes,
+        @Schema(description = "Indicadores ambientais resumidos: demandas por bioma") List<ContagemItem> porBioma,
+        @Schema(description = "Indicadores ambientais resumidos: demandas por categoria") List<ContagemItem> porCategoria) {
 }
