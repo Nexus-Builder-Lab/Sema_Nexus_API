@@ -224,3 +224,13 @@
 - **Arquivos principais:** `security/Autorizacao.java`, controllers de flux/docia/core/intelligence, `security/RevisaoSegurancaApiTest.java`, `docs/REVISAO_SEGURANCA.md`.
 - **Testes:** a confirmar pelo validador (implementador: RevisaoSegurancaApiTest, EndpointsContratoWebMvcTest, *WebMvcTest, ContratoOpenApiTest: 0 falhas).
 - **Pendências:** varredura de CVE em dependências não executada (sem scanner no projeto).
+
+## 2026-11-11 · GH-20 · Smoke test do Docker Compose em workflow manual e noturno
+- **PR:** (a preencher pelo orquestrador) · **Status:** aguardando validação
+- **Agentes que atuaram:** `implementador-backend`
+- **O que foi feito:** `compose-smoke.yml` (`workflow_dispatch` + cron noturno): gate do secret `CROSS_REPO_TOKEN` (ausente → aviso + resumo explicativo, sem falha silenciosa), checkout API+Web lado a lado, `.env` com segredos aleatórios, `compose up --build`, espera `healthy` (15 min), login e `GET /api/demandas` em `localhost:3000`, logs como artefato em falha, limpeza final.
+- **Decisões técnicas:** segredos do `.env` gerados por `openssl rand` (nada fixo); usuário demo (profile demo) em env do job; limpeza com `down --remove-orphans` (runner efêmero, sem `-v`).
+- **Arquivos principais:** `.github/workflows/compose-smoke.yml`, `docs/DOCKER.md`.
+- **Testes:** a confirmar pelo validador (implementador: sintaxe YAML validada com PyYAML; execução real do workflow depende do secret e de push).
+- **Pendências:** execução verde com o secret só após merge/dispatch no GitHub.
+
