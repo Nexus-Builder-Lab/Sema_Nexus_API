@@ -224,3 +224,12 @@
 - **Arquivos principais:** `security/Autorizacao.java`, controllers de flux/docia/core/intelligence, `security/RevisaoSegurancaApiTest.java`, `docs/REVISAO_SEGURANCA.md`.
 - **Testes:** a confirmar pelo validador (implementador: RevisaoSegurancaApiTest, EndpointsContratoWebMvcTest, *WebMvcTest, ContratoOpenApiTest: 0 falhas).
 - **Pendências:** varredura de CVE em dependências não executada (sem scanner no projeto).
+
+## 2026-11-11 · GH-21 · Roteiro de demonstração de 10 minutos e cenário integrado
+- **PR:** (a preencher pelo orquestrador) · **Status:** aguardando validação
+- **Agentes que atuaram:** `implementador-backend`
+- **O que foi feito:** `docs/DEMO.md` reescrito com preparação (demo-up, `docker compose ps`, demo-reset, login, modo offline), roteiro cronometrado 0-10 min usando os registros C1-C6 do seed (#18), usuários/senhas demonstrativos e limitações/futuro restritos ao implementado (conferido contra rotas do frontend e endpoints da API).
+- **Decisões técnicas:** só documentação; comparação de versões, assistente e satélite listados como futuro; o comportamento do mapa sem internet e a atualização dos indicadores ficam marcados "a confirmar no ensaio".
+- **Arquivos principais:** `docs/DEMO.md`, `docs/DIARIO_DESENVOLVIMENTO.md`.
+- **Testes:** a confirmar pelo validador (sem código alterado).
+- **Pendências:** ensaio cronometrado em 26/11 e execução no Docker após `demo-reset` não realizados; nomes exatos de botões do frontend podem divergir.
