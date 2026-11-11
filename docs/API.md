@@ -48,8 +48,8 @@ A ordem de avaliação é **autenticação (401) → perfil (403) → validaçã
 | GET | `/api/demandas/{id}/historico` | consulta | #11 | ✅ |
 | POST | `/api/demandas/{id}/triagem/iniciar` · `/triagem` (transição inválida 409; fiscal fora da equipe 400) | Admin, Gestor, Analista | #12 | ✅ |
 | POST | `/api/demandas/{id}/distribuicao` · GET `/api/equipes/{id}/demandas` | Admin, Gestor | #12 | ✅ |
-| POST | `/api/demandas/{id}/inicio` · `/atividades` · `/fiscalizacao` | fiscal designado, Gestor, Admin | #13 | 📄 |
-| POST | `/api/demandas/{id}/conclusao` · `/devolucao` | Gestor, Admin | #13 | 📄 |
+| POST | `/api/demandas/{id}/inicio` · `/atividades` · `/fiscalizacao` | fiscal designado, Gestor, Admin | #13 | ✅ |
+| POST | `/api/demandas/{id}/conclusao` · `/devolucao` | Gestor, Admin | #13 | ✅ |
 | GET | `/api/auditoria` | Admin | #14 | Planejado |
 | POST · GET | `/api/documentos` (multipart; Admin, Gestor, Fiscal, Analista) · `/api/documentos/{id}/arquivo` | ver ARCHITECTURE §6 | #15 | 📄 |
 | GET | `/api/documentos` (biblioteca com filtros) · `/api/documentos/{id}` | qualquer autenticado | #16 | 📄 |
@@ -90,7 +90,7 @@ Leitura, sem paginação. Catálogos: qualquer perfil autenticado. Setores, equi
 
 Os controllers, DTOs de requisição/resposta, validações e erros abaixo já existem e aparecem em `/v3/api-docs`; o Web gera os mocks (MSW) a partir deles. Os detalhes campo a campo estão nos schemas do OpenAPI (`DemandaRequest`, `DemandaDetalhe`, `DocumentoDetalhe`, …).
 
-**Demandas (Flux)** — cadastro, edição, listagem, detalhes, histórico e exclusão lógica estão **Implementados (Issue #11)**; as operações de fluxo da tabela abaixo de triagem e distribuição estão **Implementadas (Issue #12)**; as demais respondem `501` até a Issue #13. `DemandaRequest` (cadastro e edição): `titulo` (5–200), `descricao`, `origem`, `categoria?`, `municipioId` (código IBGE de MT), `localidade?`, `latitude?`/`longitude?` (retângulo de MT), `dataRecebimento` (≤ hoje), `prioridade?`, `prazoSugerido?`, `observacoes?`. A resposta (`DemandaDetalhe`) traz `numero` (`DEM-AAAA/NNNN`), `status`, `atrasada` (derivada), `equipe`, `fiscal`, `prazo`, `fiscalizacao`, `totalDocumentos` e metadados. Operações de fluxo (`triagem/iniciar`, `triagem`, `distribuicao`, `inicio`, `fiscalizacao`, `conclusao`, `devolucao`) devolvem a demanda já no novo status; `atividades` devolve o evento criado (`HistoricoItem`, `201`).
+**Demandas (Flux)** — cadastro, edição, listagem, detalhes, histórico e exclusão lógica estão **Implementados (Issue #11)**; as operações de fluxo da tabela abaixo de triagem e distribuição estão **Implementadas (Issue #12)**; as de execução, fiscalização, conclusão e devolução estão **Implementadas (Issue #13)**. `DemandaRequest` (cadastro e edição): `titulo` (5–200), `descricao`, `origem`, `categoria?`, `municipioId` (código IBGE de MT), `localidade?`, `latitude?`/`longitude?` (retângulo de MT), `dataRecebimento` (≤ hoje), `prioridade?`, `prazoSugerido?`, `observacoes?`. A resposta (`DemandaDetalhe`) traz `numero` (`DEM-AAAA/NNNN`), `status`, `atrasada` (derivada), `equipe`, `fiscal`, `prazo`, `fiscalizacao`, `totalDocumentos` e metadados. Operações de fluxo (`triagem/iniciar`, `triagem`, `distribuicao`, `inicio`, `fiscalizacao`, `conclusao`, `devolucao`) devolvem a demanda já no novo status; `atividades` devolve o evento criado (`HistoricoItem`, `201`).
 
 | Operação | Corpo | Transição |
 |---|---|---|

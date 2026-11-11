@@ -79,6 +79,16 @@ public class Fiscalizacao {
         this.registradoPor = registradoPor;
     }
 
+    /** Reenvio após devolução: mantém o registro 1:1 e substitui o conteúdo. */
+    public void atualizar(LocalDate data, String atividades, String resultado, String evidencias,
+                          String recomendacoes) {
+        this.data = data;
+        this.atividades = atividades;
+        this.resultado = resultado;
+        this.evidencias = evidencias;
+        this.recomendacoes = recomendacoes;
+    }
+
     @PrePersist
     void aoCriar() {
         registradoEm = LocalDateTime.now();

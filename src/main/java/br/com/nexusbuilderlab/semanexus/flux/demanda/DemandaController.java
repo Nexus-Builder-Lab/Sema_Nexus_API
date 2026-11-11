@@ -1,8 +1,6 @@
 package br.com.nexusbuilderlab.semanexus.flux.demanda;
 
 import br.com.nexusbuilderlab.semanexus.common.dto.PageResponse;
-import br.com.nexusbuilderlab.semanexus.common.exception.ContratoPendenteException;
-import br.com.nexusbuilderlab.semanexus.common.openapi.ContratoPendente;
 import br.com.nexusbuilderlab.semanexus.flux.demanda.dto.AtividadeRequest;
 import br.com.nexusbuilderlab.semanexus.flux.demanda.dto.ConclusaoRequest;
 import br.com.nexusbuilderlab.semanexus.flux.demanda.dto.DemandaDetalhe;
@@ -41,8 +39,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 /**
  * Flux (demandas de fiscalização). Cadastro, edição, listagem, detalhes, histórico e exclusão estão implementados
- * (#11); triagem e distribuição estão implementadas (#12); os demais respondem `501` até a Issue indicada em cada
- * {@link ContratoPendente}: acompanhamento, fiscalização, conclusão e devolução (#13). Máquina de estados em
+ * (#11); triagem e distribuição estão implementadas (#12); acompanhamento, fiscalização, conclusão e devolução estão implementados (#13).
  * `docs/ARCHITECTURE.md` §5.
  */
 @RestController
@@ -54,11 +51,19 @@ public class DemandaController {
     private final DemandaService service;
     private final TriagemService triagem;
     private final DistribuicaoService distribuicao;
+    private final AcompanhamentoService acompanhamento;
+    private final FiscalizacaoService fiscalizacaoService;
+    private final ConclusaoService conclusao;
 
-    public DemandaController(DemandaService service, TriagemService triagem, DistribuicaoService distribuicao) {
+    public DemandaController(DemandaService service, TriagemService triagem, DistribuicaoService distribuicao,
+                              AcompanhamentoService acompanhamento, FiscalizacaoService fiscalizacaoService,
+                              ConclusaoService conclusao) {
         this.service = service;
         this.triagem = triagem;
         this.distribuicao = distribuicao;
+        this.acompanhamento = acompanhamento;
+        this.fiscalizacaoService = fiscalizacaoService;
+        this.conclusao = conclusao;
     }
 
     // ----------------------------------------------------------------- Issue #11 — cadastro e consulta
@@ -152,49 +157,44 @@ public class DemandaController {
     // ----------------------------------------------------------------- Issue #13 — acompanhamento e conclusão
 
     @Operation(summary = "Inicia a execução (DISTRIBUIDA → EM_ANDAMENTO)",
-            description = "Perfis: fiscal designado, GESTOR, ADMIN. Fiscal que não é o designado recebe 403.")
+            description = "Perfis: fiscal designado, GESTOR, ADMIN. Fiscal que não é o designado recebe 403; fora de DISTRIBUIDA responde 409. Simulação demonstrativa: não gera auto de infração nem substitui sistemas oficiais.")
     @PreAuthorize(Autorizacao.ADMIN_GESTOR_FISCAL)
     @PostMapping("/{id}/inicio")
-    @ContratoPendente(issue = 13)
-    public DemandaDetalhe iniciarExecucao(@PathVariable Long id) {
-        throw new ContratoPendenteException(13);
+    public DemandaDetalhe iniciarExecucao(@AuthenticationPrincipal UsuarioAutenticado ator, @PathVariable Long id) {
+        return acompanhamento.iniciar(ator, id);
     }
 
     @Operation(summary = "Registra uma atividade de acompanhamento no histórico (demanda EM_ANDAMENTO)",
-            description = "Perfis: fiscal designado, GESTOR, ADMIN.")
+            description = "Perfis: fiscal designado, GESTOR, ADMIN. 403 para fiscal não designado; 409 fora de EM_ANDAMENTO. Simulação demonstrativa: não gera auto de infração nem substitui sistemas oficiais.")
     @ApiResponse(responseCode = "201", description = "Atividade registrada")
     @PreAuthorize(Autorizacao.ADMIN_GESTOR_FISCAL)
     @PostMapping("/{id}/atividades")
     @ResponseStatus(HttpStatus.CREATED)
-    @ContratoPendente(issue = 13)
-    public HistoricoItem registrarAtividade(@PathVariable Long id, @Valid @RequestBody AtividadeRequest pedido) {
-        throw new ContratoPendenteException(13);
+    public HistoricoItem registrarAtividade(@AuthenticationPrincipal UsuarioAutenticado ator, @PathVariable Long id, @Valid @RequestBody AtividadeRequest pedido) {
+        return acompanhamento.registrarAtividade(ator, id, pedido);
     }
 
     @Operation(summary = "Registra a fiscalização (EM_ANDAMENTO → AGUARDANDO_CONCLUSAO)",
-            description = "Perfis: fiscal designado, GESTOR, ADMIN. Exige registro completo.")
+            description = "Perfis: fiscal designado, GESTOR, ADMIN. Exige registro completo (400 por campo); 403 para fiscal não designado; 409 fora de EM_ANDAMENTO. Simulação demonstrativa: não gera auto de infração nem substitui sistemas oficiais.")
     @PreAuthorize(Autorizacao.ADMIN_GESTOR_FISCAL)
     @PostMapping("/{id}/fiscalizacao")
-    @ContratoPendente(issue = 13)
-    public DemandaDetalhe registrarFiscalizacao(@PathVariable Long id, @Valid @RequestBody FiscalizacaoRequest pedido) {
-        throw new ContratoPendenteException(13);
+    public DemandaDetalhe registrarFiscalizacao(@AuthenticationPrincipal UsuarioAutenticado ator, @PathVariable Long id, @Valid @RequestBody FiscalizacaoRequest pedido) {
+        return fiscalizacaoService.registrar(ator, id, pedido);
     }
 
     @Operation(summary = "Conclui a demanda (AGUARDANDO_CONCLUSAO → FINALIZADA)",
-            description = "Perfis: GESTOR, ADMIN. Exige resultado final e justificativa.")
+            description = "Perfis: GESTOR, ADMIN. Exige resultado final e justificativa. 409 se não estiver em AGUARDANDO_CONCLUSAO (inclui já finalizada) ou sem registro de fiscalização. Preenche concluidaEm. Simulação demonstrativa: não gera auto de infração nem substitui sistemas oficiais.")
     @PreAuthorize(Autorizacao.ADMIN_GESTOR)
     @PostMapping("/{id}/conclusao")
-    @ContratoPendente(issue = 13)
-    public DemandaDetalhe concluir(@PathVariable Long id, @Valid @RequestBody ConclusaoRequest pedido) {
-        throw new ContratoPendenteException(13);
+    public DemandaDetalhe concluir(@AuthenticationPrincipal UsuarioAutenticado ator, @PathVariable Long id, @Valid @RequestBody ConclusaoRequest pedido) {
+        return conclusao.concluir(ator, id, pedido);
     }
 
     @Operation(summary = "Devolve a demanda para ajustes (AGUARDANDO_CONCLUSAO → EM_ANDAMENTO)",
-            description = "Perfis: GESTOR, ADMIN. Exige justificativa.")
+            description = "Perfis: GESTOR, ADMIN. Exige justificativa; 409 fora de AGUARDANDO_CONCLUSAO. Simulação demonstrativa: não gera auto de infração nem substitui sistemas oficiais.")
     @PreAuthorize(Autorizacao.ADMIN_GESTOR)
     @PostMapping("/{id}/devolucao")
-    @ContratoPendente(issue = 13)
-    public DemandaDetalhe devolver(@PathVariable Long id, @Valid @RequestBody DevolucaoRequest pedido) {
-        throw new ContratoPendenteException(13);
+    public DemandaDetalhe devolver(@AuthenticationPrincipal UsuarioAutenticado ator, @PathVariable Long id, @Valid @RequestBody DevolucaoRequest pedido) {
+        return conclusao.devolver(ator, id, pedido);
     }
 }
