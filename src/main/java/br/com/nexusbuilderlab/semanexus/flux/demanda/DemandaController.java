@@ -15,15 +15,19 @@ import br.com.nexusbuilderlab.semanexus.flux.demanda.dto.FiscalizacaoRequest;
 import br.com.nexusbuilderlab.semanexus.flux.demanda.dto.HistoricoItem;
 import br.com.nexusbuilderlab.semanexus.flux.demanda.dto.TriagemRequest;
 import br.com.nexusbuilderlab.semanexus.security.Autorizacao;
+import br.com.nexusbuilderlab.semanexus.security.UsuarioAutenticado;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.net.URI;
 import java.util.List;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -33,17 +37,25 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 /**
- * Contrato do Flux (demandas de fiscalização). Os endpoints respondem {@code 501} até a Issue indicada em
- * cada {@link ContratoPendente}: cadastro/listagem/detalhes (#11), triagem e distribuição (#12),
- * acompanhamento, fiscalização, conclusão e devolução (#13). Máquina de estados em {@code docs/ARCHITECTURE.md} §5.
+ * Flux (demandas de fiscalização). Cadastro, edição, listagem, detalhes, histórico e exclusão estão implementados
+ * (#11); os demais endpoints respondem `501` até a Issue indicada em cada {@link ContratoPendente}: triagem e
+ * distribuição (#12), acompanhamento, fiscalização, conclusão e devolução (#13). Máquina de estados em
+ * `docs/ARCHITECTURE.md` §5.
  */
 @RestController
 @RequestMapping("/api/demandas")
 @Tag(name = "Flux — Demandas", description = "Demandas de fiscalização ambiental: cadastro, triagem, distribuição, "
         + "acompanhamento, fiscalização, conclusão e devolução")
 public class DemandaController {
+
+    private final DemandaService service;
+
+    public DemandaController(DemandaService service) {
+        this.service = service;
+    }
 
     // ----------------------------------------------------------------- Issue #11 — cadastro e consulta
 
@@ -52,46 +64,47 @@ public class DemandaController {
     @ApiResponse(responseCode = "201", description = "Demanda criada; `Location` aponta para `/api/demandas/{id}`")
     @PreAuthorize(Autorizacao.ADMIN_GESTOR_ANALISTA)
     @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    @ContratoPendente(issue = 11)
-    public DemandaDetalhe cadastrar(@Valid @RequestBody DemandaRequest pedido) {
-        throw new ContratoPendenteException(11);
+    public ResponseEntity<DemandaDetalhe> cadastrar(@AuthenticationPrincipal UsuarioAutenticado ator,
+                                                    @Valid @RequestBody DemandaRequest pedido) {
+        DemandaDetalhe criada = service.cadastrar(ator, pedido);
+        URI local = ServletUriComponentsBuilder.fromCurrentRequest().path("/{id}").buildAndExpand(criada.id()).toUri();
+        return ResponseEntity.created(local).body(criada);
     }
 
     @Operation(summary = "Edita uma demanda (somente em PENDENTE ou EM_TRIAGEM)",
             description = "Perfis: ADMIN, GESTOR, ANALISTA. Fora desses status responde 409.")
     @PreAuthorize(Autorizacao.ADMIN_GESTOR_ANALISTA)
     @PutMapping("/{id}")
-    @ContratoPendente(issue = 11)
-    public DemandaDetalhe editar(@PathVariable Long id, @Valid @RequestBody DemandaRequest pedido) {
-        throw new ContratoPendenteException(11);
+    public DemandaDetalhe editar(@AuthenticationPrincipal UsuarioAutenticado ator, @PathVariable Long id,
+                                 @Valid @RequestBody DemandaRequest pedido) {
+        return service.editar(ator, id, pedido);
     }
 
     @Operation(summary = "Lista demandas com paginação, ordenação e filtros combináveis",
             description = "Qualquer perfil autenticado; FISCAL enxerga só as demandas da sua equipe ou atribuídas a ele. "
-                    + "Ordenação: `sort=campo,asc|desc` (campos: numero, titulo, dataRecebimento, prazo, status, prioridade).")
+                    + "Ordenação: `sort=campo,asc|desc` (campos: numero, titulo, dataRecebimento, prazo, status, prioridade); "
+                    + "sem `sort`, mais recentes primeiro.")
     @GetMapping
-    @ContratoPendente(issue = 11)
-    public PageResponse<DemandaResumo> listar(@ParameterObject DemandaFiltro filtro, @ParameterObject Pageable paginacao) {
-        throw new ContratoPendenteException(11);
+    public PageResponse<DemandaResumo> listar(@AuthenticationPrincipal UsuarioAutenticado ator,
+                                              @ParameterObject DemandaFiltro filtro,
+                                              @ParameterObject Pageable paginacao) {
+        return service.listar(ator, filtro, paginacao);
     }
 
     @Operation(summary = "Detalhes da demanda (equipe, fiscal, prazo, situação, fiscalização e documentos)",
             description = "Qualquer perfil autenticado; FISCAL só nas demandas da sua equipe ou atribuídas a ele.")
     @ApiResponse(responseCode = "403", description = "Fiscal fora do escopo (demanda de outra equipe)")
     @GetMapping("/{id}")
-    @ContratoPendente(issue = 11)
-    public DemandaDetalhe detalhar(@PathVariable Long id) {
-        throw new ContratoPendenteException(11);
+    public DemandaDetalhe detalhar(@AuthenticationPrincipal UsuarioAutenticado ator, @PathVariable Long id) {
+        return service.detalhar(ator, id);
     }
 
     @Operation(summary = "Histórico (linha do tempo) da demanda, do mais recente ao mais antigo",
             description = "Qualquer perfil autenticado; FISCAL só nas demandas da sua equipe ou atribuídas a ele.")
     @ApiResponse(responseCode = "403", description = "Fiscal fora do escopo (demanda de outra equipe)")
     @GetMapping("/{id}/historico")
-    @ContratoPendente(issue = 11)
-    public List<HistoricoItem> historico(@PathVariable Long id) {
-        throw new ContratoPendenteException(11);
+    public List<HistoricoItem> historico(@AuthenticationPrincipal UsuarioAutenticado ator, @PathVariable Long id) {
+        return service.historico(ator, id);
     }
 
     @Operation(summary = "Exclui logicamente a demanda (somente ADMIN e somente em PENDENTE)",
@@ -99,9 +112,8 @@ public class DemandaController {
     @PreAuthorize(Autorizacao.SOMENTE_ADMIN)
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @ContratoPendente(issue = 11)
-    public void excluir(@PathVariable Long id) {
-        throw new ContratoPendenteException(11);
+    public void excluir(@AuthenticationPrincipal UsuarioAutenticado ator, @PathVariable Long id) {
+        service.excluir(ator, id);
     }
 
     // ----------------------------------------------------------------- Issue #12 — triagem e distribuição

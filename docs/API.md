@@ -1,6 +1,6 @@
 # SEMA NEXUS — Contrato da API
 
-> **Status:** Em desenvolvimento — **Implementado:** autenticação (`/api/auth/*`, Issue #4), catálogos e estrutura (`/api/catalogos/*`, `/api/setores`, `/api/equipes[/{id}/membros]`, Issue #7). **Contrato publicado, ainda respondendo `501`:** demandas, documentos, indicadores, mapa e dashboard (Issue #7 publica o contrato; cada endpoint é implementado na Issue indicada na tabela). **Planejado:** auditoria (#14) e os endpoints P1.
+> **Status:** Em desenvolvimento — **Implementado:** demandas — cadastro, edição, listagem filtrada, detalhes, histórico e exclusão lógica (Issue #11); autenticação (`/api/auth/*`, Issue #4), catálogos e estrutura (`/api/catalogos/*`, `/api/setores`, `/api/equipes[/{id}/membros]`, Issue #7). **Contrato publicado, ainda respondendo `501`:** triagem, distribuição e acompanhamento das demandas (#12, #13), documentos, indicadores, mapa e dashboard (Issue #7 publica o contrato; cada endpoint é implementado na Issue indicada na tabela). **Planejado:** auditoria (#14) e os endpoints P1.
 >
 > A fonte da verdade é o OpenAPI gerado pelo springdoc (`/v3/api-docs`, `/swagger-ui.html`) e exportado pelo CI como artefato `openapi.json` (job **Exportar contrato OpenAPI**). Este documento registra os **padrões**; alterou endpoint, atualize as anotações e este arquivo. O teste `ContratoOpenApiTest` falha se um endpoint P0 sair do contrato ou se um endpoint novo não for registrado nele.
 
@@ -44,8 +44,8 @@ A ordem de avaliação é **autenticação (401) → perfil (403) → validaçã
 | GET | `/api/auth/me` · `/api/auth/config` | autenticado / público | #4 | ✅ |
 | GET | `/api/catalogos/{municipios,biomas,categorias,origens,prioridades,status}` | qualquer autenticado | #7 | ✅ |
 | GET | `/api/setores` · `/api/equipes` · `/api/equipes/{id}/membros` | Admin, Gestor | #7 | ✅ |
-| POST · PUT · GET · DELETE | `/api/demandas` · `/api/demandas/{id}` (cadastro: Admin, Gestor, Analista; exclusão lógica: Admin; consulta: todos, fiscal só da sua equipe) | ver ARCHITECTURE §6 | #11 | 📄 |
-| GET | `/api/demandas/{id}/historico` | consulta | #11 | 📄 |
+| POST · PUT · GET · DELETE | `/api/demandas` · `/api/demandas/{id}` (PUT só em PENDENTE/EM_TRIAGEM, senão 409; DELETE só em PENDENTE, senão 409; número `DEM-AAAA/NNNN` automático) (cadastro: Admin, Gestor, Analista; exclusão lógica: Admin; consulta: todos, fiscal só da sua equipe) | ver ARCHITECTURE §6 | #11 | ✅ |
+| GET | `/api/demandas/{id}/historico` | consulta | #11 | ✅ |
 | POST | `/api/demandas/{id}/triagem/iniciar` · `/triagem` | Admin, Gestor, Analista | #12 | 📄 |
 | POST | `/api/demandas/{id}/distribuicao` · GET `/api/equipes/{id}/demandas` | Admin, Gestor | #12 | 📄 |
 | POST | `/api/demandas/{id}/inicio` · `/atividades` · `/fiscalizacao` | fiscal designado, Gestor, Admin | #13 | 📄 |
@@ -86,11 +86,11 @@ Leitura, sem paginação. Catálogos: qualquer perfil autenticado. Setores, equi
 | `GET /api/equipes[?setorId=&ativo=]` | `200` array de `{id, nome, setorId, setorSigla, responsavel{id,nome}, totalMembros, ativo}` por nome |
 | `GET /api/equipes/{id}/membros` | `200` array de `{id, nome, email, perfil, ativo}` por nome (nunca senha/hash) · `404` equipe inexistente |
 
-## Contrato dos endpoints ainda não implementados (Issue #7)
+## Contrato dos endpoints (Issue #7; demandas implementadas na #11)
 
 Os controllers, DTOs de requisição/resposta, validações e erros abaixo já existem e aparecem em `/v3/api-docs`; o Web gera os mocks (MSW) a partir deles. Os detalhes campo a campo estão nos schemas do OpenAPI (`DemandaRequest`, `DemandaDetalhe`, `DocumentoDetalhe`, …).
 
-**Demandas (Flux)** — `DemandaRequest` (cadastro e edição): `titulo` (5–200), `descricao`, `origem`, `categoria?`, `municipioId` (código IBGE de MT), `localidade?`, `latitude?`/`longitude?` (retângulo de MT), `dataRecebimento` (≤ hoje), `prioridade?`, `prazoSugerido?`, `observacoes?`. A resposta (`DemandaDetalhe`) traz `numero` (`DEM-AAAA/NNNN`), `status`, `atrasada` (derivada), `equipe`, `fiscal`, `prazo`, `fiscalizacao`, `totalDocumentos` e metadados. Operações de fluxo (`triagem/iniciar`, `triagem`, `distribuicao`, `inicio`, `fiscalizacao`, `conclusao`, `devolucao`) devolvem a demanda já no novo status; `atividades` devolve o evento criado (`HistoricoItem`, `201`).
+**Demandas (Flux)** — cadastro, edição, listagem, detalhes, histórico e exclusão lógica estão **Implementados (Issue #11)**; as operações de fluxo da tabela abaixo continuam respondendo `501` até as Issues #12 e #13. `DemandaRequest` (cadastro e edição): `titulo` (5–200), `descricao`, `origem`, `categoria?`, `municipioId` (código IBGE de MT), `localidade?`, `latitude?`/`longitude?` (retângulo de MT), `dataRecebimento` (≤ hoje), `prioridade?`, `prazoSugerido?`, `observacoes?`. A resposta (`DemandaDetalhe`) traz `numero` (`DEM-AAAA/NNNN`), `status`, `atrasada` (derivada), `equipe`, `fiscal`, `prazo`, `fiscalizacao`, `totalDocumentos` e metadados. Operações de fluxo (`triagem/iniciar`, `triagem`, `distribuicao`, `inicio`, `fiscalizacao`, `conclusao`, `devolucao`) devolvem a demanda já no novo status; `atividades` devolve o evento criado (`HistoricoItem`, `201`).
 
 | Operação | Corpo | Transição |
 |---|---|---|

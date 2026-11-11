@@ -5,11 +5,11 @@
 
 .DESCRIPTION
   Cada iteração chama:
-    claude -p "/next-issue" --model sonnet --effort high --permission-mode auto --permission-prompts none --output-format json
+    claude -p "/next-issue" --model sonnet --effort medium --permission-mode auto --permission-prompts none --output-format json
   O comando /next-issue escolhe a próxima Issue P0 desbloqueada, implementa, testa, abre o PR, espera o CI e
   faz o merge somente se as condições do CLAUDE.md (seção 8.1) forem atendidas.
 
-  Modelos (definido pelo proprietário em 10/11/2026): Sonnet 5.5 com esforço alto por padrão. Se uma iteração
+  Modelos (definido pelo proprietário em 10/11/2026): Sonnet 5.5 com esforço médio por padrão (11/11/2026); agentes simples em Haiku 5.5. Se uma iteração
   terminar com "AUTOPILOT: FALHOU #n", o script faz UMA retentativa da mesma Issue com Opus 5.5 e esforço médio
   ("/next-issue n") antes de contar a falha. Dentro da execução, o /next-issue também pode consultar um
   subagente Opus 5.5 (médio) esporadicamente para diagnóstico.
@@ -35,7 +35,7 @@ param(
   [int]$MaxFalhasSeguidas = 3,
   [int]$MaxTurnos = 400,
   [string]$Modelo = 'sonnet',          # Sonnet 5.5
-  [string]$Esforco = 'high',
+  [string]$Esforco = 'medium',
   [string]$ModeloReforco = 'opus',     # Opus 5.5 — só na retentativa de uma Issue que falhou
   [string]$EsforcoReforco = 'medium',
   [string]$Prompt = '/next-issue',     # só para teste da mecânica; no uso normal, não altere

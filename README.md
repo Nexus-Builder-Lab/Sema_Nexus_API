@@ -17,9 +17,10 @@ Este repositório também concentra a **infraestrutura e a documentação transv
 | Seed demonstrativo base: usuário de teste, usuários, setores e equipes fictícios, só em `demo`/`dev` (Issue #5) | **Implementado** |
 | Trava de inicialização do usuário de teste fora de `demo`/`dev` (Issue #6) | **Implementado** |
 | `docker-compose.yml` (Oracle Free + API + Web), `.env.example`, healthchecks e volumes (Issue #8) | **Implementado** |
+| `docs/DOCKER.md` completo (requisitos, Windows/WSL2, Apple Silicon, problemas comuns) e seção de execução do README (Issue #10) | **Implementado** |
 | Scripts `demo-up`/`demo-down`/`demo-reset` (`.sh` e `.ps1`) e `Makefile` (Issue #9) | **Implementado** |
-| `docs/DOCKER.md` completo (requisitos validados, solução de problemas) | **Planejado** — Sprint 1 (Issue #10) |
-| Módulos Flux, Intelligence, DocIA | **Planejado** — Sprints 2 e 3 |
+| Demandas do Flux: cadastro, edição, listagem com filtros, detalhes, histórico e exclusão lógica (Issue #11) | **Implementado** |
+| Triagem, distribuição e fiscalização do Flux (#12, #13), Intelligence, DocIA | **Planejado** — Sprints 2 e 3 |
 
 Acompanhamento: [GitHub Project — SEMA NEXUS — Desenvolvimento](https://github.com/orgs/Nexus-Builder-Lab/projects/1) · [docs/SPRINTS.md](docs/SPRINTS.md)
 
@@ -38,10 +39,13 @@ docker compose up -d --build
 docker compose ps
 ```
 
+- Edite o `.env` (senhas e `JWT_SECRET` de 32+ caracteres) antes do `up`; se 8080, 3000 ou 1521 estiverem em uso, troque `API_PORT`, `WEB_PORT` ou `ORACLE_PORT`.
 - Aplicação: http://localhost:3000 · API: http://localhost:8080 · Swagger: http://localhost:8080/swagger-ui.html
 - Login de teste (**somente demonstração**): `admin@admin.com` / `12345678`
+- Parar sem perder dados: `docker compose down` (nunca `-v`, que apaga o banco e os uploads).
+- Requisitos: Docker com Compose v2, RAM de 8 GB+ no host (~2 GB para o Oracle), ~12 GB de disco; 1ª subida de 1 a 3 min (mais o download das imagens).
 
-Detalhes, requisitos e reset: [docs/DOCKER.md](docs/DOCKER.md).
+Passo a passo completo, requisitos, Windows/WSL2, Apple Silicon, reset e solução de problemas: [docs/DOCKER.md](docs/DOCKER.md).
 
 ## Executar localmente sem Docker
 
@@ -94,6 +98,7 @@ O seed demonstrativo cria `admin@admin.com` / `12345678` (Administrador) **somen
 | [DEMO.md](docs/DEMO.md) | Credenciais demonstrativas e roteiro de 10 minutos |
 | [DEFINITION_OF_DONE.md](docs/DEFINITION_OF_DONE.md) | Critérios de conclusão |
 | [PROJECT_HEALTH.md](docs/PROJECT_HEALTH.md) | Monitoramento diário |
+| [AGENTES.md](docs/AGENTES.md) | Subagentes especializados e fluxo multiagente |
 | [AUTOPILOT.md](docs/AUTOPILOT.md) | Desenvolvimento autônomo: como iniciar, acompanhar e parar |
 | [DIARIO_DESENVOLVIMENTO.md](docs/DIARIO_DESENVOLVIMENTO.md) | Histórico de tudo o que foi feito, decidido e testado |
 | [CLAUDE.md](CLAUDE.md) | Regras permanentes para sessões com Claude Code |

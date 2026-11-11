@@ -1,6 +1,6 @@
 # SEMA NEXUS — Banco de dados (Oracle)
 
-> **Status:** Core **Implementado** (Issue #3: `V1__core.sql`, `V2__municipios_mt.sql`). Flux (#11), DocIA (#15) e Notificações (#25, P1) **Planejados**.
+> **Status:** Core **Implementado** (Issue #3: `V1__core.sql`, `V2__municipios_mt.sql`). Flux **Implementado** (Issue #11: `V3__flux.sql`; triagem, distribuição e fiscalização usam as tabelas nas #12 e #13). DocIA (#15) e Notificações (#25, P1) **Planejados**.
 > **Oracle é obrigatório.** Não usar PostgreSQL, MySQL, H2 ou SQLite em nenhum ambiente, nem em testes.
 
 ## Ambiente
@@ -41,15 +41,15 @@ Conexão: `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOU
 | `EQUIPE_MEMBRO` | `EQUIPE_ID`, `USUARIO_ID` | PK composta; `FK_EQUIPE_MEMBRO_EQUIPE` (`ON DELETE CASCADE`), `FK_EQUIPE_MEMBRO_USUARIO`; `IX_EQUIPE_MEMBRO_USUARIO_ID` |
 | `AUDITORIA` | `ID` identity, `DATA`, `USUARIO_ID`, `ACAO`, `ENTIDADE`, `ENTIDADE_ID VARCHAR2(64)`, `DETALHE VARCHAR2(4000)` | `FK_AUDITORIA_USUARIO`; `IX_AUDITORIA_DATA`, `IX_AUDITORIA_ENTIDADE (ENTIDADE, ENTIDADE_ID)`, `IX_AUDITORIA_USUARIO_ID`. Append-only (entidade `@Immutable`) |
 
-### Demais módulos — Planejado
+### Flux (Implementado, Issue #11) e demais módulos (Planejado)
 
 | Tabela | Colunas principais | Restrições / índices | Issue |
 |---|---|---|---|
-| `DEMANDA` | `ID`, `NUMERO` (UK, `DEM-AAAA/NNNN`), `TITULO`, `DESCRICAO` (CLOB), `ORIGEM`, `CATEGORIA`, `MUNICIPIO_ID`, `LOCALIDADE`, `LATITUDE`, `LONGITUDE`, `DATA_RECEBIMENTO`, `PRIORIDADE`, `PRAZO`, `STATUS`, `EQUIPE_ID`, `FISCAL_ID`, `OBSERVACOES`, `RESULTADO_FINAL`, `JUSTIFICATIVA_CONCLUSAO`, `CONCLUIDA_EM`, `CRIADO_POR`, `EXCLUIDO_EM` | CHECKs de enums; coordenadas dentro do retângulo de MT; índices em `STATUS`, `MUNICIPIO_ID`, `CATEGORIA`, `DATA_RECEBIMENTO`, `EQUIPE_ID` | #11 |
-| `NUMERACAO_DEMANDA` | `ANO` (PK), `ULTIMO` | `SELECT … FOR UPDATE` na geração do número | #11 |
-| `DEMANDA_HISTORICO` | `ID`, `DEMANDA_ID`, `TIPO`, `STATUS_ANTERIOR`, `STATUS_NOVO`, `TEXTO`, `USUARIO_ID`, `DATA` | `IX (DEMANDA_ID, DATA)` | #11 |
-| `DISTRIBUICAO` | `ID`, `DEMANDA_ID`, `EQUIPE_ID`, `FISCAL_ID`, `DATA`, `PRAZO`, `OBSERVACOES`, `USUARIO_ID` | histórico de (re)distribuições | #11 |
-| `FISCALIZACAO` | `ID`, `DEMANDA_ID` (UK), `DATA`, `EQUIPE_ID`, `ATIVIDADES`, `RESULTADO`, `EVIDENCIAS`, `RECOMENDACOES`, `REGISTRADO_POR` | 1:1 com a demanda no MVP | #11 |
+| `DEMANDA` | `ID`, `NUMERO` (UK, `DEM-AAAA/NNNN`), `TITULO`, `DESCRICAO` (CLOB), `ORIGEM`, `CATEGORIA`, `MUNICIPIO_ID`, `LOCALIDADE`, `LATITUDE`, `LONGITUDE`, `DATA_RECEBIMENTO`, `PRIORIDADE`, `PRAZO`, `STATUS`, `EQUIPE_ID`, `FISCAL_ID`, `OBSERVACOES`, `RESULTADO_FINAL`, `JUSTIFICATIVA_CONCLUSAO`, `CONCLUIDA_EM`, `CRIADO_POR`, `EXCLUIDO_EM` | CHECKs de enums; coordenadas dentro do retângulo de MT; índices em `STATUS`, `MUNICIPIO_ID`, `CATEGORIA`, `DATA_RECEBIMENTO`, `EQUIPE_ID` | #11 ✅ |
+| `NUMERACAO_DEMANDA` | `ANO` (PK), `ULTIMO` | `SELECT … FOR UPDATE` na geração do número (a demanda também é lida com lock pessimista ao editar/excluir) | #11 ✅ |
+| `DEMANDA_HISTORICO` | `ID`, `DEMANDA_ID`, `TIPO`, `STATUS_ANTERIOR`, `STATUS_NOVO`, `TEXTO`, `USUARIO_ID`, `DATA` | `IX (DEMANDA_ID, DATA)` | #11 ✅ |
+| `DISTRIBUICAO` | `ID`, `DEMANDA_ID`, `EQUIPE_ID`, `FISCAL_ID`, `DATA`, `PRAZO`, `OBSERVACOES`, `USUARIO_ID` | histórico de (re)distribuições | #11 ✅ |
+| `FISCALIZACAO` | `ID`, `DEMANDA_ID` (UK), `DATA`, `EQUIPE_ID`, `ATIVIDADES`, `RESULTADO`, `EVIDENCIAS`, `RECOMENDACOES`, `REGISTRADO_POR` | 1:1 com a demanda no MVP | #11 ✅ |
 | `DOCUMENTO` | `ID`, `TITULO`, `DESCRICAO`, `CATEGORIA`, `TIPO`, `DATA_DOCUMENTO`, `MUNICIPIO_ID`, `PALAVRAS_CHAVE`, `NOME_ARQUIVO`, `MIME`, `TAMANHO`, `STORAGE_KEY`, `SHA256`, `TEXTO_EXTRAIDO` (CLOB), `RESPONSAVEL_ID`, `EXCLUIDO_EM` | arquivo **fora** do banco; índices em `CATEGORIA`, `DATA_DOCUMENTO` | #15 |
 | `DOCUMENTO_DEMANDA` | `DOCUMENTO_ID`, `DEMANDA_ID`, `VINCULADO_EM`, `VINCULADO_POR` | PK composta | #15 |
 | `NOTIFICACAO` (P1) | `ID`, `USUARIO_ID`, `TIPO`, `MENSAGEM`, `LINK`, `LIDA`, `CRIADA_EM` | | #25 |

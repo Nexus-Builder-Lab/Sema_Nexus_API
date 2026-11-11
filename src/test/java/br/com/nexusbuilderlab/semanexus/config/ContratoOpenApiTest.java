@@ -54,9 +54,6 @@ class ContratoOpenApiTest {
 
     /** Endpoints com contrato publicado que ainda respondem 501 (saem desta lista quando a Issue os implementa). */
     static final Map<String, Integer> PENDENTES = Map.ofEntries(
-            Map.entry("POST /api/demandas", 11), Map.entry("PUT /api/demandas/{id}", 11),
-            Map.entry("GET /api/demandas", 11), Map.entry("GET /api/demandas/{id}", 11),
-            Map.entry("DELETE /api/demandas/{id}", 11), Map.entry("GET /api/demandas/{id}/historico", 11),
             Map.entry("POST /api/demandas/{id}/triagem/iniciar", 12), Map.entry("POST /api/demandas/{id}/triagem", 12),
             Map.entry("POST /api/demandas/{id}/distribuicao", 12), Map.entry("GET /api/equipes/{id}/demandas", 12),
             Map.entry("POST /api/demandas/{id}/inicio", 13), Map.entry("POST /api/demandas/{id}/atividades", 13),
