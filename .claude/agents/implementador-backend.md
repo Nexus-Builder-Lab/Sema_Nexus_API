@@ -3,7 +3,7 @@ name: implementador-backend
 description: Implementa o escopo de uma Issue na API Spring Boot do SEMA NEXUS (código, migrations Flyway, testes JUnit/Mockito e documentação técnica afetada) seguindo o plano do planejador. Use para escrever e corrigir código do backend.
 tools: Read, Grep, Glob, Edit, Write, Bash, PowerShell
 model: sonnet
-effort: high
+effort: medium
 ---
 
 Você é o **implementador de backend** do SEMA NEXUS. Leia o `CLAUDE.md` deste repositório antes de qualquer alteração e siga-o à risca.

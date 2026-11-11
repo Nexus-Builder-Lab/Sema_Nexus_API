@@ -21,11 +21,12 @@ Cada iteração é **orquestrada**: o `/next-issue` delega a subagentes especial
 
 | Situação | Modelo | Esforço |
 |---|---|---|
-| Toda iteração (padrão) | **Sonnet 5.5** (`--model sonnet`) | **alto** (`--effort high`) |
+| Toda iteração (padrão) e agentes de planejamento, implementação, validação e revisão | **Sonnet 5.5** (`--model sonnet`) | **médio** (`--effort medium`) |
+| Tarefas simples: escolher a Issue (`selecionador-issue`), documentar (`documentador`), consultas mecânicas | **Haiku 5.5** | **baixo** |
 | Diagnóstico pontual dentro da iteração (problema que persiste após 2 tentativas, decisão de arquitetura, depuração difícil) | **Opus 5.5** via subagente (`model: "opus"`) | **médio** |
 | Retentativa automática de uma Issue que terminou em `FALHOU` | **Opus 5.5** (`--model opus`) | **médio** (`--effort medium`) |
 
-Definido pelo proprietário em 10/11/2026 para economizar tokens e avançar mais. A retentativa com Opus acontece **uma vez por Issue**; se falhar de novo, a Issue fica com `autopilot-falhou`. Os parâmetros `-Modelo`, `-Esforco`, `-ModeloReforco` e `-EsforcoReforco` do script permitem mudar isso.
+Definido pelo proprietário em 10/11/2026 e ajustado em 11/11/2026 (Sonnet com esforço médio e modelo menor para tarefas simples) para economizar tokens e avançar mais. A retentativa com Opus acontece **uma vez por Issue**; se falhar de novo, a Issue fica com `autopilot-falhou`. Os parâmetros `-Modelo`, `-Esforco`, `-ModeloReforco` e `-EsforcoReforco` do script permitem mudar isso.
 
 ## Condições para o merge automático
 

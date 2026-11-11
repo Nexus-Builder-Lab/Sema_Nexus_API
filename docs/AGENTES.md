@@ -33,14 +33,15 @@ Há **dois níveis de multiagente**:
 
 | Agente | Repositórios | Papel | Ferramentas | Modelo · esforço |
 |---|---|---|---|---|
-| `planejador-issue` | API, Web | Lê a Issue, dependências e código; devolve plano, testes previstos, mapa dos critérios e riscos | leitura + Bash/PowerShell | Sonnet 5.5 · alto |
-| `implementador-backend` | API | Implementa e corrige o escopo (código, migrations, testes, docs técnicos), roda `mvn verify`, commita | leitura + edição + Bash/PowerShell | Sonnet 5.5 · alto |
-| `implementador-frontend` | Web | Implementa e corrige telas/componentes, mocks e testes; roda lint/test/build; commita | leitura + edição + Bash/PowerShell | Sonnet 5.5 · alto |
-| `validador-qa` | API, Web | Build, testes, Docker (com trava) e evidência de cada critério de aceitação | leitura + Bash/PowerShell (não edita) | Sonnet 5.5 · alto |
-| `revisor-codigo` | API, Web | Revisão independente do diff: defeitos, regras do projeto, testes, docs | somente leitura | Sonnet 5.5 · alto |
-| `revisor-seguranca` | API, Web | Autorização, JWT, credencial demonstrativa, uploads, segredos, logs, CORS, XSS | somente leitura | Sonnet 5.5 · alto |
-| `revisor-ui-acessibilidade` | Web | Identidade visual, responsividade, estados, acessibilidade, faixa demonstrativa | somente leitura | Sonnet 5.5 · alto |
-| `documentador` | API, Web | Entrada no diário, status nos docs, rascunho do corpo do PR | leitura + edição (só docs) | Sonnet 5.5 · alto |
+| `selecionador-issue` | API, Web | Escolhe a próxima Issue pelas regras de prioridade, sprint e dependências; o orquestrador confere | Bash/PowerShell + leitura | **Haiku 5.5 · baixo** |
+| `planejador-issue` | API, Web | Lê a Issue, dependências e código; devolve plano, testes previstos, mapa dos critérios e riscos | leitura + Bash/PowerShell | Sonnet 5.5 · médio |
+| `implementador-backend` | API | Implementa e corrige o escopo (código, migrations, testes, docs técnicos), roda `mvn verify`, commita | leitura + edição + Bash/PowerShell | Sonnet 5.5 · médio |
+| `implementador-frontend` | Web | Implementa e corrige telas/componentes, mocks e testes; roda lint/test/build; commita | leitura + edição + Bash/PowerShell | Sonnet 5.5 · médio |
+| `validador-qa` | API, Web | Build, testes, Docker (com trava) e evidência de cada critério de aceitação | leitura + Bash/PowerShell (não edita) | Sonnet 5.5 · médio |
+| `revisor-codigo` | API, Web | Revisão independente do diff: defeitos, regras do projeto, testes, docs | somente leitura | Sonnet 5.5 · médio |
+| `revisor-seguranca` | API, Web | Autorização, JWT, credencial demonstrativa, uploads, segredos, logs, CORS, XSS | somente leitura | Sonnet 5.5 · médio |
+| `revisor-ui-acessibilidade` | Web | Identidade visual, responsividade, estados, acessibilidade, faixa demonstrativa | somente leitura | Sonnet 5.5 · médio |
+| `documentador` | API, Web | Entrada no diário, status nos docs, rascunho do corpo do PR | leitura + edição (só docs) | **Haiku 5.5 · baixo** |
 | `diagnosticador` | API, Web | Causa raiz de falha persistente ou de integração; separa defeito de bloqueio de ambiente | somente leitura | **Opus 5.5 · médio** (esporádico) |
 
 Arquivos: `.claude/agents/<nome>.md` em cada repositório (frontmatter `name`, `description`, `tools`, `model`, `effort`).
@@ -54,8 +55,9 @@ Arquivos: `.claude/agents/<nome>.md` em cada repositório (frontmatter `name`, `
 
 ## Custo de tokens
 
-Mais agentes = mais leituras do mesmo código. Para conter o custo:
-- todos em **Sonnet 5.5**; o **Opus 5.5** só no `diagnosticador`, após 2 ciclos sem sucesso;
+Mais agentes = mais leituras do mesmo código. Para conter o custo (política de 11/11/2026):
+- **Sonnet 5.5 · médio** como padrão; **Haiku 5.5 · baixo** para tarefas simples (`selecionador-issue`, `documentador` e consultas mecânicas delegadas pelo orquestrador); **Opus 5.5 · médio** só no `diagnosticador`, após 2 ciclos sem sucesso, e na retentativa automática após falha;
+- Haiku nunca escreve código de produção, revisa segurança ou decide merge;
 - `revisor-seguranca` e `revisor-ui-acessibilidade` só quando a Issue toca nesses temas;
 - na correção, só os agentes que reprovaram rodam de novo (além do `validador-qa`);
 - os relatórios dos subagentes são curtos, para o orquestrador não carregar arquivos grandes.
