@@ -15,14 +15,15 @@ Duas sessões do Claude Code rodando sem supervisão, uma em `Sema_Nexus_API` e 
 
 ## Fluxo multiagente (desde 11/11/2026)
 
-Cada iteração é **orquestrada**: o `/next-issue` delega a subagentes especializados — `planejador-issue` → implementador do repositório → `validador-qa` ∥ `revisor-codigo` ∥ `revisor-seguranca` (quando aplicável) ∥ `revisor-ui-acessibilidade` (Web) → até 3 ciclos de correção (com `diagnosticador` Opus após o 2º) → `documentador` → PR e merge pelo orquestrador. Detalhes em [AGENTES.md](AGENTES.md).
+Antes de cada iteração, o script roda `scripts/autopilot/proxima.mjs` (Node + `gh`, **0 tokens**) e só chama o Claude quando há Issue ou PR pendente pronto; sem trabalho, ele apenas espera. A iteração é **orquestrada** pelo `/next-issue <n>`: implementador (planeja e implementa; `planejador-issue` só em Issues grandes) → `validador-qa` ∥ `revisor` → até 3 ciclos de correção (com `diagnosticador` Opus após o 2º) → PR e merge pelo orquestrador. Versão econômica desde 11/11/2026: saídas de comando mínimas e menos agentes. Detalhes em [AGENTES.md](AGENTES.md).
 
 ## Modelos
 
 | Situação | Modelo | Esforço |
 |---|---|---|
 | Toda iteração (padrão) e agentes de planejamento, implementação, validação e revisão | **Sonnet 5.5** (`--model sonnet`) | **médio** (`--effort medium`) |
-| Tarefas simples: escolher a Issue (`selecionador-issue`), documentar (`documentador`), consultas mecânicas | **Haiku 5.5** | **baixo** |
+| Tarefas mecânicas: escolher a Issue | **script** `proxima.mjs` (sem modelo) | — |
+| Outras consultas mecânicas delegadas pelo orquestrador | **Haiku 5.5** | **baixo** |
 | Diagnóstico pontual dentro da iteração (problema que persiste após 2 tentativas, decisão de arquitetura, depuração difícil) | **Opus 5.5** via subagente (`model: "opus"`) | **médio** |
 | Retentativa automática de uma Issue que terminou em `FALHOU` | **Opus 5.5** (`--model opus`) | **médio** (`--effort medium`) |
 
