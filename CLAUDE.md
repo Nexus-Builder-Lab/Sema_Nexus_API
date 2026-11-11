@@ -103,6 +103,23 @@ Continuam proibidos no autopilot: tags/releases (incluindo `v0.1.0-demo`), push 
 
 Ambiente desta máquina: o `JAVA_HOME` do sistema é JDK 8 — use `$env:JAVA_HOME = 'C:\Program Files\Java\jdk-21'`. A porta 8080 do host está ocupada por outro serviço — use 18080 (`--server.port=18080` ou `API_PORT=18080`).
 
+## 8.2 Agentes e fluxo multiagente (definido pelo proprietário em 11/11/2026)
+
+O desenvolvimento usa **subagentes especializados** em `.claude/agents/`, coordenados por um **orquestrador** (a sessão que executa `/next-issue` ou `/start-issue`):
+
+| Agente | Papel | Edita código? | Modelo |
+|---|---|:-:|---|
+| `planejador-issue` | Plano da Issue: arquivos, passos, testes, critérios, riscos | não | Sonnet 5.5 · alto |
+| `implementador-backend` | Implementa e corrige o escopo, com testes | sim | Sonnet 5.5 · alto |
+| `validador-qa` | Build, testes, Docker e evidência de cada critério | não | Sonnet 5.5 · alto |
+| `revisor-codigo` | Revisão independente do diff | não | Sonnet 5.5 · alto |
+| `revisor-seguranca` | Auth, autorização, upload, segredos, logs, CORS | não | Sonnet 5.5 · alto |
+| `documentador` | Diário, status nos docs, rascunho do PR | só docs | Sonnet 5.5 · alto |
+| `diagnosticador` | Causa raiz de falha persistente (esporádico) | não | **Opus 5.5 · médio** |
+
+Fluxo: planejar → implementar → **validar ∥ revisar código ∥ revisar segurança (quando aplicável)** → até 3 ciclos de correção (diagnosticador após o 2º) → documentar → PR → merge.
+Regras: **somente o orquestrador** faz push, abre PR, faz merge, altera labels/Status e escreve no `RELATORIO_ERROS.md`. Subagentes de revisão, validação e diagnóstico são somente leitura. As regras deste `CLAUDE.md` e do `.claude/settings.json` valem para todos os agentes. Detalhes: `docs/AGENTES.md`.
+
 ## 9. Como executar uma Issue (use `/start-issue <n>`, ou `/next-issue` no autopilot)
 
 1. Ler a Issue (`gh issue view <n>`).

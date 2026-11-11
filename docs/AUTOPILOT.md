@@ -13,6 +13,10 @@ Duas sessões do Claude Code rodando sem supervisão, uma em `Sema_Nexus_API` e 
 5. abre o PR, espera o CI e faz **merge automático** só se as 5 condições forem verdadeiras (abaixo);
 6. atualiza o Status no Project (Em andamento → PR solicitado → Finalizado).
 
+## Fluxo multiagente (desde 11/11/2026)
+
+Cada iteração é **orquestrada**: o `/next-issue` delega a subagentes especializados — `planejador-issue` → implementador do repositório → `validador-qa` ∥ `revisor-codigo` ∥ `revisor-seguranca` (quando aplicável) ∥ `revisor-ui-acessibilidade` (Web) → até 3 ciclos de correção (com `diagnosticador` Opus após o 2º) → `documentador` → PR e merge pelo orquestrador. Detalhes em [AGENTES.md](AGENTES.md).
+
 ## Modelos
 
 | Situação | Modelo | Esforço |
