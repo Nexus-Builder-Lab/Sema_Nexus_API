@@ -105,6 +105,17 @@ jobs:
           path: openapi.json
           retention-days: 30
 
+  scripts-demo:
+    name: Scripts demo-up/down/reset (docker simulado)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Testar scripts em sh POSIX (dash) e bash
+        run: |
+          # O teste usa um `docker` falso no PATH: não sobe containers nem apaga volumes.
+          SH_BIN=sh sh scripts/tests/demo-scripts.test.sh
+          SH_BIN=bash bash scripts/tests/demo-scripts.test.sh
+
   docker-build:
     name: Build da imagem Docker (sem publicar)
     runs-on: ubuntu-latest

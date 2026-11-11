@@ -7,7 +7,7 @@
 | `docker-compose.yml` (Oracle Free + API + Web), `.env.example`, healthchecks, volumes | **Implementado** (Issue API#8) |
 | Imagem da API (Issue API#2) e imagem do Web (Web#2) | **Implementado** |
 | Este documento (requisitos, passo a passo, Windows/WSL2, Apple Silicon, problemas comuns) | **Implementado** (Issue API#10) |
-| Scripts `demo-up`, `demo-down` e `demo-reset` (`.sh` e `.ps1`) | **Em desenvolvimento** (Issue API#9, PR aberto, ainda não mesclado). Até a mesclagem, use os comandos `docker compose` descritos abaixo — os scripts apenas os encapsulam |
+| Scripts `demo-up`, `demo-down` e `demo-reset` (`.sh` e `.ps1`) | **Implementado** (Issue API#9); encapsulam os comandos `docker compose` descritos abaixo |
 | Smoke test automático do Compose no GitHub Actions | **Planejado** (Issue API#20) |
 | Imagens publicadas em registry, deploy em nuvem | **Futuro** (fora do escopo da demonstração) |
 
@@ -133,20 +133,44 @@ docker rm -f api-teste
 | Reiniciar um serviço | `docker compose restart api` | preservados |
 | Reset completo | ver abaixo | **apagados** |
 
-Scripts equivalentes — **Em desenvolvimento (Issue API#9)**: `./scripts/demo-up.sh` / `.\scripts\demo-up.ps1`, `demo-down` e `demo-reset`. Enquanto não forem mesclados, use os comandos da tabela.
+Scripts equivalentes — **Implementado (Issue API#9)**: `./scripts/demo-up.sh` / `.\scripts\demo-up.ps1`, `demo-down` e `demo-reset` (ver seção abaixo).
 
 O seed demonstrativo é **idempotente**: subir de novo não duplica usuários, setores ou equipes.
+
+## Scripts `demo-*`
+
+**Status:** Implementado (Issue API#9). Pares `.sh` (POSIX) e `.ps1` (PowerShell) em `scripts/`, com funções comuns em `scripts/lib/`. Há também um `Makefile` opcional (`make up | down | reset | logs | ps`).
+
+| Script | O que faz |
+|---|---|
+| `demo-up` | Valida que o Docker (e o Compose v2) estão ativos; cria o `.env` a partir do `.env.example` **somente se não existir**; `docker compose up -d --build`; aguarda `oracle`, `api` e `web` ficarem `healthy` (falha em `unhealthy` ou no timeout); imprime as URLs (usando `WEB_PORT`/`API_PORT` do `.env`) e o e-mail do login de teste — a senha demonstrativa fica em [DEMO.md](DEMO.md), nunca nos scripts. |
+| `demo-down` | `docker compose down` — **preserva** os volumes (`oradata`, `uploads`). Nunca usa `-v`. |
+| `demo-reset` | **Destrutivo.** Recusa se `SPRING_PROFILES_ACTIVE` (ambiente ou `.env`; padrão `demo`) contiver algo além de `demo`/`dev`; exige `DEMO_RESET_CONFIRM=yes` (ambiente ou `.env`) **ou** digitar `RESETAR` em terminal interativo (sem terminal e sem a variável → recusa); então `docker compose down -v`, sobe de novo via `demo-up` e aguarda o seed (feito pela API na subida). Qualquer recusa termina com código ≠ 0 sem apagar nada. |
+
+Variáveis opcionais: `DEMO_UP_TIMEOUT` (segundos de espera pelos healthchecks, padrão 600) e `DEMO_POLL_SECONDS` (intervalo, padrão 5).
+
+**Testes:** `sh scripts/tests/demo-scripts.test.sh` (também roda no CI, job `scripts-demo`) usa um `docker` **falso** no PATH e verifica criação do `.env`, preservação do `.env` existente, healthchecks (ok/unhealthy/timeout), Docker inativo, `down` sem `-v` e todas as recusas do `demo-reset` (sem confirmação, profile `prod`, lista `demo,prod`, valor ≠ `yes`) além do caminho confirmado (`down -v` antes do `up`).
+
+> No Windows com Docker Desktop, se `localhost` não responder no host (resolução para IPv6), use `127.0.0.1` nas URLs.
+
 
 ## Reset completo da demonstração
 
 Apaga os volumes do ambiente demonstrativo (banco Oracle **e** uploads) e recarrega o seed. **Destrutivo e irreversível.** Só em ambiente de demonstração e só quando for isso mesmo que você quer:
 
 ```bash
-docker compose down -v      # remove os volumes sema-nexus_oradata e sema-nexus_uploads
+./scripts/demo-reset.sh      # Windows: .\scripts\demo-reset.ps1
+DEMO_RESET_CONFIRM=yes ./scripts/demo-reset.sh   # sem pergunta (automação)
+```
+
+Equivalente manual (somente em ambiente de demonstração):
+
+```bash
+docker compose down -v      # destrutivo: remove os volumes do Oracle e dos uploads
 docker compose up -d --build
 ```
 
-O script `demo-reset` (Issue API#9, em desenvolvimento) fará o mesmo pedindo confirmação e recusando profiles diferentes de `demo`/`dev`.
+O script `demo-reset` (Issue API#9) faz o mesmo exigindo confirmação e recusando profiles diferentes de `demo`/`dev`.
 
 > O Claude Code está configurado para **nunca** executar `down -v`, `docker volume rm` ou `docker system prune` sem confirmação do proprietário.
 
