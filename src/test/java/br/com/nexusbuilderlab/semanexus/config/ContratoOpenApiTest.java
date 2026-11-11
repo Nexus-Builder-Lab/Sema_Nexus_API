@@ -47,6 +47,7 @@ class ContratoOpenApiTest {
             "DELETE /api/demandas/{id}/documentos/{documentoId}",
             // DocIA (contrato)
             "POST /api/documentos", "GET /api/documentos", "GET /api/documentos/{id}", "GET /api/documentos/{id}/arquivo",
+            "POST /api/docia/perguntas",
             // Intelligence e dashboard (contrato)
             "GET /api/intelligence/resumo", "GET /api/intelligence/serie-mensal", "GET /api/intelligence/por-municipio",
             "GET /api/intelligence/por-bioma", "GET /api/intelligence/por-categoria", "GET /api/intelligence/por-situacao",

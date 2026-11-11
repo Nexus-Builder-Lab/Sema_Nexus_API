@@ -18,7 +18,7 @@ import org.springframework.data.jpa.domain.Specification;
  * A pesquisa ignora maiúsculas e acentos: {@code TRANSLATE(coluna, maiúsculas/acentuadas, minúsculas simples) LIKE :padrao},
  * com o termo normalizado do mesmo modo no Java. É busca textual, não semântica.
  */
-final class DocumentoSpecification {
+public final class DocumentoSpecification {
 
     static final Set<String> CAMPOS_ORDENAVEIS = Set.of("titulo", "dataDocumento", "categoria", "criadoEm");
 
@@ -58,7 +58,7 @@ final class DocumentoSpecification {
     }
 
     /** Minúsculas e sem acentos (mesma transformação aplicada às colunas no banco). */
-    static String normalizar(String s) {
+    public static String normalizar(String s) {
         String semAcento = Normalizer.normalize(s.toLowerCase(Locale.ROOT), Normalizer.Form.NFD)
                 .replaceAll("\\p{M}", "");
         return Normalizer.normalize(semAcento, Normalizer.Form.NFC);
@@ -68,7 +68,7 @@ final class DocumentoSpecification {
      * Ids dos documentos ativos que contêm o termo (SQL parametrizado). O TRANSLATE é feito em SQL porque o
      * Hibernate recusa funções de texto sobre CLOB na Criteria API.
      */
-    static final String SQL_BUSCA = "SELECT ID FROM DOCUMENTO WHERE EXCLUIDO_EM IS NULL AND ("
+    public static final String SQL_BUSCA = "SELECT ID FROM DOCUMENTO WHERE EXCLUIDO_EM IS NULL AND ("
             + coluna("TITULO") + " OR " + coluna("DESCRICAO") + " OR " + coluna("PALAVRAS_CHAVE") + " OR "
             + coluna("TEXTO_EXTRAIDO") + ")";
 
@@ -77,7 +77,7 @@ final class DocumentoSpecification {
     }
 
     /** Padrão LIKE já normalizado (minúsculas, sem acentos, curingas escapados). */
-    static String padraoBusca(String q) {
+    public static String padraoBusca(String q) {
         return "%" + escaparLike(normalizar(q.strip())) + "%";
     }
 

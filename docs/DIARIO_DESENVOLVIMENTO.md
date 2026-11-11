@@ -224,3 +224,12 @@
 - **Arquivos principais:** `security/Autorizacao.java`, controllers de flux/docia/core/intelligence, `security/RevisaoSegurancaApiTest.java`, `docs/REVISAO_SEGURANCA.md`.
 - **Testes:** a confirmar pelo validador (implementador: RevisaoSegurancaApiTest, EndpointsContratoWebMvcTest, *WebMvcTest, ContratoOpenApiTest: 0 falhas).
 - **Pendências:** varredura de CVE em dependências não executada (sem scanner no projeto).
+
+## 2026-11-11 · GH-27 · Assistente DocIA com provider desacoplado, modo demonstrativo e citações
+- **PR:** (a preencher pelo orquestrador) · **Status:** aguardando validação
+- **Agentes que atuaram:** `implementador-backend`
+- **O que foi feito:** `POST /api/docia/perguntas` (`docia/assistente`): `AssistenteService` recupera trechos por busca textual em `DOCUMENTO`, `AssistenteProvider` desacoplado, `DemoAssistenteProvider` (extrativo, padrão) e `ExternalAssistenteProvider` (HTTP, só por `DOCIA_PROVIDER`/`DOCIA_API_URL`/`DOCIA_API_KEY`; cai no demonstrativo se faltar configuração ou falhar). Resposta sempre com `modo` e `referencias`; sem base → "não há informação suficiente"; legislação/multas/procedimentos oficiais → recusa.
+- **Decisões técnicas:** reuso do SQL de busca da #16 (`DocumentoSpecification` tornou-se pública); recusa por palavras-chave sobre texto normalizado (heurística simples); contrato do provider externo definido aqui (`{pergunta, contexto[]}` → `{resposta}`); sem migration.
+- **Arquivos principais:** `docia/assistente/*.java`, `docia/documento/DocumentoSpecification.java`, teste `AssistenteServiceTest`, `docs/API.md`.
+- **Testes:** a confirmar pelo validador (implementador: AssistenteServiceTest sem Oracle).
+- **Pendências:** sem teste Oracle ponta a ponta contra o seed; provider externo sem teste de integração HTTP.
