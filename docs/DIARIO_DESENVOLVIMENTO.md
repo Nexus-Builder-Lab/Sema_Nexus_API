@@ -168,3 +168,12 @@
 - **Arquivos principais:** `flux/demanda/{AcompanhamentoService,FiscalizacaoService,ConclusaoService,ExecucaoSuporte,DemandaController,Fiscalizacao,FiscalizacaoRepository}.java`, testes `ExecucaoServicosTest`, `EndpointsContratoWebMvcTest`, `ContratoOpenApiTest`, `docs/API.md`.
 - **Testes:** a confirmar pelo validador (implementador rodou só os afetados).
 - **Pendências:** sem teste Oracle ponta a ponta do fluxo completo (validador pode rodar `-Poracle`).
+
+## 2026-11-11 · GH-14 · Auditoria centralizada e consulta GET /api/auditoria
+- **PR:** (a preencher pelo orquestrador) · **Status:** aguardando validação
+- **Agentes que atuaram:** `implementador-backend`
+- **O que foi feito:** `AuditService` ganhou `consultar` (paginado, filtros de período, usuário, ação e entidade, por Specification), `recentes(n)` (limite 1..100, para o dashboard da #17) e mascaramento de senha/token/Bearer/JWT no `detalhe`. Novo `AuditoriaController` (`GET /api/auditoria`, somente ADMIN) com DTOs `AuditoriaDto` (inclui `usuarioNome`) e `AuditoriaFiltro`. Cadastro, edição, exclusão, status e distribuição de demanda já gravavam auditoria (#11 a #13); upload fica para a #15.
+- **Decisões técnicas:** sem migration (tabela e índices por data e entidade já existem na V1); `sort` restrito a `id,data,usuarioId,acao,entidade` (fora disso usa data desc); `de`/`ate` inclusivos por dia.
+- **Arquivos principais:** `core/auditoria/{AuditService,AuditoriaController,AuditoriaRepository}.java`, `core/auditoria/dto/*`, testes `AuditServiceTest`, `AuditoriaControllerWebMvcTest`, `docs/API.md`.
+- **Testes:** a confirmar pelo validador (implementador rodou AuditServiceTest, AuditoriaControllerWebMvcTest, EndpointsContratoWebMvcTest, AuthServiceTest: 0 falhas).
+- **Pendências:** sem teste Oracle do filtro; validador pode rodar `-Poracle`.

@@ -50,7 +50,9 @@ class ContratoOpenApiTest {
             // Intelligence e dashboard (contrato)
             "GET /api/intelligence/resumo", "GET /api/intelligence/serie-mensal", "GET /api/intelligence/por-municipio",
             "GET /api/intelligence/por-bioma", "GET /api/intelligence/por-categoria", "GET /api/intelligence/por-situacao",
-            "GET /api/intelligence/mapa", "GET /api/dashboard");
+            "GET /api/intelligence/mapa", "GET /api/dashboard",
+            // Core — auditoria (implementado)
+            "GET /api/auditoria");
 
     /** Endpoints com contrato publicado que ainda respondem 501 (saem desta lista quando a Issue os implementa). */
     static final Map<String, Integer> PENDENTES = Map.ofEntries(
