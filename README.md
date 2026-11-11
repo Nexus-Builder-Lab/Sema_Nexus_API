@@ -19,7 +19,8 @@ Este repositório também concentra a **infraestrutura e a documentação transv
 | `docker-compose.yml` (Oracle Free + API + Web), `.env.example`, healthchecks e volumes (Issue #8) | **Implementado** |
 | `docs/DOCKER.md` completo (requisitos, Windows/WSL2, Apple Silicon, problemas comuns) e seção de execução do README (Issue #10) | **Implementado** |
 | Scripts demo-up/down/reset (Issue #9) | **Em desenvolvimento** — PR aberto, ainda não mesclado |
-| Módulos Flux, Intelligence, DocIA | **Planejado** — Sprints 2 e 3 |
+| Demandas do Flux: cadastro, edição, listagem com filtros, detalhes, histórico e exclusão lógica (Issue #11) | **Implementado** |
+| Triagem, distribuição e fiscalização do Flux (#12, #13), Intelligence, DocIA | **Planejado** — Sprints 2 e 3 |
 
 Acompanhamento: [GitHub Project — SEMA NEXUS — Desenvolvimento](https://github.com/orgs/Nexus-Builder-Lab/projects/1) · [docs/SPRINTS.md](docs/SPRINTS.md)
 

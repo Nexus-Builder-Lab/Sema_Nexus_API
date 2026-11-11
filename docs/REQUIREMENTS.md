@@ -34,9 +34,9 @@
 
 | Requisito | MVP | Status | Issues |
 |---|:-:|---|---|
-| Cadastro e edição de demanda com número automático `DEM-AAAA/NNNN` e validação territorial | P0 | Planejado | API#11, Web#5 |
-| Listagem com paginação, pesquisa e filtros | P0 | Planejado | API#11, Web#5 |
-| Detalhes com histórico, equipe, fiscal, prazo, documentos | P0 | Planejado | API#11, Web#6 |
+| Cadastro e edição de demanda com número automático `DEM-AAAA/NNNN` e validação territorial | P0 | Implementado (API#11) · Web#5 Planejado | API#11, Web#5 |
+| Listagem com paginação, pesquisa e filtros | P0 | Implementado (API#11) · Web#5 Planejado | API#11, Web#5 |
+| Detalhes com histórico, equipe, fiscal, prazo, documentos | P0 | Em desenvolvimento — histórico/equipe/fiscal/prazo implementados (API#11); documentos anexados dependem da API#16 | API#11, API#16, Web#6 |
 | Triagem (classificar, priorizar, complementar, justificar) | P0 | Planejado | API#12, Web#6 |
 | Distribuição (equipe, fiscal, prazo, observações) e consulta por equipe | P0 | Planejado | API#12, Web#6 |
 | Acompanhamento, registro de fiscalização, conclusão e devolução | P0 | Planejado | API#13, Web#7 |
