@@ -69,7 +69,7 @@ class IndicadorOracleTest {
         Usuario u = usuarios.save(new Usuario("Analista", "ind." + UUID.randomUUID() + "@exemplo.test", "hash", Perfil.ANALISTA));
         UsuarioAutenticado ator = UsuarioAutenticado.de(u);
         LocalDate hoje = LocalDate.now(ZoneId.of("America/Cuiaba"));
-        IndicadorFiltro todos = new IndicadorFiltro(null, null, null, null, null, null);
+        IndicadorFiltro todos = new IndicadorFiltro(null, null, null, null, null, null, null);
 
         long antes = indicadores.resumo(todos).totalDemandas();
         cadastrar(ator, CUIABA, CategoriaFiscalizacao.QUEIMADA_INCENDIO, hoje.minusDays(3));
@@ -83,7 +83,7 @@ class IndicadorOracleTest {
         assertThat(indicadores.mapa(todos).pontos()).hasSize((int) sql);
 
         var combinado = new IndicadorFiltro(hoje.minusDays(5), hoje, CUIABA, null,
-                CategoriaFiscalizacao.QUEIMADA_INCENDIO, null);
+                CategoriaFiscalizacao.QUEIMADA_INCENDIO, null, null);
         long sqlCombinado = ((Number) em.createNativeQuery("""
                 select count(*) from DEMANDA where EXCLUIDO_EM is null and MUNICIPIO_ID = :m
                 and CATEGORIA = 'QUEIMADA_INCENDIO' and DATA_RECEBIMENTO between :de and :ate""")
@@ -93,10 +93,30 @@ class IndicadorOracleTest {
     }
 
     @Test
+    void filtroPorSetorBateComSqlEExcluiDemandasSemEquipe() {
+        IndicadorFiltro todos = new IndicadorFiltro(null, null, null, null, null, null, null);
+        long total = indicadores.resumo(todos).totalDemandas();
+        @SuppressWarnings("unchecked")
+        java.util.List<Number> setores = em.createNativeQuery("select ID from SETOR").getResultList();
+        long soma = 0;
+        for (Number setor : setores) {
+            long sql = ((Number) em.createNativeQuery("""
+                    select count(*) from DEMANDA d join EQUIPE e on e.ID = d.EQUIPE_ID
+                    where d.EXCLUIDO_EM is null and e.SETOR_ID = :s""")
+                    .setParameter("s", setor.longValue()).getSingleResult()).longValue();
+            var filtro = new IndicadorFiltro(null, null, null, null, null, null, setor.longValue());
+            assertThat(indicadores.resumo(filtro).totalDemandas()).isEqualTo(sql);
+            assertThat(indicadores.mapa(filtro).pontos().size()).isLessThanOrEqualTo((int) sql);
+            soma += sql;
+        }
+        assertThat(soma).isLessThanOrEqualTo(total);
+    }
+
+    @Test
     void cadastrarEFinalizarAlteramResumoEPorSituacao() {
         Usuario u = usuarios.save(new Usuario("Analista", "fin." + UUID.randomUUID() + "@exemplo.test", "hash", Perfil.ANALISTA));
         UsuarioAutenticado ator = UsuarioAutenticado.de(u);
-        IndicadorFiltro todos = new IndicadorFiltro(null, null, null, null, null, null);
+        IndicadorFiltro todos = new IndicadorFiltro(null, null, null, null, null, null, null);
 
         var r0 = indicadores.resumo(todos);
         long pend0 = situacao(todos, "PENDENTE");

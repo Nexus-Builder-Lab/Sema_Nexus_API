@@ -30,7 +30,7 @@ public class DashboardService {
     }
 
     public DashboardResponse dashboard() {
-        IndicadorFiltro semFiltro = new IndicadorFiltro(null, null, null, null, null, null);
+        IndicadorFiltro semFiltro = new IndicadorFiltro(null, null, null, null, null, null, null);
         List<Demanda> demandas = indicadores.demandasDoFiltro(semFiltro);
         List<AtividadeRecente> atividades = historico.findRecentes(PageRequest.of(0, ATIVIDADES)).stream()
                 .map(h -> new AtividadeRecente(h.getData(), h.getTipo(), h.getTexto(),

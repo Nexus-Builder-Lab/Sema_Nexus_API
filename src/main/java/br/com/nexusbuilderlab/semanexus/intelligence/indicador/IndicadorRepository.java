@@ -94,6 +94,9 @@ public class IndicadorRepository {
         if (f.status() != null) {
             p.add(cb.equal(d.get("status"), f.status()));
         }
+        if (f.setorId() != null) {
+            p.add(cb.equal(d.join("equipe").get("setor").get("id"), f.setorId()));
+        }
         return p;
     }
 }

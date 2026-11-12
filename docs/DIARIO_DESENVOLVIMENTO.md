@@ -341,3 +341,12 @@
 - **Arquivos principais:** `DemandaResumo`, `DemandaService`, `application.yml`, `DemandaServiceTest`, `ContratoOpenApiTest` (comentário), `docs/API.md`.
 - **Testes:** a confirmar pelo validador (implementador: `DemandaServiceTest`, ContratoOpenApiTest, EndpointsContratoWebMvcTest).
 - **Pendências:** nenhuma.
+
+## 2026-11-12 · GH-90 · Filtro por setor nos indicadores, no mapa e nos relatórios
+- **PR:** a abrir · **Status:** em validação
+- **Executado por:** autopilot (sessão API)
+- **O que foi feito:** parâmetro opcional `setorId` (setor da equipe responsável) em `/api/intelligence/*` (resumo, série mensal, por município/bioma/categoria/situação, mapa) e `/api/relatorios/demandas[.csv]`. Demandas sem equipe ficam fora quando informado; sem `setorId` nada muda.
+- **Decisões técnicas:** campo `setorId` adicionado ao record `IndicadorFiltro` (compartilhado por todos os endpoints); join interno `demanda.equipe.setor` só quando o filtro é usado; sem migration.
+- **Arquivos principais:** `IndicadorFiltro`, `IndicadorRepository`, `DashboardService`, controllers (descrições OpenAPI), `IndicadorOracleTest`, `docs/API.md`.
+- **Testes:** a confirmar pelo validador (implementador: IndicadorServiceTest, RelatorioServiceTest, teste Oracle de setor adicionado, não executado sem Docker/Oracle).
+- **Pendências:** nenhuma.
