@@ -252,6 +252,15 @@
 - **Testes:** a confirmar pelo validador (implementador: ComparacaoServiceTest 7 testes e ContratoOpenApiTest 14, 0 falhas).
 - **Pendências:** sem teste Oracle ponta a ponta contra as versões do parecer no seed (o teste unitário usa texto equivalente).
 
+## 2026-11-11 · GH-25 · Notificações de novas demandas, prazos, atrasos, distribuição e documentos
+- **PR:** (a preencher pelo orquestrador) · **Status:** aguardando validação
+- **Agentes que atuaram:** `implementador-backend`
+- **O que foi feito:** migration `V6__notificacoes.sql` (`NOTIFICACAO`, UK `(USUARIO_ID, CHAVE)`), `core/notificacao` (`NotificacaoService`, controller `GET /api/notificacoes`, `GET /api/notificacoes/nao-lidas/contagem`, `PATCH /api/notificacoes/{id}/lida`), `PrazoNotificacaoService` com `@Scheduled` diário (07:00 America/Cuiaba) e ganchos em `DemandaService.cadastrar`, `DistribuicaoService.distribuir` e `DocumentoService.vincular`.
+- **Decisões técnicas:** a Issue cita V5, mas V5 já era da #34, então a migration é V6; anti-duplicidade por chave única (inclui a data para prazo/atraso); "gestores" = GESTOR + ADMIN ativos; atraso notifica fiscal e gestores; autor da ação não é notificado de si mesmo.
+- **Arquivos principais:** `core/notificacao/*`, `flux/demanda/PrazoNotificacaoService.java`, `common/AgendamentoConfig.java`, testes `NotificacaoServiceTest`, `PrazoNotificacaoServiceTest`, ajustes em `DemandaServiceTest`/`TriagemDistribuicaoServiceTest`/`DocumentoServiceTest`, `docs/API.md`, `docs/DATABASE.md`.
+- **Testes:** a confirmar pelo validador (implementador: testes unitários dos 5 arquivos citados, 0 falhas).
+- **Pendências:** JPQL das consultas de prazo/atraso e a migration V6 não foram exercitadas em Oracle (validar com perfil `oracle`/Docker).
+
 ## 2026-11-12 · GH-45 · Contrato OpenAPI com resposta 2xx em login e demandas
 - **PR:** (a preencher pelo orquestrador) · **Status:** aguardando validação
 - **Agentes que atuaram:** `implementador-backend`

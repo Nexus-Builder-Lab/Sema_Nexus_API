@@ -6,6 +6,8 @@ import br.com.nexusbuilderlab.semanexus.core.auditoria.AuditService;
 import br.com.nexusbuilderlab.semanexus.core.catalogo.StatusDemanda;
 import br.com.nexusbuilderlab.semanexus.core.equipe.Equipe;
 import br.com.nexusbuilderlab.semanexus.core.equipe.EquipeRepository;
+import br.com.nexusbuilderlab.semanexus.core.notificacao.NotificacaoService;
+import br.com.nexusbuilderlab.semanexus.core.notificacao.TipoNotificacao;
 import br.com.nexusbuilderlab.semanexus.core.usuario.Usuario;
 import br.com.nexusbuilderlab.semanexus.core.usuario.UsuarioRepository;
 import br.com.nexusbuilderlab.semanexus.flux.demanda.DemandaStateMachine.Acao;
@@ -31,11 +33,13 @@ public class DistribuicaoService {
     private final DemandaService demandaService;
     private final AuditService auditoria;
     private final Clock clock;
+    private final NotificacaoService notificacoes;
 
     public DistribuicaoService(DemandaRepository demandas, DemandaHistoricoRepository historicos,
                                DistribuicaoRepository distribuicoes, EquipeRepository equipes,
                                UsuarioRepository usuarios, DemandaStateMachine maquina,
-                               DemandaService demandaService, AuditService auditoria, Clock clock) {
+                               DemandaService demandaService, AuditService auditoria, Clock clock,
+                               NotificacaoService notificacoes) {
         this.demandas = demandas;
         this.historicos = historicos;
         this.distribuicoes = distribuicoes;
@@ -45,6 +49,7 @@ public class DistribuicaoService {
         this.demandaService = demandaService;
         this.auditoria = auditoria;
         this.clock = clock;
+        this.notificacoes = notificacoes;
     }
 
     /** Distribui a demanda: 409 se fora de AGUARDANDO_DISTRIBUICAO; 400 para prazo, equipe ou fiscal inválidos. */
@@ -88,6 +93,13 @@ public class DistribuicaoService {
         historicos.save(new DemandaHistorico(demanda, TipoHistorico.DISTRIBUICAO, anterior, novo, texto, autor));
         auditoria.registrar("DISTRIBUIR", DemandaService.ENTIDADE, String.valueOf(id),
                 "Demanda " + demanda.getNumero() + ": " + texto);
+        if (!fiscal.getId().equals(autor.getId())) {
+            notificacoes.notificar(fiscal.getId(), TipoNotificacao.DISTRIBUICAO,
+                    "Demanda distribuída a você: " + demanda.getNumero(),
+                    "A demanda " + demanda.getNumero() + " - " + demanda.getTitulo() + " foi distribuída a você, prazo "
+                            + pedido.prazo() + ".",
+                    demanda.getId(), "DISTRIBUICAO:" + demanda.getId() + ":" + fiscal.getId() + ":" + clock.millis());
+        }
         return demandaService.detalhar(ator, id);
     }
 }

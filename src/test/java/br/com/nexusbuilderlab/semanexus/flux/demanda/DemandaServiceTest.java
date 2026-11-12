@@ -86,7 +86,7 @@ class DemandaServiceTest {
     @BeforeEach
     void preparar() {
         service = new DemandaService(demandas, historicos, fiscalizacoes, municipios, equipes, usuarios, numeracao,
-                auditoria, RELOGIO);
+                auditoria, RELOGIO, mock(br.com.nexusbuilderlab.semanexus.core.notificacao.NotificacaoService.class));
         cuiaba = mock(Municipio.class);
         when(cuiaba.getId()).thenReturn(5103403);
         when(cuiaba.getNome()).thenReturn("Cuiabá");
@@ -167,7 +167,7 @@ class DemandaServiceTest {
         // 02:00 UTC de 01/01/2027 ainda é 31/12/2026 em Cuiabá
         Clock virada = Clock.fixed(Instant.parse("2027-01-01T02:00:00Z"), ZoneOffset.UTC);
         DemandaService s = new DemandaService(demandas, historicos, fiscalizacoes, municipios, equipes, usuarios,
-                numeracao, auditoria, virada);
+                numeracao, auditoria, virada, mock(br.com.nexusbuilderlab.semanexus.core.notificacao.NotificacaoService.class));
         s.cadastrar(ator, pedido(5103403, LocalDate.of(2026, 12, 30), null));
         verify(numeracao).proximoNumero(2026);
     }

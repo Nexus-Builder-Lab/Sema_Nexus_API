@@ -12,6 +12,8 @@ import br.com.nexusbuilderlab.semanexus.core.auditoria.AuditService;
 import br.com.nexusbuilderlab.semanexus.core.catalogo.StatusDemanda;
 import br.com.nexusbuilderlab.semanexus.core.equipe.Equipe;
 import br.com.nexusbuilderlab.semanexus.core.equipe.EquipeRepository;
+import br.com.nexusbuilderlab.semanexus.core.notificacao.NotificacaoService;
+import br.com.nexusbuilderlab.semanexus.core.notificacao.TipoNotificacao;
 import br.com.nexusbuilderlab.semanexus.core.municipio.Municipio;
 import br.com.nexusbuilderlab.semanexus.core.municipio.MunicipioRepository;
 import br.com.nexusbuilderlab.semanexus.core.usuario.Perfil;
@@ -64,11 +66,12 @@ public class DemandaService {
     private final NumeracaoService numeracao;
     private final AuditService auditoria;
     private final Clock clock;
+    private final NotificacaoService notificacoes;
 
     public DemandaService(DemandaRepository demandas, DemandaHistoricoRepository historicos,
                           FiscalizacaoRepository fiscalizacoes, MunicipioRepository municipios,
                           EquipeRepository equipes, UsuarioRepository usuarios, NumeracaoService numeracao,
-                          AuditService auditoria, Clock clock) {
+                          AuditService auditoria, Clock clock, NotificacaoService notificacoes) {
         this.demandas = demandas;
         this.historicos = historicos;
         this.fiscalizacoes = fiscalizacoes;
@@ -78,6 +81,7 @@ public class DemandaService {
         this.numeracao = numeracao;
         this.auditoria = auditoria;
         this.clock = clock;
+        this.notificacoes = notificacoes;
     }
 
     // ------------------------------------------------------------------ escrita
@@ -98,6 +102,9 @@ public class DemandaService {
                 "Demanda cadastrada.", autor);
         auditoria.registrar("CRIAR", ENTIDADE, String.valueOf(demanda.getId()),
                 "Demanda " + demanda.getNumero() + " cadastrada.");
+        notificacoes.notificarGestores(TipoNotificacao.NOVA_DEMANDA, "Nova demanda: " + demanda.getNumero(),
+                "Demanda " + demanda.getNumero() + " - " + demanda.getTitulo() + " foi cadastrada e aguarda triagem.",
+                demanda.getId(), "NOVA_DEMANDA:" + demanda.getId(), autor.getId());
         return detalhe(demanda, hoje);
     }
 
