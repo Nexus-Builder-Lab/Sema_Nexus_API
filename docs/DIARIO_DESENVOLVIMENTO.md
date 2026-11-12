@@ -323,3 +323,12 @@
 - **Arquivos principais:** `AuthDemoController`, `AuthService`, `PerfilDemo`, `AuthConfigResponse`, `UsuarioRepository`, `SecurityConfig`, `docs/API.md`.
 - **Testes:** a confirmar pelo validador (implementador: AuthServiceTest, AuthControllerWebMvcTest, AuthDemoControllerWebMvcTest, 0 falhas).
 - **Pendências:** nenhuma.
+
+## 2026-11-12 · GH-84 · Endpoints de controle de prazos e de produtividade
+- **PR:** (a preencher pelo orquestrador) · **Status:** aguardando validação
+- **Agentes que atuaram:** `implementador-backend`
+- **O que foi feito:** `GET /api/flux/prazos/resumo`, `GET /api/flux/prazos` (por estado, paginado) e `GET /api/flux/produtividade` (KPIs, por setor, tempo médio por setor, histórico mensal, por responsável), todos `demonstrativo: true` e com o escopo de perfil da listagem de demandas (reuso de `DemandaSpecification`).
+- **Decisões técnicas:** agregações em memória sobre o recorte já filtrado/escopado (volume demonstrativo), cálculo puro testável sem banco; setor da demanda = setor da equipe; sem migration.
+- **Arquivos principais:** `PrazoController/Service`, `ProdutividadeController/Service`, `PrazoDtos`, `ProdutividadeResposta`, `PrazoProdutividadeServiceTest`, `docs/API.md`.
+- **Testes:** a confirmar pelo validador (implementador: `PrazoProdutividadeServiceTest`, 10 testes, 0 falhas).
+- **Pendências:** conferência contra o seed real (teste Oracle) fica para o validador.

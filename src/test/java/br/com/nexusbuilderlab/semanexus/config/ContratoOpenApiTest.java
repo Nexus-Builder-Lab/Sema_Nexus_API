@@ -46,6 +46,7 @@ class ContratoOpenApiTest {
             "POST /api/demandas/{id}/devolucao",
             "GET /api/demandas/{id}/documentos", "POST /api/demandas/{id}/documentos",
             "DELETE /api/demandas/{id}/documentos/{documentoId}",
+            "GET /api/flux/prazos", "GET /api/flux/prazos/resumo", "GET /api/flux/produtividade",
             // DocIA (contrato)
             "POST /api/documentos", "GET /api/documentos", "GET /api/documentos/{id}", "GET /api/documentos/{id}/arquivo",
             "POST /api/docia/perguntas",
