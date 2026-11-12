@@ -260,3 +260,12 @@
 - **Arquivos principais:** `core/usuario/*`, `core/setor/*`, `core/equipe/*` (services, controllers, DTOs de requisição), testes `UsuarioServiceTest`, `UsuarioControllerWebMvcTest`, `SetorCadastroServiceTest`, `EquipeCadastroServiceTest`, `ContratoOpenApiTest`, `docs/API.md`.
 - **Testes:** a confirmar pelo validador (implementador: testes afetados sem Oracle, ver relatório).
 - **Pendências:** sem teste Oracle da pesquisa `q`/Specification; token de usuário desativado depende do filtro JWT existente.
+
+## 2026-11-12 · GH-28 · Relatórios de demandas com filtros e exportação CSV
+- **PR:** (a preencher pelo orquestrador) · **Status:** aguardando validação
+- **Agentes que atuaram:** `implementador-backend`
+- **O que foi feito:** `GET /api/relatorios/demandas` (JSON paginado) e `/demandas.csv` (UTF-8 com BOM, `;`, aviso demonstrativo na linha 1) com filtros período, município, bioma, categoria e status (`intelligence/relatorio`: controller, service, DTOs; consultas novas em `IndicadorRepository`).
+- **Decisões técnicas:** sem migration; reaproveita `IndicadorFiltro` e o predicado dos indicadores; `Autorizacao.RELATORIOS` (ADMIN, GESTOR, ANALISTA, CONSULTA; FISCAL → 403, conforme matriz); `size` limitado a 100; CSV neutraliza fórmulas e escapa aspas/`;`.
+- **Arquivos principais:** `RelatorioController/Service`, `IndicadorRepository`, `Autorizacao`, testes `RelatorioServiceTest`, `RelatorioControllerWebMvcTest`, `ContratoOpenApiTest`, `docs/API.md`.
+- **Testes:** a confirmar pelo validador (implementador: RelatorioServiceTest, RelatorioControllerWebMvcTest e ContratoOpenApiTest, 0 falhas).
+- **Pendências:** consulta paginada/CSV não exercitada contra Oracle real; abertura no Excel não verificada manualmente (BOM e `;` cobertos por teste).

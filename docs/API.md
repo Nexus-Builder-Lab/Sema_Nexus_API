@@ -55,6 +55,7 @@ A ordem de avaliação é **autenticação (401) → perfil (403) → validaçã
 | GET | `/api/documentos` (biblioteca com filtros) · `/api/documentos/{id}` | qualquer autenticado | #16 | ✅ |
 | GET · POST · DELETE | `/api/demandas/{id}/documentos[/{documentoId}]` | ver ARCHITECTURE §6 | #16 | ✅ |
 | GET | `/api/intelligence/{resumo,serie-mensal,por-municipio,por-bioma,por-categoria,por-situacao,mapa}` | qualquer autenticado | #17 | ✅ |
+| GET | `/api/relatorios/demandas[.csv]` | ADMIN, GESTOR, ANALISTA, CONSULTA (FISCAL → 403) | #28 | ✅ |
 | GET | `/api/dashboard` | qualquer autenticado | #17 | ✅ |
 | GET | `/actuator/health` | público | #1 | ✅ |
 
@@ -67,7 +68,6 @@ Cada operação do contrato publicado traz no OpenAPI `x-implementado: false` e 
 | GET · POST · PUT · PATCH | `/api/usuarios[/{id}[/ativacao]]` e cadastro/edição de `/api/setores` e `/api/equipes[/{id}/membros]` (a consulta já existe, Issue #7) | #24 |
 | GET · PATCH | `/api/notificacoes[/{id}/lida]` | #25 |
 | POST | `/api/documentos/comparacao` | #26 |
-| GET | `/api/relatorios/demandas[.csv]` | #28 |
 
 ## Catálogos e estrutura (Implementado — Issue #7)
 
@@ -173,3 +173,6 @@ Consulta: **Admin e Gestor**. Cadastro, edição, ativação e membros: **soment
 | `PUT /api/equipes/{id}/membros` | `{usuarioIds[], responsavelId?}` substitui os membros (só usuários ativos, senão `400`); sem `responsavelId` o atual é mantido se continuar membro, ou removido |
 
 Um fiscal cadastrado e associado a uma equipe passa a constar em `GET /api/equipes/{id}/membros` e na distribuição de demandas.
+
+## Relatórios de demandas (Implementado — Issue #28)
+`GET /api/relatorios/demandas` (JSON paginado: `{demonstrativo, aviso, content[], page, size, totalElements, totalPages}`; `page` base 0, `size` padrão 20, máximo 100) e `GET /api/relatorios/demandas.csv` (sem paginação). Filtros combináveis iguais aos de `/api/intelligence/*`: `de`/`ate` (data de recebimento, inclusivos; `de` > `ate` → 400), `municipioId`, `bioma`, `categoria`, `status`. Ordenação: mais recentes primeiro. Perfis: ADMIN, GESTOR, ANALISTA e CONSULTA; FISCAL → 403. CSV: UTF-8 com BOM, separador `;`, fim de linha CRLF, linha 1 "AMBIENTE DEMONSTRATIVO — DADOS FICTÍCIOS", linha 2 cabeçalho, datas `dd/MM/AAAA`, `Content-Disposition: attachment; filename="relatorio-demandas-ficticio.csv"`. Células iniciadas por `=`, `+`, `-` ou `@` recebem `'` (proteção contra injeção de fórmula no Excel).
