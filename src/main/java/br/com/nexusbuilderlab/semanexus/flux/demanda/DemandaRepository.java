@@ -1,6 +1,8 @@
 package br.com.nexusbuilderlab.semanexus.flux.demanda;
 
 import jakarta.persistence.LockModeType;
+import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -25,4 +27,16 @@ public interface DemandaRepository extends JpaRepository<Demanda, Long>, JpaSpec
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select d from Demanda d where d.id = :id")
     Optional<Demanda> buscarParaEscrita(@Param("id") Long id);
+
+    /** Demandas com fiscal e prazo no intervalo [de, ate], ainda não finalizadas (usadas pelas notificações). */
+    @Query("""
+            select d from Demanda d
+            where d.fiscal is not null and d.prazo between :de and :ate and d.status <> br.com.nexusbuilderlab.semanexus.core.catalogo.StatusDemanda.FINALIZADA""")
+    List<Demanda> buscarComPrazoEntre(@Param("de") LocalDate de, @Param("ate") LocalDate ate);
+
+    /** Demandas com fiscal, prazo vencido (anterior a {@code hoje}) e não finalizadas. */
+    @Query("""
+            select d from Demanda d
+            where d.fiscal is not null and d.prazo < :hoje and d.status <> br.com.nexusbuilderlab.semanexus.core.catalogo.StatusDemanda.FINALIZADA""")
+    List<Demanda> buscarAtrasadas(@Param("hoje") LocalDate hoje);
 }

@@ -156,3 +156,11 @@ Dados **públicos reais** do INPE (focos de calor do Programa Queimadas e alerta
 ## Comparação documental (Implementado — Issue #26)
 
 `POST /api/documentos/comparacao` com `{"aId": 1, "bId": 2}` (qualquer perfil autenticado). Comparação **determinística** (LCS e Jaccard), **não é IA**: a resposta traz `geradoPorIa=false`, `aviso` e `metodo`. Campos: `a`/`b` (id, título), `metadados[]` (`campo`, `valorA`, `valorB`, `igual`), `similaridade` (0 a 100, 2*LCS/(nA+nB) por palavras), `similaridadeTermos` (Jaccard), `diffLinhas[]` e `diffPalavras[]` (`tipo` = `IGUAL`/`REMOVIDO` só em A/`ADICIONADO` só em B, `texto`), `trechosSemelhantes[]` (sentenças com similaridade >= 50%, até 20), `termosExclusivosA/B` (até 50) e `truncado` (textos limitados a 2000 palavras / 1500 linhas). Comparação ignora caixa, acentos e pontuação nas pontas. Documento inexistente/excluído → 404; documento sem texto extraído → 400 (`problem+json`, `erros[].campo` = `aId`/`bId`, mensagem com o título).
+
+## Notificações (Implementado — Issue #25)
+Migration `V6__notificacoes.sql` (`NOTIFICACAO`). Qualquer perfil autenticado; cada usuário só vê e altera as próprias (outra notificação → 404).
+- `GET /api/notificacoes?lida=&page=&size=` — paginado (`PageResponse`), mais recentes primeiro.
+- `GET /api/notificacoes/nao-lidas/contagem` — `{ "naoLidas": n }`.
+- `PATCH /api/notificacoes/{id}/lida` — marca como lida (idempotente).
+
+Geração: nova demanda (GESTOR e ADMIN, exceto o autor), distribuição (fiscal designado), documento vinculado a demanda (fiscal da demanda, se não for quem vinculou), prazo em até 3 dias e atraso (fiscal; atraso também aos gestores). A verificação de prazos roda por `@Scheduled` diariamente às 07:00 (America/Cuiaba; `sema.notificacoes.cron`); a chave `PRAZO:<demanda>:<data>` / `ATRASO:<demanda>:<data>` impede duplicar no mesmo dia.
