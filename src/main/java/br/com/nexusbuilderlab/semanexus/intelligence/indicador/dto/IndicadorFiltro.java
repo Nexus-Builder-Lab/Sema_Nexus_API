@@ -16,5 +16,7 @@ public record IndicadorFiltro(
         @Schema(description = "Código IBGE do município", example = "5103403") Integer municipioId,
         @Schema(description = "Bioma predominante do município da demanda") Bioma bioma,
         @Schema(description = "Categoria ambiental") CategoriaFiscalizacao categoria,
-        @Schema(description = "Situação no fluxo") StatusDemanda status) {
+        @Schema(description = "Situação no fluxo") StatusDemanda status,
+        @Schema(description = "Setor da equipe responsável pela demanda; demandas sem equipe ficam fora", example = "1")
+        Long setorId) {
 }

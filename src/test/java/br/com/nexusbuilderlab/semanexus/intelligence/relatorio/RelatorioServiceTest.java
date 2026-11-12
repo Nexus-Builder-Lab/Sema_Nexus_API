@@ -26,7 +26,7 @@ import org.junit.jupiter.api.Test;
 
 class RelatorioServiceTest {
 
-    static final IndicadorFiltro SEM_FILTRO = new IndicadorFiltro(null, null, null, null, null, null);
+    static final IndicadorFiltro SEM_FILTRO = new IndicadorFiltro(null, null, null, null, null, null, null);
 
     IndicadorRepository repo = mock(IndicadorRepository.class);
     RelatorioService service = new RelatorioService(repo);
@@ -71,7 +71,7 @@ class RelatorioServiceTest {
 
     @Test
     void filtrosSaoRepassadosAoCsv() {
-        IndicadorFiltro f = new IndicadorFiltro(null, null, 5103403, Bioma.CERRADO, null, StatusDemanda.PENDENTE);
+        IndicadorFiltro f = new IndicadorFiltro(null, null, 5103403, Bioma.CERRADO, null, StatusDemanda.PENDENTE, null);
         when(repo.demandasPagina(any(), eq(0), eq(Integer.MAX_VALUE))).thenReturn(List.of());
         String csv = new String(service.csv(f), StandardCharsets.UTF_8);
         verify(repo).demandasPagina(f, 0, Integer.MAX_VALUE);
@@ -93,7 +93,7 @@ class RelatorioServiceTest {
 
     @Test
     void periodoInvertidoRetorna400() {
-        IndicadorFiltro f = new IndicadorFiltro(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 4, 1), null, null, null, null);
+        IndicadorFiltro f = new IndicadorFiltro(LocalDate.of(2026, 5, 1), LocalDate.of(2026, 4, 1), null, null, null, null, null);
         assertThatThrownBy(() -> service.csv(f)).isInstanceOf(DadosInvalidosException.class);
     }
 }

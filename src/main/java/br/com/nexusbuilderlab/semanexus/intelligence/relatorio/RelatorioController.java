@@ -30,7 +30,7 @@ public class RelatorioController {
     }
 
     @Operation(summary = "Relatório de demandas (JSON paginado)",
-            description = "Filtros opcionais: de/ate (data de recebimento), municipioId, bioma, categoria, status. "
+            description = "Filtros opcionais: de/ate (data de recebimento), municipioId, bioma, categoria, status, setorId. "
                     + "Ordenado da mais recente para a mais antiga; size máximo 100.")
     @GetMapping("/demandas")
     public RelatorioDemandasResponse demandas(@ParameterObject IndicadorFiltro filtro,

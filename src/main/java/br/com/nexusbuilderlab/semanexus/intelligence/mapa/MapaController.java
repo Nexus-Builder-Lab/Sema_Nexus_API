@@ -25,7 +25,7 @@ public class MapaController {
         this.service = service;
     }
 
-    @Operation(summary = "Pontos do mapa: demandas com localização, filtráveis por período, município, bioma, categoria e status")
+    @Operation(summary = "Pontos do mapa: demandas com localização, filtráveis por período, município, bioma, categoria, status e setor")
     @GetMapping("/mapa")
     public MapaResponse mapa(@ParameterObject IndicadorFiltro filtro) {
         return service.mapa(filtro);
