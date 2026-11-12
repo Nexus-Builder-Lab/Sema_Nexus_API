@@ -32,7 +32,7 @@ import org.testcontainers.oracle.OracleContainer;
 
 /** Issue #15 contra Oracle real: V4 aplicada, upload persiste metadados e texto (CLOB) e o download devolve o arquivo. */
 @Tag("oracle")
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest
 class DocumentoOracleTest {
 
