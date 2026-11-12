@@ -28,6 +28,7 @@
 | Mapa de MT (Leaflet) offline com marcadores fictícios, filtros, popups e legenda | P0 | Planejado | API#17, Web#9 |
 | Indicadores com descrição e explicação | P1 | Planejado | Web#17 |
 | Relatórios com filtros e exportação CSV/PDF | P1 | Planejado | API#28, Web#18 |
+| Camada de referência com dados públicos do INPE (focos de calor e alertas DETER) separada dos dados fictícios, com fonte e data (exceção aprovada 10/11/2026) | P1 | Implementado (API) | API#34, Web#22 |
 | Ocorrências ambientais georreferenciadas | P2 | Futuro | API#30 |
 
 ## SEMA Flux (somente demandas de fiscalização ambiental)

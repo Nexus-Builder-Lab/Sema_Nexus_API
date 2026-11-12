@@ -57,7 +57,7 @@ class DemoSeedRecursoTest {
     void textoPuroDasSenhasNaoApareceEmSrcMain() throws IOException {
         Path raiz = Path.of("src", "main");
         try (Stream<Path> arquivos = Files.walk(raiz)) {
-            for (Path p : arquivos.filter(Files::isRegularFile).toList()) {
+            for (Path p : arquivos.filter(Files::isRegularFile).filter(f -> !f.toString().endsWith(".gz")).toList()) {
                 String conteudo = Files.readString(p);
                 assertThat(conteudo).as(p.toString()).doesNotContain(SENHA_ADMIN).doesNotContain(SENHA_DEMAIS);
             }

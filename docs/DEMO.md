@@ -54,9 +54,15 @@ Após `demo-reset` (ou na primeira subida `demo`/`dev`) a API cria sempre o mesm
 
 Pesquisas sugeridas no DocIA: `queimada`, `parecer`, `outorga`, `defeso`. Todos os textos trazem "AMBIENTE DEMONSTRATIVO — DADOS FICTÍCIOS".
 
+## Camada de satélite do INPE (Implementado no backend — Issue #34)
+
+- Após `demo-reset`, a API carrega o snapshot de dados **públicos reais** do INPE (focos de calor e alertas DETER de MT; período em `GET /api/intelligence/referencia/metadados`). Funciona sem internet.
+- Como mencionar: "além dos dados fictícios da demonstração, o mapa mostra uma camada de referência com dados públicos do INPE, identificada e separada; não é dado oficial da SEMA-MT e não altera os indicadores".
+- Atualizar o snapshot (com internet): `scripts/referencia/baixar-inpe.ps1`.
+
 ## Limitações e futuro (a confirmar em 26/11)
 
-- Dados exclusivamente fictícios; sem integração com sistemas institucionais.
+- Dados fictícios, exceto a camada de referência pública do INPE (identificada); sem integração com sistemas institucionais.
 - Busca documental textual (semântica é futura); sem OCR.
 - Assistente DocIA, se presente, em modo demonstrativo identificado (sem IA generativa) salvo provider externo configurado.
 - Sem geração de autos de infração.

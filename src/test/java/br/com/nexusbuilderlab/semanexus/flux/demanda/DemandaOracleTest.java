@@ -40,7 +40,7 @@ import org.testcontainers.oracle.OracleContainer;
  * combinados e paginação. Fora do build padrão: {@code mvn -B -ntp verify -Poracle}. Exige Docker.
  */
 @Tag("oracle")
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest
 class DemandaOracleTest {
 

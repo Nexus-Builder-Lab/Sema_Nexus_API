@@ -24,7 +24,7 @@ import org.testcontainers.oracle.OracleContainer;
  * Fora do build padrão: {@code mvn -B -ntp verify -Poracle}.
  */
 @Tag("oracle")
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class TestUserProfileGuardOracleTest {
 
