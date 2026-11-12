@@ -27,6 +27,8 @@ jobs:
           java-version: "21"
           cache: maven
       - name: Testes com tag oracle
+        env:
+          STORAGE_DIR: ${{ runner.temp }}/sema-nexus-storage # /data/uploads nao e gravavel no runner
         run: mvn -B -ntp verify -Poracle
       - name: Relatórios
         if: always()
