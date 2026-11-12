@@ -52,6 +52,8 @@ class ContratoOpenApiTest {
             "GET /api/intelligence/resumo", "GET /api/intelligence/serie-mensal", "GET /api/intelligence/por-municipio",
             "GET /api/intelligence/por-bioma", "GET /api/intelligence/por-categoria", "GET /api/intelligence/por-situacao",
             "GET /api/intelligence/mapa", "GET /api/dashboard",
+            "GET /api/intelligence/referencia/metadados", "GET /api/intelligence/referencia/pontos",
+            "GET /api/intelligence/referencia/por-municipio",
             // Core — auditoria (implementado)
             "GET /api/auditoria");
 

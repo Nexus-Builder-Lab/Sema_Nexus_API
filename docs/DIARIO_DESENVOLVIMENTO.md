@@ -233,3 +233,12 @@
 - **Arquivos principais:** `docia/assistente/*.java`, `docia/documento/DocumentoSpecification.java`, teste `AssistenteServiceTest`, `docs/API.md`.
 - **Testes:** a confirmar pelo validador (implementador: AssistenteServiceTest sem Oracle).
 - **Pendências:** sem teste Oracle ponta a ponta contra o seed; provider externo sem teste de integração HTTP.
+
+## 2026-11-11 · GH-34 · Camada de referência com dados públicos de satélite do INPE (focos de calor e DETER) em MT
+- **PR:** (a preencher pelo orquestrador) · **Status:** aguardando validação
+- **Agentes que atuaram:** `implementador-backend`
+- **O que foi feito:** migration `V5__referencia_satelite.sql` (`IMPORTACAO_REFERENCIA`, `REFERENCIA_SATELITE`), snapshot versionado (focos de calor e alertas DETER, ~230 KB) em `resources/referencia/`, `ReferenciaSateliteLoader` idempotente por SHA-256 (profiles demo/dev), endpoints somente leitura `/api/intelligence/referencia/{metadados,pontos,por-municipio}`, scripts `scripts/referencia/baixar-inpe.{ps1,sh}`.
+- **Decisões técnicas:** exceção de escopo aprovada (só dados públicos do INPE, camada separada, `oficialSema=false`); detalhes de fonte/licença em `docs/DATABASE.md` e `docs/ARCHITECTURE.md`.
+- **Arquivos principais:** `intelligence/referencia/*.java`, `V5__referencia_satelite.sql`, testes `ReferenciaSateliteLoaderTest`, `ReferenciaSateliteServiceTest`, `ContratoOpenApiTest`, docs API/DATABASE/ARCHITECTURE/REQUIREMENTS/DEMO.
+- **Testes:** a confirmar pelo validador (implementador: ReferenciaSatelite*Test e ContratoOpenApiTest sem Oracle: 0 falhas).
+- **Pendências:** carga em Oracle real/Docker e tempo de resposta < 1 s não exercitados.

@@ -140,3 +140,15 @@ Content-Type: application/json
 ## Uso pelo frontend
 
 O CI da API publica `openapi.json` em cada execução (job **Exportar contrato OpenAPI**). O Web baixa o artefato e mantém handlers MSW em `src/mocks/` (Issue Web#4), ativados por `VITE_USE_MOCKS=true`.
+
+## Camada de referência de satélite — INPE (Implementado — Issue #34)
+
+Dados **públicos reais** do INPE (focos de calor do Programa Queimadas e alertas DETER do TerraBrasilis) de Mato Grosso, exibidos como camada de referência **separada** dos dados fictícios do Flux; **não** entram em `/api/intelligence/resumo`, `/mapa` nem em nenhum indicador. Somente leitura, qualquer perfil autenticado. Toda resposta traz `"fonte": "INPE — dados públicos"`, `"oficialSema": false`, `atualizadoEm` (maior data de importação) e `aviso`.
+
+| Método | Caminho | Descrição |
+|---|---|---|
+| GET | `/api/intelligence/referencia/metadados` | Importações (fonte, tipo, período, `importadoEm`, `registros`, `urlOrigem`, `licenca`, `arquivo`). |
+| GET | `/api/intelligence/referencia/pontos?tipo=FOCO_CALOR\|DESMATAMENTO&de&ate&municipioId&bioma&limite` | Pontos (mais recentes primeiro). `de`/`ate` `AAAA-MM-DD` inclusivos (UTC); `limite` padrão 5000, máximo 20000 (valores maiores são limitados); `bioma` é sensível a caixa (`AMAZONIA`, `CERRADO`, `PANTANAL`; outro valor → 400); `truncado=true` se havia mais pontos. `de` > `ate` → 400. |
+| GET | `/api/intelligence/referencia/por-municipio?tipo&de&ate` | Contagem por município (maior primeiro) e `total`, para camada coroplética e cards. |
+
+`DESMATAMENTO` = alertas DETER (campo `classe`, ex. `DESMATAMENTO_CR`, `CICATRIZ_DE_QUEIMADA`; `areaKm2`). Latitude/longitude do DETER são o centroide aproximado do polígono.
