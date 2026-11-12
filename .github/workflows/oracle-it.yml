@@ -1,8 +1,6 @@
 name: Oracle IT
 
 on:
-  push: # TEMPORARIO GH-23: comprovar o job antes do merge
-    branches: [feature/GH-23]
   workflow_dispatch:
   schedule:
     - cron: "0 5 * * *" # 01:00 America/Cuiaba
