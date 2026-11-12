@@ -43,7 +43,7 @@ class DemoSeedRecursoTest {
         List<String> emails = d.usuarios().stream().map(DemoSeedDados.UsuarioSeed::email).toList();
 
         assertThat(d.usuarios()).extracting(DemoSeedDados.UsuarioSeed::setor).allMatch(siglas::contains);
-        assertThat(d.equipes()).hasSize(4);
+        assertThat(d.equipes()).hasSize(9);
         for (var e : d.equipes()) {
             assertThat(siglas).contains(e.setor());
             assertThat(emails).contains(e.responsavel());

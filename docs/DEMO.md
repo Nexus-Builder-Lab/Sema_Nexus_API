@@ -13,8 +13,20 @@
 | Fiscal | `fiscal2@demo.semanexus.local` | `Demo@Sema2026` | Ativo (seed — Issue #5) |
 | Analista | `analista@demo.semanexus.local` | `Demo@Sema2026` | Ativo (seed — Issue #5) |
 | Consulta | `consulta@demo.semanexus.local` | `Demo@Sema2026` | Ativo (seed — Issue #5) |
+| Fiscal (Cuiabá) | `fiscal.cba1@demo.semanexus.local` | `Demo@Sema2026` | Ativo (seed — Issue #91) |
+| Fiscal (Cuiabá) | `fiscal.cba2@demo.semanexus.local` | `Demo@Sema2026` | Ativo (seed — Issue #91) |
+| Fiscal (Cáceres) | `fiscal.cac1@demo.semanexus.local` | `Demo@Sema2026` | Ativo (seed — Issue #91) |
+| Fiscal (Cáceres) | `fiscal.cac2@demo.semanexus.local` | `Demo@Sema2026` | Ativo (seed — Issue #91) |
+| Fiscal (Rondonópolis) | `fiscal.roo1@demo.semanexus.local` | `Demo@Sema2026` | Ativo (seed — Issue #91) |
+| Fiscal (Rondonópolis) | `fiscal.roo2@demo.semanexus.local` | `Demo@Sema2026` | Ativo (seed — Issue #91) |
+| Fiscal (Barra do Garças) | `fiscal.bag1@demo.semanexus.local` | `Demo@Sema2026` | Ativo (seed — Issue #91) |
+| Fiscal (Barra do Garças) | `fiscal.bag2@demo.semanexus.local` | `Demo@Sema2026` | Ativo (seed — Issue #91) |
+| Fiscal (Sinop) | `fiscal.sno1@demo.semanexus.local` | `Demo@Sema2026` | Ativo (seed — Issue #91) |
+| Fiscal (Sinop) | `fiscal.sno2@demo.semanexus.local` | `Demo@Sema2026` | Ativo (seed — Issue #91) |
 
 Setores fictícios: `DEMO-GAB` (Gabinete), `DEMO-FISC` (Fiscalização), `DEMO-DOC` (Análise e Documentação). Equipes fictícias (setor `DEMO-FISC`): Alfa (responsável Fiscal 1), Bravo (Fiscal 2), Charlie (Fiscal 1; membros Fiscal 1 e 2), Delta (Gestor; membros Fiscal 2 e Analista). Todos os nomes e e-mails são simulados.
+
+**Núcleos Regionais de Fiscalização (fictícios — Issue #91):** um setor por região intermediária do IBGE (valor de `MUNICIPIO.REGIAO`), cada um com 1 equipe ("Equipe <região> (demonstrativa)", responsável o fiscal 1) e 2 fiscais: `NR-CBA` (Cuiabá), `NR-CAC` (Cáceres), `NR-ROO` (Rondonópolis), `NR-BAG` (Barra do Garças) e `NR-SNO` (Sinop). As demandas distribuídas da massa pertencem à equipe do núcleo da região do município; as em PENDENTE, EM_TRIAGEM e AGUARDANDO_DISTRIBUICAO ficam sem equipe. As equipes Alfa a Delta (setor `DEMO-FISC`) continuam existindo, sem demandas da massa. Após atualizar, rode `demo-reset` para recriar a massa.
 
 Regras: essas contas existem **apenas** nos profiles `demo`/`dev`, são gravadas só com hash BCrypt e a API se recusa a subir em outro profile se `admin@admin.com` existir. Não reutilize essas senhas em nenhum outro sistema.
 

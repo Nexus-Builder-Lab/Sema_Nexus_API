@@ -15,12 +15,14 @@ class DemoMassaGeradorTest {
 
     private static final LocalDate HOJE = LocalDate.of(2026, 11, 11);
 
+    private static final List<String> REGIOES = List.of("Cuiabá", "Cáceres", "Rondonópolis", "Barra do Garças", "Sinop");
+
     private static List<MunicipioRef> municipios() {
         List<MunicipioRef> r = new ArrayList<>();
         for (int i = 0; i < DemoMassaGerador.MUNICIPIOS_IDS.size(); i++) {
             String bioma = i < 11 ? "AMAZONIA" : i < 21 ? "CERRADO" : "PANTANAL";
             r.add(new MunicipioRef(DemoMassaGerador.MUNICIPIOS_IDS.get(i), "Município " + i, bioma, -13.0 - i * 0.1,
-                    -56.0 - i * 0.1));
+                    -56.0 - i * 0.1, REGIOES.get(i % REGIOES.size())));
         }
         return r;
     }
@@ -33,6 +35,22 @@ class DemoMassaGeradorTest {
                 .containsExactlyInAnyOrderElementsOf(DemoMassaGerador.STATUS_ORDEM);
         assertThat(l.stream().map(d -> d.municipio().bioma()).collect(Collectors.toSet())).hasSize(3);
         assertThat(l.stream().map(d -> d.municipio().id()).distinct().count()).isGreaterThanOrEqualTo(25);
+    }
+
+    @Test
+    void todasAsCincoRegioesTemNucleoEDemandasDistribuidas() {
+        List<DemandaSeed> l = DemoMassaGerador.gerar(HOJE, municipios());
+        var porNucleo = l.stream().filter(d -> d.passou("DISTRIBUIDA"))
+                .collect(Collectors.groupingBy(d -> DemoMassaGerador.siglaNucleo(d.municipio().regiao()),
+                        Collectors.counting()));
+        assertThat(porNucleo.keySet()).containsExactlyInAnyOrder("NR-CBA", "NR-CAC", "NR-ROO", "NR-BAG", "NR-SNO");
+        assertThat(porNucleo.values().stream().distinct().count()).isGreaterThan(1);
+    }
+
+    @Test
+    void regiaoDesconhecidaNaoTemNucleo() {
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> DemoMassaGerador.siglaNucleo("Marte"))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test

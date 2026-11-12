@@ -1,9 +1,38 @@
 {
   "aviso": "AMBIENTE DEMONSTRATIVO — DADOS FICTÍCIOS. Setores, equipes e usuários abaixo são simulados. As senhas estão somente como hash BCrypt (custo 10); as senhas de demonstração constam em docs/DEMO.md.",
   "setores": [
-    { "sigla": "DEMO-GAB", "nome": "Gabinete Demonstrativo (fictício)" },
-    { "sigla": "DEMO-FISC", "nome": "Coordenadoria de Fiscalização Demonstrativa (fictícia)" },
-    { "sigla": "DEMO-DOC", "nome": "Núcleo de Análise e Documentação Demonstrativo (fictício)" }
+    {
+      "sigla": "DEMO-GAB",
+      "nome": "Gabinete Demonstrativo (fictício)"
+    },
+    {
+      "sigla": "DEMO-FISC",
+      "nome": "Coordenadoria de Fiscalização Demonstrativa (fictícia)"
+    },
+    {
+      "sigla": "DEMO-DOC",
+      "nome": "Núcleo de Análise e Documentação Demonstrativo (fictício)"
+    },
+    {
+      "sigla": "NR-CBA",
+      "nome": "Núcleo Regional de Fiscalização — Cuiabá (fictício)"
+    },
+    {
+      "sigla": "NR-CAC",
+      "nome": "Núcleo Regional de Fiscalização — Cáceres (fictício)"
+    },
+    {
+      "sigla": "NR-ROO",
+      "nome": "Núcleo Regional de Fiscalização — Rondonópolis (fictício)"
+    },
+    {
+      "sigla": "NR-BAG",
+      "nome": "Núcleo Regional de Fiscalização — Barra do Garças (fictício)"
+    },
+    {
+      "sigla": "NR-SNO",
+      "nome": "Núcleo Regional de Fiscalização — Sinop (fictício)"
+    }
   ],
   "usuarios": [
     {
@@ -47,6 +76,76 @@
       "perfil": "CONSULTA",
       "setor": "DEMO-DOC",
       "senhaHash": "$2a$10$ek/ac1zL8VR9e8eDdvgDnucv4z80gXe5/apbLj9A1v759DItBslcK"
+    },
+    {
+      "nome": "Fiscal Cuiabá 1 (fictício)",
+      "email": "fiscal.cba1@demo.semanexus.local",
+      "perfil": "FISCAL",
+      "setor": "NR-CBA",
+      "senhaHash": "$2a$10$ek/ac1zL8VR9e8eDdvgDnucv4z80gXe5/apbLj9A1v759DItBslcK"
+    },
+    {
+      "nome": "Fiscal Cuiabá 2 (fictício)",
+      "email": "fiscal.cba2@demo.semanexus.local",
+      "perfil": "FISCAL",
+      "setor": "NR-CBA",
+      "senhaHash": "$2a$10$ek/ac1zL8VR9e8eDdvgDnucv4z80gXe5/apbLj9A1v759DItBslcK"
+    },
+    {
+      "nome": "Fiscal Cáceres 1 (fictício)",
+      "email": "fiscal.cac1@demo.semanexus.local",
+      "perfil": "FISCAL",
+      "setor": "NR-CAC",
+      "senhaHash": "$2a$10$ek/ac1zL8VR9e8eDdvgDnucv4z80gXe5/apbLj9A1v759DItBslcK"
+    },
+    {
+      "nome": "Fiscal Cáceres 2 (fictício)",
+      "email": "fiscal.cac2@demo.semanexus.local",
+      "perfil": "FISCAL",
+      "setor": "NR-CAC",
+      "senhaHash": "$2a$10$ek/ac1zL8VR9e8eDdvgDnucv4z80gXe5/apbLj9A1v759DItBslcK"
+    },
+    {
+      "nome": "Fiscal Rondonópolis 1 (fictício)",
+      "email": "fiscal.roo1@demo.semanexus.local",
+      "perfil": "FISCAL",
+      "setor": "NR-ROO",
+      "senhaHash": "$2a$10$ek/ac1zL8VR9e8eDdvgDnucv4z80gXe5/apbLj9A1v759DItBslcK"
+    },
+    {
+      "nome": "Fiscal Rondonópolis 2 (fictício)",
+      "email": "fiscal.roo2@demo.semanexus.local",
+      "perfil": "FISCAL",
+      "setor": "NR-ROO",
+      "senhaHash": "$2a$10$ek/ac1zL8VR9e8eDdvgDnucv4z80gXe5/apbLj9A1v759DItBslcK"
+    },
+    {
+      "nome": "Fiscal Barra do Garças 1 (fictício)",
+      "email": "fiscal.bag1@demo.semanexus.local",
+      "perfil": "FISCAL",
+      "setor": "NR-BAG",
+      "senhaHash": "$2a$10$ek/ac1zL8VR9e8eDdvgDnucv4z80gXe5/apbLj9A1v759DItBslcK"
+    },
+    {
+      "nome": "Fiscal Barra do Garças 2 (fictício)",
+      "email": "fiscal.bag2@demo.semanexus.local",
+      "perfil": "FISCAL",
+      "setor": "NR-BAG",
+      "senhaHash": "$2a$10$ek/ac1zL8VR9e8eDdvgDnucv4z80gXe5/apbLj9A1v759DItBslcK"
+    },
+    {
+      "nome": "Fiscal Sinop 1 (fictício)",
+      "email": "fiscal.sno1@demo.semanexus.local",
+      "perfil": "FISCAL",
+      "setor": "NR-SNO",
+      "senhaHash": "$2a$10$ek/ac1zL8VR9e8eDdvgDnucv4z80gXe5/apbLj9A1v759DItBslcK"
+    },
+    {
+      "nome": "Fiscal Sinop 2 (fictício)",
+      "email": "fiscal.sno2@demo.semanexus.local",
+      "perfil": "FISCAL",
+      "setor": "NR-SNO",
+      "senhaHash": "$2a$10$ek/ac1zL8VR9e8eDdvgDnucv4z80gXe5/apbLj9A1v759DItBslcK"
     }
   ],
   "equipes": [
@@ -54,25 +153,80 @@
       "nome": "Equipe Alfa (demonstrativa)",
       "setor": "DEMO-FISC",
       "responsavel": "fiscal1@demo.semanexus.local",
-      "membros": ["fiscal1@demo.semanexus.local"]
+      "membros": [
+        "fiscal1@demo.semanexus.local"
+      ]
     },
     {
       "nome": "Equipe Bravo (demonstrativa)",
       "setor": "DEMO-FISC",
       "responsavel": "fiscal2@demo.semanexus.local",
-      "membros": ["fiscal2@demo.semanexus.local"]
+      "membros": [
+        "fiscal2@demo.semanexus.local"
+      ]
     },
     {
       "nome": "Equipe Charlie (demonstrativa)",
       "setor": "DEMO-FISC",
       "responsavel": "fiscal1@demo.semanexus.local",
-      "membros": ["fiscal1@demo.semanexus.local", "fiscal2@demo.semanexus.local"]
+      "membros": [
+        "fiscal1@demo.semanexus.local",
+        "fiscal2@demo.semanexus.local"
+      ]
     },
     {
       "nome": "Equipe Delta (demonstrativa)",
       "setor": "DEMO-FISC",
       "responsavel": "gestor@demo.semanexus.local",
-      "membros": ["fiscal2@demo.semanexus.local", "analista@demo.semanexus.local"]
+      "membros": [
+        "fiscal2@demo.semanexus.local",
+        "analista@demo.semanexus.local"
+      ]
+    },
+    {
+      "nome": "Equipe Cuiabá (demonstrativa)",
+      "setor": "NR-CBA",
+      "responsavel": "fiscal.cba1@demo.semanexus.local",
+      "membros": [
+        "fiscal.cba1@demo.semanexus.local",
+        "fiscal.cba2@demo.semanexus.local"
+      ]
+    },
+    {
+      "nome": "Equipe Cáceres (demonstrativa)",
+      "setor": "NR-CAC",
+      "responsavel": "fiscal.cac1@demo.semanexus.local",
+      "membros": [
+        "fiscal.cac1@demo.semanexus.local",
+        "fiscal.cac2@demo.semanexus.local"
+      ]
+    },
+    {
+      "nome": "Equipe Rondonópolis (demonstrativa)",
+      "setor": "NR-ROO",
+      "responsavel": "fiscal.roo1@demo.semanexus.local",
+      "membros": [
+        "fiscal.roo1@demo.semanexus.local",
+        "fiscal.roo2@demo.semanexus.local"
+      ]
+    },
+    {
+      "nome": "Equipe Barra do Garças (demonstrativa)",
+      "setor": "NR-BAG",
+      "responsavel": "fiscal.bag1@demo.semanexus.local",
+      "membros": [
+        "fiscal.bag1@demo.semanexus.local",
+        "fiscal.bag2@demo.semanexus.local"
+      ]
+    },
+    {
+      "nome": "Equipe Sinop (demonstrativa)",
+      "setor": "NR-SNO",
+      "responsavel": "fiscal.sno1@demo.semanexus.local",
+      "membros": [
+        "fiscal.sno1@demo.semanexus.local",
+        "fiscal.sno2@demo.semanexus.local"
+      ]
     }
   ]
 }
