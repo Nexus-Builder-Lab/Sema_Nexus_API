@@ -128,12 +128,18 @@ public class ReferenciaSateliteLoader {
                         : deter(linha.split(",", -1), porId, todos);
                 if (l == null) {
                     descartados++;
+                    if (descartados <= 5) {
+                        log.debug("Referência INPE {}: linha descartada (fora de MT ou inválida): {}", fonte.arquivo(), linha);
+                    }
                 } else {
                     linhas.add(l);
                 }
             }
         } catch (IOException e) {
             throw new UncheckedIOException(e);
+        }
+        if (descartados > 0) {
+            log.warn("Referência INPE {}: {} linha(s) descartada(s) (fora de MT ou inválidas).", fonte.arquivo(), descartados);
         }
         repository.gravar(fonte.fonte(), fonte.tipo(), fonte.periodoDe(), fonte.periodoAte(), fonte.urlOrigem(),
                 fonte.licenca(), fonte.arquivo(), sha, linhas);
