@@ -9,7 +9,7 @@
 | Tema | Regra |
 |---|---|
 | Base | Prefixo `/api`, JSON UTF-8. Datas `AAAA-MM-DD` (`2026-11-27`); instantes sem deslocamento no fuso `America/Cuiaba` (`2026-11-27T14:30:00`). Campos nulos são omitidos da resposta |
-| Autenticação | `Authorization: Bearer <jwt>`; públicos: `POST /api/auth/login`, `GET /api/auth/config`, `GET /actuator/health` |
+| Autenticação | `Authorization: Bearer <jwt>`; públicos: `POST /api/auth/login`, `GET /api/auth/config`, `POST /api/auth/demo/{perfil}` (só profile `demo`), `GET /actuator/health` |
 | Autorização | Por perfil no backend (`@PreAuthorize`); matriz em [ARCHITECTURE.md](ARCHITECTURE.md) §6. Escopo fino (fiscal só na sua equipe) no service |
 | Paginação | `?page=0&size=20&sort=campo,asc` → `{ "content": [], "page": 0, "size": 20, "totalElements": 0, "totalPages": 0 }`. Padrão `size=20`; `size` acima de 100 é reduzido a 100; `page` começa em 0. Só as listagens de demandas e documentos (e as demandas de uma equipe) são paginadas; catálogos, setores, equipes e membros são listas curtas e retornam um array |
 | Filtros | Query params opcionais e combináveis; datas `de`/`ate` inclusivas (`AAAA-MM-DD`); enums pelo **código** (`EM_ANDAMENTO`); valor inválido → `400` |
@@ -42,6 +42,7 @@ A ordem de avaliação é **autenticação (401) → perfil (403) → validaçã
 |---|---|---|:-:|:-:|
 | POST | `/api/auth/login` · `/api/auth/logout` | público / autenticado | #4 | ✅ |
 | GET | `/api/auth/me` · `/api/auth/config` | autenticado / público | #4 | ✅ |
+| POST | `/api/auth/demo/{perfil}` | público, **só profile `demo`** (404 nos demais) | #83 | ✅ |
 | GET | `/api/catalogos/{municipios,biomas,categorias,origens,prioridades,status}` | qualquer autenticado | #7 | ✅ |
 | GET | `/api/setores` · `/api/equipes` · `/api/equipes/{id}/membros` | Admin, Gestor | #7 | ✅ |
 | POST · PUT · GET · DELETE | `/api/demandas` · `/api/demandas/{id}` (PUT só em PENDENTE/EM_TRIAGEM, senão 409; DELETE só em PENDENTE, senão 409; número `DEM-AAAA/NNNN` automático) (cadastro: Admin, Gestor, Analista; exclusão lógica: Admin; consulta: todos, fiscal só da sua equipe) | ver ARCHITECTURE §6 | #11 | ✅ |
@@ -129,7 +130,8 @@ Content-Type: application/json
 | `POST /api/auth/login` `{email, senha}` | `200` `{token, expiresIn, usuario}` · `400` campos inválidos · `401` credenciais inválidas (mensagem genérica, não revela se o e-mail existe) · `403` usuário inativo |
 | `POST /api/auth/logout` | `204`; registra `LOGOUT` na auditoria (o token é descartado no cliente) |
 | `GET /api/auth/me` | `200` `{id, nome, email, perfil}` |
-| `GET /api/auth/config` (público) | `200` `{demo: true\|false}` — `true` quando o profile `demo` está ativo (aviso **AMBIENTE DEMONSTRATIVO — DADOS FICTÍCIOS** na tela de login) |
+| `GET /api/auth/config` (público) | `200` `{demo: true\|false, perfisDemo?: [{perfil, nome, descricao}]}` — `demo=true` quando o profile `demo` está ativo (aviso **AMBIENTE DEMONSTRATIVO — DADOS FICTÍCIOS** na tela de login); `perfisDemo` (cartões do Modo demonstração) só aparece com `demo=true` |
+| `POST /api/auth/demo/{perfil}` (público; **somente profile `demo`**, 404 nos demais) | `200` `LoginResponse` do primeiro usuário ativo e demonstrativo (`DEMO=1`) do perfil (ADMIN, GESTOR, FISCAL, ANALISTA, CONSULTA) · `400` perfil inválido · `404` perfil sem usuário ativo. Sem senha; audita `LOGIN` com detalhe "modo demonstração" |
 
 - **Token:** JWT HS256, validade de 8 h (`expiresIn` = 28800 s), enviado em `Authorization: Bearer <jwt>`. Carrega só `sub` (ID) e `perfil`; a cada requisição o usuário é relido do banco, então **desativar um usuário invalida seus tokens imediatamente**.
 - **Segredo:** variável `JWT_SECRET` (mínimo 32 caracteres), **obrigatória fora dos profiles `dev` e `openapi`** (a API não sobe sem ela). Em `dev`/`openapi`, se ausente, usa-se um segredo aleatório efêmero.

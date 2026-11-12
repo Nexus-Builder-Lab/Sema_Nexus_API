@@ -1,6 +1,7 @@
 package br.com.nexusbuilderlab.semanexus.core.auth;
 
 import br.com.nexusbuilderlab.semanexus.common.exception.CredenciaisInvalidasException;
+import br.com.nexusbuilderlab.semanexus.common.exception.DadosInvalidosException;
 import br.com.nexusbuilderlab.semanexus.common.exception.RecursoNaoEncontradoException;
 import br.com.nexusbuilderlab.semanexus.common.exception.UsuarioInativoException;
 import br.com.nexusbuilderlab.semanexus.core.auditoria.AuditService;
@@ -8,11 +9,15 @@ import br.com.nexusbuilderlab.semanexus.core.auth.dto.AuthConfigResponse;
 import br.com.nexusbuilderlab.semanexus.core.auth.dto.LoginRequest;
 import br.com.nexusbuilderlab.semanexus.core.auth.dto.LoginResponse;
 import br.com.nexusbuilderlab.semanexus.core.auth.dto.UsuarioResumo;
+import br.com.nexusbuilderlab.semanexus.core.auth.dto.PerfilDemo;
+import br.com.nexusbuilderlab.semanexus.core.usuario.Perfil;
 import br.com.nexusbuilderlab.semanexus.core.usuario.Usuario;
 import br.com.nexusbuilderlab.semanexus.core.usuario.UsuarioRepository;
 import br.com.nexusbuilderlab.semanexus.security.JwtService;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
@@ -25,6 +30,13 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuthService {
 
     static final String ENTIDADE = "USUARIO";
+
+    private static final List<PerfilDemo> PERFIS_DEMO = List.of(
+            new PerfilDemo(Perfil.ADMIN, "Administrador", "Gerencia usuários, equipes e auditoria."),
+            new PerfilDemo(Perfil.GESTOR, "Gestor", "Acompanha demandas, equipes e indicadores."),
+            new PerfilDemo(Perfil.FISCAL, "Fiscal", "Executa fiscalizações e registra vistorias."),
+            new PerfilDemo(Perfil.ANALISTA, "Analista", "Cadastra e distribui demandas; analisa documentos."),
+            new PerfilDemo(Perfil.CONSULTA, "Consulta", "Acesso somente leitura aos painéis."));
 
     private final UsuarioRepository usuarios;
     private final PasswordEncoder encoder;
@@ -78,6 +90,29 @@ public class AuthService {
     }
 
     public AuthConfigResponse configuracao() {
-        return new AuthConfigResponse(ambiente.acceptsProfiles(Profiles.of("demo")));
+        boolean demo = ambiente.acceptsProfiles(Profiles.of("demo"));
+        return demo ? new AuthConfigResponse(true, PERFIS_DEMO) : new AuthConfigResponse(false);
+    }
+
+    /** Login do Modo demonstração (só exposto pelo AuthDemoController, profile demo). Não envolve senha. */
+    @Transactional
+    public LoginResponse loginDemo(String perfilTexto) {
+        Perfil perfil = interpretarPerfil(perfilTexto);
+        Usuario usuario = usuarios.findFirstByPerfilAndDemoTrueAndAtivoTrueOrderByIdAsc(perfil)
+                .orElseThrow(() -> new RecursoNaoEncontradoException(
+                        "Nenhum usuário demonstrativo ativo para o perfil " + perfil + "."));
+        usuario.setUltimoAcesso(LocalDateTime.now(clock));
+        auditoria.registrarComo(usuario.getId(), "LOGIN", ENTIDADE, String.valueOf(usuario.getId()),
+                "Login realizado (modo demonstração).");
+        return new LoginResponse(jwtService.gerar(usuario), jwtService.expiresInSegundos(), UsuarioResumo.de(usuario));
+    }
+
+    private static Perfil interpretarPerfil(String texto) {
+        try {
+            return Perfil.valueOf(texto == null ? "" : texto.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            throw new DadosInvalidosException("perfil",
+                    "Perfil inválido. Use ADMIN, GESTOR, FISCAL, ANALISTA ou CONSULTA.");
+        }
     }
 }
