@@ -1,6 +1,6 @@
 # SEMA NEXUS — Contrato da API
 
-> **Status:** Em desenvolvimento — **Implementado:** demandas — cadastro, edição, listagem filtrada, detalhes, histórico e exclusão lógica (Issue #11), triagem, distribuição e `GET /api/equipes/{id}/demandas` (Issue #12); autenticação (`/api/auth/*`, Issue #4), catálogos e estrutura (`/api/catalogos/*`, `/api/setores`, `/api/equipes[/{id}/membros]`, Issue #7). **Implementado também:** upload `POST /api/documentos` e download `GET /api/documentos/{id}/arquivo` (Issue #15). **Implementado também:** biblioteca `GET /api/documentos`, detalhes `GET /api/documentos/{id}` e vínculos `/api/demandas/{id}/documentos` (Issue #16). **Contrato publicado, ainda respondendo `501`:** indicadores, mapa e dashboard (Issue #7 publica o contrato; cada endpoint é implementado na Issue indicada na tabela). **Implementado também:** consulta de auditoria `GET /api/auditoria` (Issue #14; filtros `de`, `ate`, `usuarioId`, `acao`, `entidade`; ordenação por data decrescente por padrão; detalhes têm senhas e tokens mascarados). **Planejado:** os endpoints P1.
+> **Status:** Em desenvolvimento — **Implementado:** demandas — cadastro, edição, listagem filtrada, detalhes, histórico e exclusão lógica (Issue #11), triagem, distribuição e `GET /api/equipes/{id}/demandas` (Issue #12); autenticação (`/api/auth/*`, Issue #4), catálogos e estrutura (`/api/catalogos/*`, `/api/setores`, `/api/equipes[/{id}/membros]`, Issue #7). **Implementado também:** upload `POST /api/documentos` e download `GET /api/documentos/{id}/arquivo` (Issue #15). **Implementado também:** biblioteca `GET /api/documentos`, detalhes `GET /api/documentos/{id}` e vínculos `/api/demandas/{id}/documentos` (Issue #16). **Contrato publicado, ainda respondendo `501`:** indicadores, mapa e dashboard (Issue #7 publica o contrato; cada endpoint é implementado na Issue indicada na tabela). **Implementado também:** consulta de auditoria `GET /api/auditoria` (Issue #14; filtros `de`, `ate`, `usuarioId`, `acao`, `entidade`; ordenação por data decrescente por padrão; detalhes têm senhas e tokens mascarados). **Implementado também:** gestão de usuários, setores e equipes (Issue #24, seção "Gestão de usuários, setores e equipes"). **Planejado:** os demais endpoints P1.
 >
 > A fonte da verdade é o OpenAPI gerado pelo springdoc (`/v3/api-docs`, `/swagger-ui.html`) e exportado pelo CI como artefato `openapi.json` (job **Exportar contrato OpenAPI**). Este documento registra os **padrões**; alterou endpoint, atualize as anotações e este arquivo. O teste `ContratoOpenApiTest` falha se um endpoint P0 sair do contrato ou se um endpoint novo não for registrado nele.
 
@@ -55,6 +55,7 @@ A ordem de avaliação é **autenticação (401) → perfil (403) → validaçã
 | GET | `/api/documentos` (biblioteca com filtros) · `/api/documentos/{id}` | qualquer autenticado | #16 | ✅ |
 | GET · POST · DELETE | `/api/demandas/{id}/documentos[/{documentoId}]` | ver ARCHITECTURE §6 | #16 | ✅ |
 | GET | `/api/intelligence/{resumo,serie-mensal,por-municipio,por-bioma,por-categoria,por-situacao,mapa}` | qualquer autenticado | #17 | ✅ |
+| GET | `/api/relatorios/demandas[.csv]` | ADMIN, GESTOR, ANALISTA, CONSULTA (FISCAL → 403) | #28 | ✅ |
 | GET | `/api/dashboard` | qualquer autenticado | #17 | ✅ |
 | GET | `/actuator/health` | público | #1 | ✅ |
 
@@ -67,7 +68,6 @@ Cada operação do contrato publicado traz no OpenAPI `x-implementado: false` e 
 | GET · POST · PUT · PATCH | `/api/usuarios[/{id}[/ativacao]]` e cadastro/edição de `/api/setores` e `/api/equipes[/{id}/membros]` (a consulta já existe, Issue #7) | #24 |
 | GET · PATCH | `/api/notificacoes[/{id}/lida]` | #25 |
 | POST | `/api/documentos/comparacao` | #26 |
-| GET | `/api/relatorios/demandas[.csv]` | #28 |
 
 ## Catálogos e estrutura (Implementado — Issue #7)
 
@@ -164,3 +164,23 @@ Migration `V6__notificacoes.sql` (`NOTIFICACAO`). Qualquer perfil autenticado; c
 - `PATCH /api/notificacoes/{id}/lida` — marca como lida (idempotente).
 
 Geração: nova demanda (GESTOR e ADMIN, exceto o autor), distribuição (fiscal designado), documento vinculado a demanda (fiscal da demanda, se não for quem vinculou), prazo em até 3 dias e atraso (fiscal; atraso também aos gestores). A verificação de prazos roda por `@Scheduled` diariamente às 07:00 (America/Cuiaba; `sema.notificacoes.cron`); a chave `PRAZO:<demanda>:<data>` / `ATRASO:<demanda>:<data>` impede duplicar no mesmo dia.
+
+## Gestão de usuários, setores e equipes (Implementado — Issue #24)
+
+Consulta: **Admin e Gestor**. Cadastro, edição, ativação e membros: **somente Admin** (demais perfis `403`). Toda operação é registrada na auditoria (`USUARIO`, `SETOR`, `EQUIPE`; a senha nunca entra no detalhe). Respostas nunca trazem senha ou hash.
+
+| Endpoint | Regras |
+|---|---|
+| `GET /api/usuarios[?q=&perfil=&ativo=&page=&size=]` | `200` paginado, ordenado por nome; `q` pesquisa trecho de nome ou e-mail (sem diferenciar maiúsculas) |
+| `GET /api/usuarios/{id}` | `200` `{id, nome, email, perfil, setorId, setorSigla, ativo, ultimoAcesso, criadoEm}` · `404` |
+| `POST /api/usuarios` | corpo `{nome, email, senha, perfil, setorId?}`; `201` + `Location` · senha com menos de 8 (ou mais de 72) caracteres → `400` (sem exceção para a credencial de teste) · e-mail duplicado → `409` · setor inexistente → `400` |
+| `PUT /api/usuarios/{id}` | `{nome, email, senha?, perfil, setorId?}`; `senha` opcional (redefine; mesma regra) · rebaixar o último ADMIN ativo → `409` |
+| `PATCH /api/usuarios/{id}/ativacao` | `{ativo}`; desativar o último ADMIN ativo → `409` |
+| `POST /api/setores` · `PUT /api/setores/{id}` | `{sigla, nome, ativo?}`; sigla gravada em maiúsculas; duplicada → `409` |
+| `POST /api/equipes` · `PUT /api/equipes/{id}` | `{nome, setorId, responsavelId?, ativo?}`; responsável deve ser usuário ativo e passa a ser membro; nome repetido no setor → `409`; `setorId`/`responsavelId` inválidos → `400` |
+| `PUT /api/equipes/{id}/membros` | `{usuarioIds[], responsavelId?}` substitui os membros (só usuários ativos, senão `400`); sem `responsavelId` o atual é mantido se continuar membro, ou removido |
+
+Um fiscal cadastrado e associado a uma equipe passa a constar em `GET /api/equipes/{id}/membros` e na distribuição de demandas.
+
+## Relatórios de demandas (Implementado — Issue #28)
+`GET /api/relatorios/demandas` (JSON paginado: `{demonstrativo, aviso, content[], page, size, totalElements, totalPages}`; `page` base 0, `size` padrão 20, máximo 100) e `GET /api/relatorios/demandas.csv` (sem paginação). Filtros combináveis iguais aos de `/api/intelligence/*`: `de`/`ate` (data de recebimento, inclusivos; `de` > `ate` → 400), `municipioId`, `bioma`, `categoria`, `status`. Ordenação: mais recentes primeiro. Perfis: ADMIN, GESTOR, ANALISTA e CONSULTA; FISCAL → 403. CSV: UTF-8 com BOM, separador `;`, fim de linha CRLF, linha 1 "AMBIENTE DEMONSTRATIVO — DADOS FICTÍCIOS", linha 2 cabeçalho, datas `dd/MM/AAAA`, `Content-Disposition: attachment; filename="relatorio-demandas-ficticio.csv"`. Células iniciadas por `=`, `+`, `-` ou `@` recebem `'` (proteção contra injeção de fórmula no Excel).

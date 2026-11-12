@@ -33,7 +33,7 @@ import org.testcontainers.oracle.OracleContainer;
  * demanda cadastrada altera o resumo na consulta seguinte. Fora do build padrão: {@code mvn verify -Poracle}.
  */
 @Tag("oracle")
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest
 class IndicadorOracleTest {
 

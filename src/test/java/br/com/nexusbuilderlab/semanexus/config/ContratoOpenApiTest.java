@@ -54,10 +54,15 @@ class ContratoOpenApiTest {
             "GET /api/intelligence/resumo", "GET /api/intelligence/serie-mensal", "GET /api/intelligence/por-municipio",
             "GET /api/intelligence/por-bioma", "GET /api/intelligence/por-categoria", "GET /api/intelligence/por-situacao",
             "GET /api/intelligence/mapa", "GET /api/dashboard",
+            "GET /api/relatorios/demandas", "GET /api/relatorios/demandas.csv",
             "GET /api/intelligence/referencia/metadados", "GET /api/intelligence/referencia/pontos",
             "GET /api/intelligence/referencia/por-municipio",
             // Core — auditoria (implementado)
-            "GET /api/auditoria");
+            "GET /api/auditoria",
+            // Core — gestão de usuários, setores e equipes (Issue #24)
+            "GET /api/usuarios", "POST /api/usuarios", "GET /api/usuarios/{id}", "PUT /api/usuarios/{id}",
+            "PATCH /api/usuarios/{id}/ativacao", "POST /api/setores", "PUT /api/setores/{id}",
+            "POST /api/equipes", "PUT /api/equipes/{id}", "PUT /api/equipes/{id}/membros");
 
     /** Endpoints com contrato publicado que ainda respondem 501 (saem desta lista quando a Issue os implementa). */
     static final Map<String, Integer> PENDENTES = Map.of();
@@ -151,6 +156,27 @@ class ContratoOpenApiTest {
         assertThat(schemas.has("Problema")).isTrue();
         assertThat(schemas.path("Problema").path("properties").has("errors")).isTrue();
         assertThat(schemas.has("ErroCampo")).isTrue();
+    }
+
+    @Test
+    void todaOperacaoDeclaraRespostaDeSucesso2xx() throws Exception {
+        List<String> sem2xx = new ArrayList<>();
+        for (String chave : ENDPOINTS_P0) {
+            boolean tem2xx = false;
+            var codigos = operacao(chave).path("responses").fieldNames();
+            while (codigos.hasNext()) {
+                tem2xx |= codigos.next().startsWith("2");
+            }
+            if (!tem2xx) {
+                sem2xx.add(chave);
+            }
+        }
+        assertThat(sem2xx).as("operações sem resposta 2xx").isEmpty();
+        JsonNode login = operacao("POST /api/auth/login").path("responses").path("200");
+        assertThat(login.path("content").path("application/json").path("schema").path("$ref").asText())
+                .isEqualTo("#/components/schemas/LoginResponse");
+        assertThat(contrato().path("components").path("schemas").path("LoginResponse").path("properties").fieldNames())
+                .toIterable().contains("token", "expiresIn", "usuario");
     }
 
     @Test

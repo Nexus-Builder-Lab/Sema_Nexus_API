@@ -1,0 +1,37 @@
+name: Oracle IT
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 5 * * *" # 01:00 America/Cuiaba
+
+permissions:
+  contents: read
+
+concurrency:
+  group: oracle-it
+  cancel-in-progress: false
+
+jobs:
+  oracle-it:
+    name: Testes de integração (Oracle Free / Testcontainers)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Testes com tag oracle
+        env:
+          STORAGE_DIR: ${{ runner.temp }}/sema-nexus-storage # /data/uploads nao e gravavel no runner
+        run: mvn -B -ntp verify -Poracle
+      - name: Relatórios
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: oracle-it-reports
+          path: target/surefire-reports
+          if-no-files-found: ignore

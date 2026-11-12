@@ -181,6 +181,12 @@ O script `demo-reset` (Issue API#9) faz o mesmo exigindo confirmação e recusan
 - A credencial `admin@admin.com` / `12345678` é **exclusivamente demonstrativa**: existe somente nos profiles `demo`/`dev` e é gravada apenas como hash BCrypt. Se a API subir em outro profile (ex.: `SPRING_PROFILES_ACTIVE=prod`) com esse usuário no banco, ela **se recusa a iniciar** (ver Problemas comuns). Não reutilize essa senha em nenhum outro sistema.
 - Não publique as portas 1521/8080/3000 em redes não confiáveis: o ambiente é de demonstração.
 
+## Smoke test automático (GitHub Actions)
+
+Workflow `.github/workflows/compose-smoke.yml` (manual via *Run workflow* e noturno às 05:00 UTC): baixa API e Web lado a lado, cria o `.env` com segredos efêmeros, sobe o compose, espera todos os serviços `healthy` (timeout de 15 min), faz `POST /api/auth/login` com o usuário demo e `GET /api/demandas` pela porta 3000 (proxy do Web). Em falha, anexa `compose-logs` (artefato) e, ao final, derruba o compose do runner efêmero.
+
+O Web é privado: é necessário o secret `CROSS_REPO_TOKEN` (token somente leitura do `Sema_Nexus_Web`). Sem ele, o job não falha silenciosamente: termina com aviso e o resumo do workflow explica o que falta.
+
 ## Problemas comuns
 
 | Sintoma | Causa provável | Solução |

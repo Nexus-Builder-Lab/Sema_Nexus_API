@@ -1,4 +1,4 @@
-﻿# SEMA NEXUS API â€” DiÃ¡rio de desenvolvimento
+# SEMA NEXUS API â€” DiÃ¡rio de desenvolvimento
 
 > Registro cronolÃ³gico de tudo o que foi feito, decidido e testado neste repositÃ³rio. Uma entrada por Issue concluÃ­da (incluÃ­da no prÃ³prio PR). Resultados de teste sÃ£o sempre os **reais** da execuÃ§Ã£o.
 > Erros que o autopilot nÃ£o conseguiu corrigir ficam em `C:\SEMANEXUS\autopilot\RELATORIO_ERROS.md` e nas Issues com a label `autopilot-falhou`.
@@ -260,3 +260,57 @@
 - **Arquivos principais:** `core/notificacao/*`, `flux/demanda/PrazoNotificacaoService.java`, `common/AgendamentoConfig.java`, testes `NotificacaoServiceTest`, `PrazoNotificacaoServiceTest`, ajustes em `DemandaServiceTest`/`TriagemDistribuicaoServiceTest`/`DocumentoServiceTest`, `docs/API.md`, `docs/DATABASE.md`.
 - **Testes:** a confirmar pelo validador (implementador: testes unitários dos 5 arquivos citados, 0 falhas).
 - **Pendências:** JPQL das consultas de prazo/atraso e a migration V6 não foram exercitadas em Oracle (validar com perfil `oracle`/Docker).
+
+## 2026-11-12 · GH-45 · Contrato OpenAPI com resposta 2xx em login e demandas
+- **PR:** (a preencher pelo orquestrador) · **Status:** aguardando validação
+- **Agentes que atuaram:** `implementador-backend`
+- **O que foi feito:** `200` declarado com schema em `POST /api/auth/login` (`LoginResponse`), `GET /api/demandas/{id}` (`DemandaDetalhe`), `/historico` (lista de `HistoricoItem`) e `/documentos` (lista de `DocumentoResumo`). Causa: `@ApiResponse` só com códigos de erro suprimia o 200 implícito.
+- **Decisões técnicas:** `@ApiResponse(200)` explícito nos controllers; sem mudança de comportamento em runtime.
+- **Arquivos principais:** `AuthController`, `DemandaController`, `DemandaDocumentoController`, `ContratoOpenApiTest` (novo teste: toda operação tem 2xx).
+- **Testes:** a confirmar pelo validador (implementador: ContratoOpenApiTest, EndpointsContratoWebMvcTest, AuthControllerWebMvcTest, 0 falhas).
+- **Pendências:** nenhuma.
+
+## 2026-11-12 · GH-24 · Gestão de usuários, setores e equipes
+- **PR:** (a preencher pelo orquestrador) · **Status:** aguardando validação
+- **Agentes que atuaram:** `implementador-backend`
+- **O que foi feito:** `UsuarioController/Service` (`GET/POST/PUT /api/usuarios`, `GET /{id}`, `PATCH /{id}/ativacao`, pesquisa `q` + filtros perfil/ativo, paginado), cadastro/edição de setores (`POST/PUT /api/setores`) e equipes (`POST/PUT /api/equipes`, `PUT /{id}/membros`, responsável). Senha de 8 a 72 caracteres (400), BCrypt, e-mail único (409), proteção do último ADMIN ativo (409 ao desativar ou rebaixar), escrita só ADMIN e consulta ADMIN/GESTOR, auditoria de todas as operações sem senha.
+- **Decisões técnicas:** sem migration (tabelas existentes); responsável sempre é membro; PUT de equipe sem `responsavelId` limpa o responsável; membros e responsável precisam estar ativos; `Specification` para a pesquisa (sem problemas de parâmetro nulo no Oracle).
+- **Arquivos principais:** `core/usuario/*`, `core/setor/*`, `core/equipe/*` (services, controllers, DTOs de requisição), testes `UsuarioServiceTest`, `UsuarioControllerWebMvcTest`, `SetorCadastroServiceTest`, `EquipeCadastroServiceTest`, `ContratoOpenApiTest`, `docs/API.md`.
+- **Testes:** a confirmar pelo validador (implementador: testes afetados sem Oracle, ver relatório).
+- **Pendências:** sem teste Oracle da pesquisa `q`/Specification; token de usuário desativado depende do filtro JWT existente.
+
+## 2026-11-12 · GH-28 · Relatórios de demandas com filtros e exportação CSV
+- **PR:** (a preencher pelo orquestrador) · **Status:** aguardando validação
+- **Agentes que atuaram:** `implementador-backend`
+- **O que foi feito:** `GET /api/relatorios/demandas` (JSON paginado) e `/demandas.csv` (UTF-8 com BOM, `;`, aviso demonstrativo na linha 1) com filtros período, município, bioma, categoria e status (`intelligence/relatorio`: controller, service, DTOs; consultas novas em `IndicadorRepository`).
+- **Decisões técnicas:** sem migration; reaproveita `IndicadorFiltro` e o predicado dos indicadores; `Autorizacao.RELATORIOS` (ADMIN, GESTOR, ANALISTA, CONSULTA; FISCAL → 403, conforme matriz); `size` limitado a 100; CSV neutraliza fórmulas e escapa aspas/`;`.
+- **Arquivos principais:** `RelatorioController/Service`, `IndicadorRepository`, `Autorizacao`, testes `RelatorioServiceTest`, `RelatorioControllerWebMvcTest`, `ContratoOpenApiTest`, `docs/API.md`.
+- **Testes:** a confirmar pelo validador (implementador: RelatorioServiceTest, RelatorioControllerWebMvcTest e ContratoOpenApiTest, 0 falhas).
+- **Pendências:** consulta paginada/CSV não exercitada contra Oracle real; abertura no Excel não verificada manualmente (BOM e `;` cobertos por teste).
+
+## 2026-11-12 · GH-23 · Testes de integração Oracle em job separado
+- **PR:** #75 · **Status:** concluído (reforço Opus)
+- **Agentes que atuaram:** `implementador-backend`, `validador-qa`, `revisor`, orquestrador (reforço Opus)
+- **O que foi feito:** `.github/workflows/oracle-it.yml` (`workflow_dispatch` + cron noturno, `mvn verify -Poracle`, upload dos relatórios); `@Testcontainers(disabledWithoutDocker = true)` nos 8 testes `oracle`, que passam a aparecer como ignorados com mensagem quando não há Docker. Cobertura já existente: migrations/schema (`CoreSchemaOracleTest`), numeração e filtros (`DemandaOracleTest`), busca documental (`DocumentoOracleTest`), agregações (`IndicadorOracleTest`).
+- **Decisões técnicas:** perfil Maven `oracle` e exclusão da tag no build padrão já existiam; sem credenciais (container efêmero via Testcontainers); sem secrets no workflow.
+- **Arquivos principais:** `.github/workflows/oracle-it.yml`, `*OracleTest.java`, `docs/DEVELOPMENT.md`.
+- **Testes:** `mvn verify -Poracle` local: 30 testes, 0 falhas. Job `oracle-it` no GitHub (run 43160648983, gatilho `push` temporário no branch, já removido): 30 testes, 0 falhas. A 1ª execução no runner falhou com `AccessDeniedException: /data` (padrão `STORAGE_DIR=/data/uploads` não gravável) → o workflow define `STORAGE_DIR` em `runner.temp`.
+- **Pendências:** nenhuma; após o merge o job também fica disponível via `workflow_dispatch`.
+
+## 2026-11-11 · GH-20 · Smoke test do Docker Compose em workflow manual e noturno
+- **PR:** (a preencher pelo orquestrador) · **Status:** aguardando validação
+- **Agentes que atuaram:** `implementador-backend`
+- **O que foi feito:** `compose-smoke.yml` (`workflow_dispatch` + cron noturno): gate do secret `CROSS_REPO_TOKEN` (ausente → aviso + resumo explicativo, sem falha silenciosa), checkout API+Web lado a lado, `.env` com segredos aleatórios, `compose up --build`, espera `healthy` (15 min), login e `GET /api/demandas` em `localhost:3000`, logs como artefato em falha, limpeza final.
+- **Decisões técnicas:** segredos do `.env` gerados por `openssl rand` (nada fixo); usuário demo (profile demo) em env do job; limpeza com `down --remove-orphans` (runner efêmero, sem `-v`).
+- **Arquivos principais:** `.github/workflows/compose-smoke.yml`, `docs/DOCKER.md`.
+- **Testes:** a confirmar pelo validador (implementador: sintaxe YAML validada com PyYAML; execução real do workflow depende do secret e de push).
+- **Pendências:** execução verde com o secret só após merge/dispatch no GitHub.
+
+## 2026-11-12 · GH-47 · prazoSugerido no DemandaDetalhe
+- **PR:** (a preencher pelo orquestrador) · **Status:** aguardando validação
+- **Agentes que atuaram:** `implementador-backend`
+- **O que foi feito:** verificado que `DemandaDetalhe.prazoSugerido` (nullable) e seu mapeamento em `DemandaService` já existiam desde o GH-11; adicionados 2 testes unitários de regressão (cadastro e obtenção, com valor e com null).
+- **Decisões técnicas:** nenhuma mudança de código de produção; contrato OpenAPI já inclui o campo.
+- **Arquivos principais:** `DemandaServiceTest`.
+- **Testes:** a confirmar pelo validador (implementador: `mvn -Dtest=DemandaServiceTest test`, 0 falhas).
+- **Pendências:** nenhuma.

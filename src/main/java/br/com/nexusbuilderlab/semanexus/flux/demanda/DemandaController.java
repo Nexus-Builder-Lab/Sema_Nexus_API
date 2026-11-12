@@ -15,6 +15,9 @@ import br.com.nexusbuilderlab.semanexus.flux.demanda.dto.TriagemRequest;
 import br.com.nexusbuilderlab.semanexus.security.Autorizacao;
 import br.com.nexusbuilderlab.semanexus.security.UsuarioAutenticado;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -103,6 +106,8 @@ public class DemandaController {
 
     @Operation(summary = "Detalhes da demanda (equipe, fiscal, prazo, situação, fiscalização e documentos)",
             description = "Qualquer perfil autenticado; FISCAL só nas demandas da sua equipe ou atribuídas a ele.")
+    @ApiResponse(responseCode = "200", description = "Detalhes da demanda",
+            content = @Content(schema = @Schema(implementation = DemandaDetalhe.class)))
     @ApiResponse(responseCode = "403", description = "Fiscal fora do escopo (demanda de outra equipe)")
     @GetMapping("/{id}")
     public DemandaDetalhe detalhar(@AuthenticationPrincipal UsuarioAutenticado ator, @PathVariable Long id) {
@@ -111,6 +116,8 @@ public class DemandaController {
 
     @Operation(summary = "Histórico (linha do tempo) da demanda, do mais recente ao mais antigo",
             description = "Qualquer perfil autenticado; FISCAL só nas demandas da sua equipe ou atribuídas a ele.")
+    @ApiResponse(responseCode = "200", description = "Linha do tempo da demanda",
+            content = @Content(array = @ArraySchema(schema = @Schema(implementation = HistoricoItem.class))))
     @ApiResponse(responseCode = "403", description = "Fiscal fora do escopo (demanda de outra equipe)")
     @GetMapping("/{id}/historico")
     public List<HistoricoItem> historico(@AuthenticationPrincipal UsuarioAutenticado ator, @PathVariable Long id) {

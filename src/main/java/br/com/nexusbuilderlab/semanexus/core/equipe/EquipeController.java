@@ -1,7 +1,17 @@
 package br.com.nexusbuilderlab.semanexus.core.equipe;
 
 import br.com.nexusbuilderlab.semanexus.core.equipe.dto.EquipeDto;
+import br.com.nexusbuilderlab.semanexus.core.equipe.dto.EquipeRequest;
 import br.com.nexusbuilderlab.semanexus.core.equipe.dto.MembroDto;
+import br.com.nexusbuilderlab.semanexus.core.equipe.dto.MembrosRequest;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import jakarta.validation.Valid;
+import java.net.URI;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import br.com.nexusbuilderlab.semanexus.security.Autorizacao;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -42,5 +52,33 @@ public class EquipeController {
     @GetMapping("/{id}/membros")
     public List<MembroDto> membros(@PathVariable Long id) {
         return service.membros(id);
+    }
+
+    @Operation(summary = "Cadastra uma equipe",
+            description = "Somente ADMIN. O responsável (usuário ativo, opcional) passa a ser membro. "
+                    + "Nome repetido no setor responde 409.")
+    @ApiResponse(responseCode = "201", description = "Equipe criada; `Location` aponta para `/api/equipes/{id}`")
+    @PreAuthorize(Autorizacao.SOMENTE_ADMIN)
+    @PostMapping
+    public ResponseEntity<EquipeDto> criar(@Valid @RequestBody EquipeRequest pedido) {
+        EquipeDto criada = service.criar(pedido);
+        URI local = ServletUriComponentsBuilder.fromCurrentRequest().path("/{id}").buildAndExpand(criada.id()).toUri();
+        return ResponseEntity.created(local).body(criada);
+    }
+
+    @Operation(summary = "Edita uma equipe (nome, setor, situação e responsável)",
+            description = "Somente ADMIN. 404 se não existir; nome repetido no setor 409.")
+    @PreAuthorize(Autorizacao.SOMENTE_ADMIN)
+    @PutMapping("/{id}")
+    public EquipeDto atualizar(@PathVariable Long id, @Valid @RequestBody EquipeRequest pedido) {
+        return service.atualizar(id, pedido);
+    }
+
+    @Operation(summary = "Define os membros (e o responsável) da equipe",
+            description = "Somente ADMIN. Substitui a lista de membros; só usuários ativos (senão 400).")
+    @PreAuthorize(Autorizacao.SOMENTE_ADMIN)
+    @PutMapping("/{id}/membros")
+    public EquipeDto definirMembros(@PathVariable Long id, @Valid @RequestBody MembrosRequest pedido) {
+        return service.definirMembros(id, pedido);
     }
 }

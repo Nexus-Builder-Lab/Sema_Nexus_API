@@ -34,7 +34,7 @@ import org.testcontainers.oracle.OracleContainer;
  * {@code mvn -B -ntp verify -Poracle}. Usa usuários fictícios criados pelo próprio teste.
  */
 @Tag("oracle")
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest
 @AutoConfigureMockMvc
 class AuthOracleTest {
