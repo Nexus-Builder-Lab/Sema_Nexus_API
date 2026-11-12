@@ -314,3 +314,12 @@
 - **Arquivos principais:** `DemandaServiceTest`.
 - **Testes:** a confirmar pelo validador (implementador: `mvn -Dtest=DemandaServiceTest test`, 0 falhas).
 - **Pendências:** nenhuma.
+
+## 2026-11-12 · GH-83 · Login demonstrativo por perfil (Modo demonstração)
+- **PR:** (a preencher pelo orquestrador) · **Status:** aguardando validação
+- **Agentes que atuaram:** `implementador-backend`
+- **O que foi feito:** `POST /api/auth/demo/{perfil}` (`AuthDemoController`, `@Profile("demo")`) devolve `LoginResponse` do primeiro usuário ativo com `DEMO=1` do perfil; `GET /api/auth/config` inclui `perfisDemo` quando `demo=true`. Auditoria `LOGIN` com detalhe "modo demonstração"; perfil inválido 400, sem usuário 404.
+- **Decisões técnicas:** rota liberada no `SecurityConfig` (`permitAll`), mas o bean só existe no profile `demo` (404 nos demais); nenhuma senha envolvida; lógica em `AuthService.loginDemo`.
+- **Arquivos principais:** `AuthDemoController`, `AuthService`, `PerfilDemo`, `AuthConfigResponse`, `UsuarioRepository`, `SecurityConfig`, `docs/API.md`.
+- **Testes:** a confirmar pelo validador (implementador: AuthServiceTest, AuthControllerWebMvcTest, AuthDemoControllerWebMvcTest, 0 falhas).
+- **Pendências:** nenhuma.
