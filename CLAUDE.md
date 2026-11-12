@@ -19,7 +19,7 @@ Java 21 · Spring Boot 3.5 · Oracle 23ai Free · Flyway · JWT/BCrypt · spring
 ## Segurança (inegociável)
 - Sem credenciais no código, imagens ou compose; configuração por variáveis de ambiente (`.env` fora do Git; `.env.example` atualizado).
 - Credencial `admin@admin.com` / `12345678` **só demonstrativa**: profiles `demo`/`dev`, só hash BCrypt, trava `TestUserProfileGuard`. Texto puro só em README, `docs/DEMO.md`, `docs/DOCKER.md` e testes. Não relaxar validações (senha ≥ 8).
-- Nunca `docker compose down -v`, `docker volume rm`, `docker system prune`, nem parar/remover containers de outros projetos. Nunca encerrar processos que você não iniciou (a porta 8080 do host é de outro serviço: use 18080).
+- Nunca `docker compose down -v`, `docker volume rm`, `docker system prune`, nem parar/remover containers de outros projetos. Nunca encerrar processos que você não iniciou (as portas 8080 e 3000 em `localhost`/IPv6 são de outro serviço: acesse sempre por `127.0.0.1` e use as portas do `.env` — hoje `API_PORT=18081`, `WEB_PORT=3000`).
 - GitHub: nunca se adicionar como colaborador, convidar contas, mudar permissões/visibilidade, apagar histórico, force push ou push na `main`. Tag/release só com autorização.
 
 ## Fluxo
