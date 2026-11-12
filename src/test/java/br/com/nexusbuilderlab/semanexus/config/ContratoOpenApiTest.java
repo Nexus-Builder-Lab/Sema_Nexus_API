@@ -269,7 +269,7 @@ class ContratoOpenApiTest {
         operacao("GET /api/demandas").path("parameters").forEach(p -> parametros.add(p.path("name").asText()));
         assertThat(parametros).contains("q", "status", "municipioId", "categoria", "prioridade", "equipeId", "fiscalId",
                 "atrasada", "de", "ate", "page", "size", "sort");
-        // Os campos "sort" e "page"/"size" vêm do Pageable (?page&size&sort); paginação máxima de 100 está em application.yml.
+        // Os campos "sort" e "page"/"size" vêm do Pageable (?page&size&sort); paginação máxima de 500 está em application.yml.
         List<String> doc = new ArrayList<>();
         operacao("GET /api/documentos").path("parameters").forEach(p -> doc.add(p.path("name").asText()));
         assertThat(doc).contains("q", "categoria", "tipo", "municipioId", "demandaId", "de", "ate", "page", "size", "sort");

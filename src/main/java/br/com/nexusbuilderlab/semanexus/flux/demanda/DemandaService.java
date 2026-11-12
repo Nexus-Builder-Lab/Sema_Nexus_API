@@ -329,7 +329,8 @@ public class DemandaService {
     private DemandaResumo resumo(Demanda d, LocalDate hoje) {
         return new DemandaResumo(d.getId(), d.getNumero(), d.getTitulo(), municipioRef(d.getMunicipio()), d.getOrigem(),
                 d.getCategoria(), d.getPrioridade(), d.getStatus(), d.getDataRecebimento(), d.getPrazo(),
-                d.atrasada(hoje), equipeRef(d.getEquipe()), UsuarioRef.de(d.getFiscal()));
+                d.atrasada(hoje), equipeRef(d.getEquipe()), UsuarioRef.de(d.getFiscal()),
+                d.getConcluidaEm(), d.getAtualizadoEm());
     }
 
     private DemandaDetalhe detalhe(Demanda d, LocalDate hoje) {

@@ -9,6 +9,7 @@ import br.com.nexusbuilderlab.semanexus.core.catalogo.Prioridade;
 import br.com.nexusbuilderlab.semanexus.core.catalogo.StatusDemanda;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 /** Item da listagem de demandas. */
 @Schema(description = "Demanda na listagem (dados fictícios na demonstração)")
@@ -25,5 +26,7 @@ public record DemandaResumo(
         @Schema(description = "Prazo definido na distribuição", nullable = true) LocalDate prazo,
         @Schema(description = "Derivada: prazo < hoje e status ≠ FINALIZADA", example = "false") boolean atrasada,
         @Schema(nullable = true) EquipeRef equipe,
-        @Schema(nullable = true) UsuarioRef fiscal) {
+        @Schema(nullable = true) UsuarioRef fiscal,
+        @Schema(description = "Data/hora da conclusão; null se a demanda não foi finalizada", nullable = true) LocalDateTime concluidaEm,
+        @Schema(description = "Data/hora da última atualização") LocalDateTime atualizadoEm) {
 }
