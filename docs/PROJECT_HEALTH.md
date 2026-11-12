@@ -16,7 +16,7 @@
 | PRs aguardando revisão | PRs abertos |
 | Issues sem critérios de aceitação | seção "Critérios de aceitação" sem checklist |
 | Branches fora de `feature/GH-<n>` | branches dos repositórios |
-| Risco para o MVP | horas P0 abertas × capacidade restante (dias úteis até 25/11, sem fins de semana e sem 20/11, × 2 pessoas × 7 h); CI da `main` com falha |
+| Risco para o MVP | horas P0 abertas × capacidade restante (dias úteis até o limite de implementação 20/11 — meta 15/11 —, sem fins de semana e sem o feriado de 20/11, × 2 pessoas × 7 h); CI da `main` com falha |
 
 ## Quando roda
 

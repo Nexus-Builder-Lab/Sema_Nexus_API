@@ -3,7 +3,8 @@
 const ORG = 'Nexus-Builder-Lab';
 const REPOS = ['Sema_Nexus_API', 'Sema_Nexus_Web'];
 const PROJECT_NUMBER = 1;
-const FIM_IMPLEMENTACAO = '2026-11-25';
+const META_IMPLEMENTACAO = '2026-11-15'; // meta redefinida pelo proprietário em 12/11/2026
+const FIM_IMPLEMENTACAO = '2026-11-20'; // limite máximo
 const ENTREGA = '2026-11-26';
 const APRESENTACAO = '2026-11-27';
 const FERIADOS = ['2026-11-20'];
@@ -116,7 +117,7 @@ async function statusDoProject() {
 
 async function main() {
   p(`# 🩺 SEMA NEXUS — Saúde do projeto em ${br(hoje)}`);
-  p(`Implementação até **${br(FIM_IMPLEMENTACAO)}** · revisão/testes/tag em **${br(ENTREGA)}** · apresentação em **${br(APRESENTACAO)}**.\n`);
+  p(`Meta de implementação **${br(META_IMPLEMENTACAO)}** · limite **${br(FIM_IMPLEMENTACAO)}** · revisão/testes/tag em **${br(ENTREGA)}** · apresentação em **${br(APRESENTACAO)}**.\n`);
 
   if (hoje > APRESENTACAO) {
     p('> ✅ A apresentação já ocorreu. Desative este workflow: `gh workflow disable project-health.yml -R Nexus-Builder-Lab/Sema_Nexus_API`.');

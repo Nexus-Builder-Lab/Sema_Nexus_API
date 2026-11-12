@@ -30,7 +30,7 @@ Depois do prefixo vem o módulo ou tipo: `[CORE]` `[INTELLIGENCE]` `[FLUX]` `[DO
 | View | Uso |
 |---|---|
 | Board geral | Kanban de tudo por Status |
-| **Sprint 1 (10–13/11)** · **Sprint 2 (16–19/11)** · **Sprint 3 (23–25/11)** | Um quadro por sprint, colunas por Status — use no dia a dia |
+| **Sprint 1 (10–13/11)** · **Sprint 2 (16–19/11)** · **Sprint 3 (21–26/11, folga; implementação até 20/11, meta 15/11)** | Um quadro por sprint, colunas por Status — use no dia a dia |
 | Sprint atual | Tabela filtrada por `sprint:@current` |
 | Backlog futuro (P2) | Itens sem sprint |
 | Roadmap · Backlog · Por módulo · P0 — MVP · Por repositório | Planejamento e acompanhamento |
