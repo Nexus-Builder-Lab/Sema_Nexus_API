@@ -152,3 +152,7 @@ Dados **públicos reais** do INPE (focos de calor do Programa Queimadas e alerta
 | GET | `/api/intelligence/referencia/por-municipio?tipo&de&ate` | Contagem por município (maior primeiro) e `total`, para camada coroplética e cards. |
 
 `DESMATAMENTO` = alertas DETER (campo `classe`, ex. `DESMATAMENTO_CR`, `CICATRIZ_DE_QUEIMADA`; `areaKm2`). Latitude/longitude do DETER são o centroide aproximado do polígono.
+
+## Comparação documental (Implementado — Issue #26)
+
+`POST /api/documentos/comparacao` com `{"aId": 1, "bId": 2}` (qualquer perfil autenticado). Comparação **determinística** (LCS e Jaccard), **não é IA**: a resposta traz `geradoPorIa=false`, `aviso` e `metodo`. Campos: `a`/`b` (id, título), `metadados[]` (`campo`, `valorA`, `valorB`, `igual`), `similaridade` (0 a 100, 2*LCS/(nA+nB) por palavras), `similaridadeTermos` (Jaccard), `diffLinhas[]` e `diffPalavras[]` (`tipo` = `IGUAL`/`REMOVIDO` só em A/`ADICIONADO` só em B, `texto`), `trechosSemelhantes[]` (sentenças com similaridade >= 50%, até 20), `termosExclusivosA/B` (até 50) e `truncado` (textos limitados a 2000 palavras / 1500 linhas). Comparação ignora caixa, acentos e pontuação nas pontas. Documento inexistente/excluído → 404; documento sem texto extraído → 400 (`problem+json`, `erros[].campo` = `aId`/`bId`, mensagem com o título).
