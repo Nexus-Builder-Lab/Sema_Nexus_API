@@ -252,6 +252,15 @@
 - **Testes:** a confirmar pelo validador (implementador: ComparacaoServiceTest 7 testes e ContratoOpenApiTest 14, 0 falhas).
 - **Pendências:** sem teste Oracle ponta a ponta contra as versões do parecer no seed (o teste unitário usa texto equivalente).
 
+## 2026-11-12 · GH-45 · Contrato OpenAPI com resposta 2xx em login e demandas
+- **PR:** (a preencher pelo orquestrador) · **Status:** aguardando validação
+- **Agentes que atuaram:** `implementador-backend`
+- **O que foi feito:** `200` declarado com schema em `POST /api/auth/login` (`LoginResponse`), `GET /api/demandas/{id}` (`DemandaDetalhe`), `/historico` (lista de `HistoricoItem`) e `/documentos` (lista de `DocumentoResumo`). Causa: `@ApiResponse` só com códigos de erro suprimia o 200 implícito.
+- **Decisões técnicas:** `@ApiResponse(200)` explícito nos controllers; sem mudança de comportamento em runtime.
+- **Arquivos principais:** `AuthController`, `DemandaController`, `DemandaDocumentoController`, `ContratoOpenApiTest` (novo teste: toda operação tem 2xx).
+- **Testes:** a confirmar pelo validador (implementador: ContratoOpenApiTest, EndpointsContratoWebMvcTest, AuthControllerWebMvcTest, 0 falhas).
+- **Pendências:** nenhuma.
+
 ## 2026-11-12 · GH-24 · Gestão de usuários, setores e equipes
 - **PR:** (a preencher pelo orquestrador) · **Status:** aguardando validação
 - **Agentes que atuaram:** `implementador-backend`

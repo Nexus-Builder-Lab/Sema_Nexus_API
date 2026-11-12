@@ -158,6 +158,27 @@ class ContratoOpenApiTest {
     }
 
     @Test
+    void todaOperacaoDeclaraRespostaDeSucesso2xx() throws Exception {
+        List<String> sem2xx = new ArrayList<>();
+        for (String chave : ENDPOINTS_P0) {
+            boolean tem2xx = false;
+            var codigos = operacao(chave).path("responses").fieldNames();
+            while (codigos.hasNext()) {
+                tem2xx |= codigos.next().startsWith("2");
+            }
+            if (!tem2xx) {
+                sem2xx.add(chave);
+            }
+        }
+        assertThat(sem2xx).as("operações sem resposta 2xx").isEmpty();
+        JsonNode login = operacao("POST /api/auth/login").path("responses").path("200");
+        assertThat(login.path("content").path("application/json").path("schema").path("$ref").asText())
+                .isEqualTo("#/components/schemas/LoginResponse");
+        assertThat(contrato().path("components").path("schemas").path("LoginResponse").path("properties").fieldNames())
+                .toIterable().contains("token", "expiresIn", "usuario");
+    }
+
+    @Test
     void erro401AusenteSoNosEndpointsPublicos() throws Exception {
         List<String> publicos = List.of("POST /api/auth/login", "GET /api/auth/config");
         for (String chave : ENDPOINTS_P0) {
