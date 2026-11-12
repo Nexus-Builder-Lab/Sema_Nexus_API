@@ -296,3 +296,12 @@
 - **Arquivos principais:** `.github/workflows/compose-smoke.yml`, `docs/DOCKER.md`.
 - **Testes:** a confirmar pelo validador (implementador: sintaxe YAML validada com PyYAML; execução real do workflow depende do secret e de push).
 - **Pendências:** execução verde com o secret só após merge/dispatch no GitHub.
+
+## 2026-11-12 · GH-47 · prazoSugerido no DemandaDetalhe
+- **PR:** (a preencher pelo orquestrador) · **Status:** aguardando validação
+- **Agentes que atuaram:** `implementador-backend`
+- **O que foi feito:** verificado que `DemandaDetalhe.prazoSugerido` (nullable) e seu mapeamento em `DemandaService` já existiam desde o GH-11; adicionados 2 testes unitários de regressão (cadastro e obtenção, com valor e com null).
+- **Decisões técnicas:** nenhuma mudança de código de produção; contrato OpenAPI já inclui o campo.
+- **Arquivos principais:** `DemandaServiceTest`.
+- **Testes:** a confirmar pelo validador (implementador: `mvn -Dtest=DemandaServiceTest test`, 0 falhas).
+- **Pendências:** nenhuma.

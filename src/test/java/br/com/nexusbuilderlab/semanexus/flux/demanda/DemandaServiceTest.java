@@ -144,6 +144,25 @@ class DemandaServiceTest {
     }
 
     @Test
+    void detalheExpoePrazoSugeridoNoCadastroEnullQuandoAusente() {
+        assertThat(service.cadastrar(ator, pedido(5103403, HOJE, HOJE.plusDays(5))).prazoSugerido())
+                .isEqualTo(HOJE.plusDays(5));
+        assertThat(service.cadastrar(ator, pedido(5103403, HOJE, null)).prazoSugerido()).isNull();
+    }
+
+    @Test
+    void detalheExpoePrazoSugeridoNaObtencaoEnullQuandoAusente() {
+        Demanda comPrazo = demanda(1, StatusDemanda.PENDENTE);
+        comPrazo.setPrazoSugerido(HOJE.plusDays(10));
+        Demanda semPrazo = demanda(2, StatusDemanda.PENDENTE);
+        when(demandas.buscarDetalhe(1L)).thenReturn(Optional.of(comPrazo));
+        when(demandas.buscarDetalhe(2L)).thenReturn(Optional.of(semPrazo));
+
+        assertThat(service.detalhar(ator, 1L).prazoSugerido()).isEqualTo(HOJE.plusDays(10));
+        assertThat(service.detalhar(ator, 2L).prazoSugerido()).isNull();
+    }
+
+    @Test
     void cadastroUsaOAnoDeHojeEmCuiabaParaANumeracao() {
         // 02:00 UTC de 01/01/2027 ainda é 31/12/2026 em Cuiabá
         Clock virada = Clock.fixed(Instant.parse("2027-01-01T02:00:00Z"), ZoneOffset.UTC);
