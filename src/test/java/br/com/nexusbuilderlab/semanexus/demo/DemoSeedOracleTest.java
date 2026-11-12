@@ -25,7 +25,7 @@ import org.testcontainers.oracle.OracleContainer;
  * Fora do build padrão: {@code mvn -B -ntp verify -Poracle}.
  */
 @Tag("oracle")
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 // O profile demo exige JWT_SECRET; este valor é fictício e só existe no teste.
 @SpringBootTest(properties = "semanexus.jwt.secret=segredo-ficticio-somente-para-teste-0123456789")
 @AutoConfigureMockMvc

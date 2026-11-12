@@ -33,7 +33,7 @@ import org.testcontainers.oracle.OracleContainer;
  * do profile {@code dev}. Fora do build padrão: {@code mvn -B -ntp verify -Poracle}.
  */
 @Tag("oracle")
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest
 @AutoConfigureMockMvc
 class CatalogosEstruturaOracleTest {

@@ -269,3 +269,12 @@
 - **Arquivos principais:** `RelatorioController/Service`, `IndicadorRepository`, `Autorizacao`, testes `RelatorioServiceTest`, `RelatorioControllerWebMvcTest`, `ContratoOpenApiTest`, `docs/API.md`.
 - **Testes:** a confirmar pelo validador (implementador: RelatorioServiceTest, RelatorioControllerWebMvcTest e ContratoOpenApiTest, 0 falhas).
 - **Pendências:** consulta paginada/CSV não exercitada contra Oracle real; abertura no Excel não verificada manualmente (BOM e `;` cobertos por teste).
+
+## 2026-11-12 · GH-23 · Testes de integração Oracle em job separado
+- **PR:** #75 · **Status:** concluído (reforço Opus)
+- **Agentes que atuaram:** `implementador-backend`, `validador-qa`, `revisor`, orquestrador (reforço Opus)
+- **O que foi feito:** `.github/workflows/oracle-it.yml` (`workflow_dispatch` + cron noturno, `mvn verify -Poracle`, upload dos relatórios); `@Testcontainers(disabledWithoutDocker = true)` nos 8 testes `oracle`, que passam a aparecer como ignorados com mensagem quando não há Docker. Cobertura já existente: migrations/schema (`CoreSchemaOracleTest`), numeração e filtros (`DemandaOracleTest`), busca documental (`DocumentoOracleTest`), agregações (`IndicadorOracleTest`).
+- **Decisões técnicas:** perfil Maven `oracle` e exclusão da tag no build padrão já existiam; sem credenciais (container efêmero via Testcontainers); sem secrets no workflow.
+- **Arquivos principais:** `.github/workflows/oracle-it.yml`, `*OracleTest.java`, `docs/DEVELOPMENT.md`.
+- **Testes:** `mvn verify -Poracle` local: 30 testes, 0 falhas. Job `oracle-it` no GitHub (run 43160648983, gatilho `push` temporário no branch, já removido): 30 testes, 0 falhas. A 1ª execução no runner falhou com `AccessDeniedException: /data` (padrão `STORAGE_DIR=/data/uploads` não gravável) → o workflow define `STORAGE_DIR` em `runner.temp`.
+- **Pendências:** nenhuma; após o merge o job também fica disponível via `workflow_dispatch`.
