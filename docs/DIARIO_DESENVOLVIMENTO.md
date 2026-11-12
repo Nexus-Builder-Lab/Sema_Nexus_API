@@ -251,3 +251,12 @@
 - **Arquivos principais:** `docia/comparacao/*.java`, `ComparacaoServiceTest`, `ContratoOpenApiTest` (novo endpoint), `docs/API.md`.
 - **Testes:** a confirmar pelo validador (implementador: ComparacaoServiceTest 7 testes e ContratoOpenApiTest 14, 0 falhas).
 - **Pendências:** sem teste Oracle ponta a ponta contra as versões do parecer no seed (o teste unitário usa texto equivalente).
+
+## 2026-11-12 · GH-24 · Gestão de usuários, setores e equipes
+- **PR:** (a preencher pelo orquestrador) · **Status:** aguardando validação
+- **Agentes que atuaram:** `implementador-backend`
+- **O que foi feito:** `UsuarioController/Service` (`GET/POST/PUT /api/usuarios`, `GET /{id}`, `PATCH /{id}/ativacao`, pesquisa `q` + filtros perfil/ativo, paginado), cadastro/edição de setores (`POST/PUT /api/setores`) e equipes (`POST/PUT /api/equipes`, `PUT /{id}/membros`, responsável). Senha de 8 a 72 caracteres (400), BCrypt, e-mail único (409), proteção do último ADMIN ativo (409 ao desativar ou rebaixar), escrita só ADMIN e consulta ADMIN/GESTOR, auditoria de todas as operações sem senha.
+- **Decisões técnicas:** sem migration (tabelas existentes); responsável sempre é membro; PUT de equipe sem `responsavelId` limpa o responsável; membros e responsável precisam estar ativos; `Specification` para a pesquisa (sem problemas de parâmetro nulo no Oracle).
+- **Arquivos principais:** `core/usuario/*`, `core/setor/*`, `core/equipe/*` (services, controllers, DTOs de requisição), testes `UsuarioServiceTest`, `UsuarioControllerWebMvcTest`, `SetorCadastroServiceTest`, `EquipeCadastroServiceTest`, `ContratoOpenApiTest`, `docs/API.md`.
+- **Testes:** a confirmar pelo validador (implementador: testes afetados sem Oracle, ver relatório).
+- **Pendências:** sem teste Oracle da pesquisa `q`/Specification; token de usuário desativado depende do filtro JWT existente.

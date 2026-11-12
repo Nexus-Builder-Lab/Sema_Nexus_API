@@ -56,7 +56,11 @@ class ContratoOpenApiTest {
             "GET /api/intelligence/referencia/metadados", "GET /api/intelligence/referencia/pontos",
             "GET /api/intelligence/referencia/por-municipio",
             // Core — auditoria (implementado)
-            "GET /api/auditoria");
+            "GET /api/auditoria",
+            // Core — gestão de usuários, setores e equipes (Issue #24)
+            "GET /api/usuarios", "POST /api/usuarios", "GET /api/usuarios/{id}", "PUT /api/usuarios/{id}",
+            "PATCH /api/usuarios/{id}/ativacao", "POST /api/setores", "PUT /api/setores/{id}",
+            "POST /api/equipes", "PUT /api/equipes/{id}", "PUT /api/equipes/{id}/membros");
 
     /** Endpoints com contrato publicado que ainda respondem 501 (saem desta lista quando a Issue os implementa). */
     static final Map<String, Integer> PENDENTES = Map.of();

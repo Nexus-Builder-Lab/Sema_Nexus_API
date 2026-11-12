@@ -162,12 +162,11 @@ class CatalogosEstruturaOracleTest {
     }
 
     @Test
-    void equipeInexistenteRetorna404EContratoPendenteRetorna501() throws Exception {
+    void equipeInexistenteRetorna404EDashboardRetorna200() throws Exception {
         mvc.perform(get("/api/equipes/9999999/membros").header(HttpHeaders.AUTHORIZATION, token(Perfil.ADMIN)))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404));
         mvc.perform(get("/api/dashboard").header(HttpHeaders.AUTHORIZATION, token(Perfil.CONSULTA)))
-                .andExpect(status().isNotImplemented())
-                .andExpect(jsonPath("$.issue").value(17));
+                .andExpect(status().isOk());
     }
 }
