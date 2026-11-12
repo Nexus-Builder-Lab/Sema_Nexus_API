@@ -242,3 +242,12 @@
 - **Arquivos principais:** `intelligence/referencia/*.java`, `V5__referencia_satelite.sql`, testes `ReferenciaSateliteLoaderTest`, `ReferenciaSateliteServiceTest`, `ContratoOpenApiTest`, docs API/DATABASE/ARCHITECTURE/REQUIREMENTS/DEMO.
 - **Testes:** a confirmar pelo validador (implementador: ReferenciaSatelite*Test e ContratoOpenApiTest sem Oracle: 0 falhas).
 - **Pendências:** carga em Oracle real/Docker e tempo de resposta < 1 s não exercitados.
+
+## 2026-11-11 · GH-26 · Comparação documental de metadados e conteúdo textual
+- **PR:** (a preencher pelo orquestrador) · **Status:** aguardando validação
+- **Agentes que atuaram:** `implementador-backend`
+- **O que foi feito:** `POST /api/documentos/comparacao` (`docia/comparacao`): `ComparacaoService` + `TextoDiff` (LCS por linhas e palavras, Jaccard de termos, trechos semelhantes, termos exclusivos, metadados iguais/diferentes). Resposta declara `geradoPorIa=false`. Documento sem texto extraído → 400 com mensagem clara; inexistente → 404.
+- **Decisões técnicas:** sem migration (lê `DOCUMENTO.TEXTO_EXTRAIDO`); limite de 2000 palavras/1500 linhas por documento (flag `truncado`) para conter a matriz LCS; comparação ignora caixa/acento/pontuação; números curtos contam como termos.
+- **Arquivos principais:** `docia/comparacao/*.java`, `ComparacaoServiceTest`, `ContratoOpenApiTest` (novo endpoint), `docs/API.md`.
+- **Testes:** a confirmar pelo validador (implementador: ComparacaoServiceTest 7 testes e ContratoOpenApiTest 14, 0 falhas).
+- **Pendências:** sem teste Oracle ponta a ponta contra as versões do parecer no seed (o teste unitário usa texto equivalente).
