@@ -4,6 +4,7 @@
 //   {"acao":"retomar","issue":11,"motivo":"..."}        trabalho em andamento no diretório da sessão
 //   {"acao":"merge-pendente","pr":29,"issue":5,...}     PR com label aguardando-dependencia cujas dependências fecharam
 //   {"acao":"issue","issue":12,"titulo":"...",...}      próxima Issue desbloqueada
+//                                                       fila: entrega-13-11 → paridade-prototipo (por número) → P0 → P1
 //   {"acao":"nada","motivo":"..."}                      nada disponível agora (o script dorme sem chamar o Claude)
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
@@ -59,7 +60,9 @@ try {
   const porSprint = (a, b) => sprint(a) - sprint(b) || a.number - b.number;
   const filas = [
     issues.filter(i => elegivel(i) && tem(i, 'entrega-13-11')).sort(porSprint),
-    issues.filter(i => elegivel(i) && tem(i, 'P0') && !tem(i, 'entrega-13-11')).sort(porSprint),
+    // Paridade visual com o protótipo (pedido do proprietário em 12/11/2026): ordem de criação = prioridade
+    issues.filter(i => elegivel(i) && tem(i, 'paridade-prototipo') && !tem(i, 'entrega-13-11')).sort((a, b) => a.number - b.number),
+    issues.filter(i => elegivel(i) && tem(i, 'P0') && !tem(i, 'entrega-13-11') && !tem(i, 'paridade-prototipo')).sort(porSprint),
     ORDEM_P1[REPO].map(n => issues.find(i => i.number === n && elegivel(i) && tem(i, 'P1'))).filter(Boolean),
   ];
   const vistos = [];
