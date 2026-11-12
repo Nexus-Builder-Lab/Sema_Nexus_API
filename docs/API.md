@@ -1,6 +1,6 @@
 # SEMA NEXUS — Contrato da API
 
-> **Status:** Em desenvolvimento — **Implementado:** demandas — cadastro, edição, listagem filtrada, detalhes, histórico e exclusão lógica (Issue #11), triagem, distribuição e `GET /api/equipes/{id}/demandas` (Issue #12); autenticação (`/api/auth/*`, Issue #4), catálogos e estrutura (`/api/catalogos/*`, `/api/setores`, `/api/equipes[/{id}/membros]`, Issue #7). **Implementado também:** upload `POST /api/documentos` e download `GET /api/documentos/{id}/arquivo` (Issue #15). **Implementado também:** biblioteca `GET /api/documentos`, detalhes `GET /api/documentos/{id}` e vínculos `/api/demandas/{id}/documentos` (Issue #16). **Contrato publicado, ainda respondendo `501`:** indicadores, mapa e dashboard (Issue #7 publica o contrato; cada endpoint é implementado na Issue indicada na tabela). **Implementado também:** consulta de auditoria `GET /api/auditoria` (Issue #14; filtros `de`, `ate`, `usuarioId`, `acao`, `entidade`; ordenação por data decrescente por padrão; detalhes têm senhas e tokens mascarados). **Planejado:** os endpoints P1.
+> **Status:** Em desenvolvimento — **Implementado:** demandas — cadastro, edição, listagem filtrada, detalhes, histórico e exclusão lógica (Issue #11), triagem, distribuição e `GET /api/equipes/{id}/demandas` (Issue #12); autenticação (`/api/auth/*`, Issue #4), catálogos e estrutura (`/api/catalogos/*`, `/api/setores`, `/api/equipes[/{id}/membros]`, Issue #7). **Implementado também:** upload `POST /api/documentos` e download `GET /api/documentos/{id}/arquivo` (Issue #15). **Implementado também:** biblioteca `GET /api/documentos`, detalhes `GET /api/documentos/{id}` e vínculos `/api/demandas/{id}/documentos` (Issue #16). **Contrato publicado, ainda respondendo `501`:** indicadores, mapa e dashboard (Issue #7 publica o contrato; cada endpoint é implementado na Issue indicada na tabela). **Implementado também:** consulta de auditoria `GET /api/auditoria` (Issue #14; filtros `de`, `ate`, `usuarioId`, `acao`, `entidade`; ordenação por data decrescente por padrão; detalhes têm senhas e tokens mascarados). **Implementado também:** gestão de usuários, setores e equipes (Issue #24, seção "Gestão de usuários, setores e equipes"). **Planejado:** os demais endpoints P1.
 >
 > A fonte da verdade é o OpenAPI gerado pelo springdoc (`/v3/api-docs`, `/swagger-ui.html`) e exportado pelo CI como artefato `openapi.json` (job **Exportar contrato OpenAPI**). Este documento registra os **padrões**; alterou endpoint, atualize as anotações e este arquivo. O teste `ContratoOpenApiTest` falha se um endpoint P0 sair do contrato ou se um endpoint novo não for registrado nele.
 
@@ -156,3 +156,20 @@ Dados **públicos reais** do INPE (focos de calor do Programa Queimadas e alerta
 ## Comparação documental (Implementado — Issue #26)
 
 `POST /api/documentos/comparacao` com `{"aId": 1, "bId": 2}` (qualquer perfil autenticado). Comparação **determinística** (LCS e Jaccard), **não é IA**: a resposta traz `geradoPorIa=false`, `aviso` e `metodo`. Campos: `a`/`b` (id, título), `metadados[]` (`campo`, `valorA`, `valorB`, `igual`), `similaridade` (0 a 100, 2*LCS/(nA+nB) por palavras), `similaridadeTermos` (Jaccard), `diffLinhas[]` e `diffPalavras[]` (`tipo` = `IGUAL`/`REMOVIDO` só em A/`ADICIONADO` só em B, `texto`), `trechosSemelhantes[]` (sentenças com similaridade >= 50%, até 20), `termosExclusivosA/B` (até 50) e `truncado` (textos limitados a 2000 palavras / 1500 linhas). Comparação ignora caixa, acentos e pontuação nas pontas. Documento inexistente/excluído → 404; documento sem texto extraído → 400 (`problem+json`, `erros[].campo` = `aId`/`bId`, mensagem com o título).
+
+## Gestão de usuários, setores e equipes (Implementado — Issue #24)
+
+Consulta: **Admin e Gestor**. Cadastro, edição, ativação e membros: **somente Admin** (demais perfis `403`). Toda operação é registrada na auditoria (`USUARIO`, `SETOR`, `EQUIPE`; a senha nunca entra no detalhe). Respostas nunca trazem senha ou hash.
+
+| Endpoint | Regras |
+|---|---|
+| `GET /api/usuarios[?q=&perfil=&ativo=&page=&size=]` | `200` paginado, ordenado por nome; `q` pesquisa trecho de nome ou e-mail (sem diferenciar maiúsculas) |
+| `GET /api/usuarios/{id}` | `200` `{id, nome, email, perfil, setorId, setorSigla, ativo, ultimoAcesso, criadoEm}` · `404` |
+| `POST /api/usuarios` | corpo `{nome, email, senha, perfil, setorId?}`; `201` + `Location` · senha com menos de 8 (ou mais de 72) caracteres → `400` (sem exceção para a credencial de teste) · e-mail duplicado → `409` · setor inexistente → `400` |
+| `PUT /api/usuarios/{id}` | `{nome, email, senha?, perfil, setorId?}`; `senha` opcional (redefine; mesma regra) · rebaixar o último ADMIN ativo → `409` |
+| `PATCH /api/usuarios/{id}/ativacao` | `{ativo}`; desativar o último ADMIN ativo → `409` |
+| `POST /api/setores` · `PUT /api/setores/{id}` | `{sigla, nome, ativo?}`; sigla gravada em maiúsculas; duplicada → `409` |
+| `POST /api/equipes` · `PUT /api/equipes/{id}` | `{nome, setorId, responsavelId?, ativo?}`; responsável deve ser usuário ativo e passa a ser membro; nome repetido no setor → `409`; `setorId`/`responsavelId` inválidos → `400` |
+| `PUT /api/equipes/{id}/membros` | `{usuarioIds[], responsavelId?}` substitui os membros (só usuários ativos, senão `400`); sem `responsavelId` o atual é mantido se continuar membro, ou removido |
+
+Um fiscal cadastrado e associado a uma equipe passa a constar em `GET /api/equipes/{id}/membros` e na distribuição de demandas.
