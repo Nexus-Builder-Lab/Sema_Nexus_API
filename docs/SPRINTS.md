@@ -9,9 +9,10 @@
 |---|---|
 | Sprint 1 — Fundação | 10/11 a 14/11 (dias úteis: 10, 11, 12, 13) |
 | Sprint 2 — Módulos | 15/11 a 20/11 (dias úteis: 16, 17, 18, 19 — **20/11 é feriado nacional**) |
-| Sprint 3 — Integração e qualidade | 21/11 a 26/11 (dias úteis: 23, 24, 25) |
-| **Fim da implementação (feature freeze)** | **25/11/2026** |
-| Revisão, testes, ensaio e tag `v0.1.0-demo` (com autorização) | 26/11/2026 |
+| Sprint 3 — Integração e qualidade | 21/11 a 26/11 (folga para correções e ensaio) |
+| **Meta de implementação** (redefinida em 12/11) | **15/11/2026** |
+| **Limite máximo da implementação (feature freeze)** | **20/11/2026** |
+| Revisão, testes, ensaio e tag `v0.1.0-demo` (com autorização) | até 26/11/2026 |
 | Apresentação | 27/11/2026 |
 
 Sem trabalho em fins de semana. Capacidade: 11 dias úteis × 7 h × 2 pessoas = **154 h**.
@@ -70,7 +71,7 @@ Sem trabalho em fins de semana. Capacidade: 11 dias úteis × 7 h × 2 pessoas =
 | [Web#8](https://github.com/Nexus-Builder-Lab/Sema_Nexus_Web/issues/8) | [SEMA_NEXUS_WEB][INTELLIGENCE] Dashboard inicial e dashboard ambiental com cards e gráficos | P0 | Alta | 5 h | Dev Frontend | Web#4, API#17 |
 | [Web#9](https://github.com/Nexus-Builder-Lab/Sema_Nexus_Web/issues/9) | [SEMA_NEXUS_WEB][INTELLIGENCE] Mapa ambiental de Mato Grosso com Leaflet, filtros e legenda (offline) | P0 | Alta | 5 h | Dev Frontend | Web#4, API#17 |
 
-## Sprint 3 — 21/11/2026 · limite 25/11/2026
+## Sprint 3 — 21/11/2026 · limite 20/11/2026 (antecipado em 12/11; Sprint 3 vira folga para correções e ensaio)
 
 **Objetivo:** DocIA, seed demonstrativo completo, integração final, testes, segurança, roteiro. 26/11: revisão, testes e tag.
 
@@ -113,7 +114,7 @@ Sem trabalho em fins de semana. Capacidade: 11 dias úteis × 7 h × 2 pessoas =
 - Docker ponta a ponta: API#2 + Web#2 → API#8 → API#9/API#10 (até 13/11); smoke API#20 (S3).
 - Fluxo Flux: API#11 → API#12 → API#13 → Web#5 → Web#6 → Web#7 (até 19/11).
 - Dashboards e mapa: API#17 → Web#8/Web#9 (até 19/11).
-- DocIA: API#15 → API#16 → Web#10 (até 25/11) → seed completo API#18 → roteiro API#21.
+- DocIA: API#15 → API#16 → Web#10 (até 20/11) → seed completo API#18 → roteiro API#21.
 - Entrega: API#19, API#20, API#21, Web#11, Web#12 → API#22 (26/11).
 
 ## Cortes pré-aprovados se o prazo apertar (em ordem)
