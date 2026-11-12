@@ -350,3 +350,12 @@
 - **Arquivos principais:** `IndicadorFiltro`, `IndicadorRepository`, `DashboardService`, controllers (descrições OpenAPI), `IndicadorOracleTest`, `docs/API.md`.
 - **Testes:** a confirmar pelo validador (implementador: IndicadorServiceTest, RelatorioServiceTest, teste Oracle de setor adicionado, não executado sem Docker/Oracle).
 - **Pendências:** nenhuma.
+
+## 2026-11-12 · GH-91 · Seed com núcleos regionais de fiscalização fictícios
+- **PR:** a abrir · **Status:** em validação
+- **Agentes que atuaram:** `implementador-backend`
+- **O que foi feito:** 5 setores `NR-CBA/CAC/ROO/BAG/SNO` (um por região intermediária do IBGE), cada um com 1 equipe e 2 fiscais fictícios em `demo/usuarios.json` (hash BCrypt); a massa passa a distribuir cada demanda à equipe do núcleo da região do município (fiscal = responsável da equipe); 6 municípios de Barra do Garças entram na massa (sem eles a região ficaria vazia); `docs/DEMO.md` atualizado.
+- **Decisões técnicas:** usuários/equipes antigos preservados (Alfa a Delta ficam sem demandas da massa); sem migration; `MunicipioRef` ganhou `regiao`; reset do banco demo necessário após o merge (sessão principal).
+- **Arquivos principais:** `usuarios.json`, `DemoMassaGerador`, `DemoMassaService`, testes `DemoMassaGeradorTest`, `DemoSeedServiceTest`, `DemoSeedRecursoTest`, `DemoSeedOracleTest`, `docs/DEMO.md`.
+- **Testes:** a confirmar pelo validador (implementador: testes unitários do pacote demo e `DemoSeedOracleTest` com Oracle, 0 falhas).
+- **Pendências:** `demo-reset` após o merge.

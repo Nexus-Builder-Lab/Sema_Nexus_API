@@ -20,12 +20,13 @@ final class DemoMassaGerador {
     static final int TOTAL = 120;
     static final long SEMENTE = 18L;
 
-    /** Municípios de MT (IBGE) usados no seed: 11 Amazônia, 10 Cerrado, 5 Pantanal. */
+    /** Municípios de MT (IBGE) usados no seed, cobrindo as 5 regiões intermediárias (inclui 6 de Barra do Garças). */
     static final List<Long> MUNICIPIOS_IDS = List.of(
             5100250L, 5103254L, 5101407L, 5105150L, 5106422L, 5107909L, 5107925L, 5105259L, 5103205L, 5105606L,
             5103379L,
             5103403L, 5107602L, 5107958L, 5107040L, 5106224L, 5103007L, 5108402L, 5104807L, 5103502L, 5106307L,
-            5102504L, 5106505L, 5107800L, 5101605L, 5106109L);
+            5102504L, 5106505L, 5107800L, 5101605L, 5106109L,
+            5101803L, 5100201L, 5102702L, 5106257L, 5107065L, 5103353L);
 
     private static final Map<String, Integer> CONTAGEM = Map.of(
             "PENDENTE", 10, "EM_TRIAGEM", 10, "AGUARDANDO_DISTRIBUICAO", 12, "DISTRIBUIDA", 16,
@@ -56,7 +57,7 @@ final class DemoMassaGerador {
             "RESIDUOS_POLUICAO", "Descarte irregular de resíduos",
             "AREA_PRESERVACAO_PERMANENTE", "Ocupação irregular de área de preservação permanente");
 
-    record MunicipioRef(long id, String nome, String bioma, double latitude, double longitude) {
+    record MunicipioRef(long id, String nome, String bioma, double latitude, double longitude, String regiao) {
     }
 
     /** Demanda do cenário fixo do roteiro (docs/DEMO.md). */
@@ -85,6 +86,18 @@ final class DemoMassaGerador {
         boolean passou(String alvo) {
             return STATUS_ORDEM.indexOf(status) >= STATUS_ORDEM.indexOf(alvo);
         }
+    }
+
+    /** Sigla do setor do Núcleo Regional de Fiscalização (fictício) da região intermediária do IBGE. */
+    static String siglaNucleo(String regiao) {
+        return switch (regiao) {
+            case "Cuiabá" -> "NR-CBA";
+            case "Cáceres" -> "NR-CAC";
+            case "Rondonópolis" -> "NR-ROO";
+            case "Barra do Garças" -> "NR-BAG";
+            case "Sinop" -> "NR-SNO";
+            default -> throw new IllegalArgumentException("Região sem núcleo regional: " + regiao);
+        };
     }
 
     private DemoMassaGerador() {
