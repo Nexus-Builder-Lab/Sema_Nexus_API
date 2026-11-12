@@ -1,4 +1,4 @@
-﻿# SEMA NEXUS API â€” DiÃ¡rio de desenvolvimento
+# SEMA NEXUS API â€” DiÃ¡rio de desenvolvimento
 
 > Registro cronolÃ³gico de tudo o que foi feito, decidido e testado neste repositÃ³rio. Uma entrada por Issue concluÃ­da (incluÃ­da no prÃ³prio PR). Resultados de teste sÃ£o sempre os **reais** da execuÃ§Ã£o.
 > Erros que o autopilot nÃ£o conseguiu corrigir ficam em `C:\SEMANEXUS\autopilot\RELATORIO_ERROS.md` e nas Issues com a label `autopilot-falhou`.
@@ -278,3 +278,12 @@
 - **Arquivos principais:** `.github/workflows/oracle-it.yml`, `*OracleTest.java`, `docs/DEVELOPMENT.md`.
 - **Testes:** `mvn verify -Poracle` local: 30 testes, 0 falhas. Job `oracle-it` no GitHub (run 43160648983, gatilho `push` temporário no branch, já removido): 30 testes, 0 falhas. A 1ª execução no runner falhou com `AccessDeniedException: /data` (padrão `STORAGE_DIR=/data/uploads` não gravável) → o workflow define `STORAGE_DIR` em `runner.temp`.
 - **Pendências:** nenhuma; após o merge o job também fica disponível via `workflow_dispatch`.
+
+## 2026-11-11 · GH-20 · Smoke test do Docker Compose em workflow manual e noturno
+- **PR:** (a preencher pelo orquestrador) · **Status:** aguardando validação
+- **Agentes que atuaram:** `implementador-backend`
+- **O que foi feito:** `compose-smoke.yml` (`workflow_dispatch` + cron noturno): gate do secret `CROSS_REPO_TOKEN` (ausente → aviso + resumo explicativo, sem falha silenciosa), checkout API+Web lado a lado, `.env` com segredos aleatórios, `compose up --build`, espera `healthy` (15 min), login e `GET /api/demandas` em `localhost:3000`, logs como artefato em falha, limpeza final.
+- **Decisões técnicas:** segredos do `.env` gerados por `openssl rand` (nada fixo); usuário demo (profile demo) em env do job; limpeza com `down --remove-orphans` (runner efêmero, sem `-v`).
+- **Arquivos principais:** `.github/workflows/compose-smoke.yml`, `docs/DOCKER.md`.
+- **Testes:** a confirmar pelo validador (implementador: sintaxe YAML validada com PyYAML; execução real do workflow depende do secret e de push).
+- **Pendências:** execução verde com o secret só após merge/dispatch no GitHub.
