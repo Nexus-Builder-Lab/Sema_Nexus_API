@@ -332,3 +332,12 @@
 - **Arquivos principais:** `PrazoController/Service`, `ProdutividadeController/Service`, `PrazoDtos`, `ProdutividadeResposta`, `PrazoProdutividadeServiceTest`, `docs/API.md`.
 - **Testes:** a confirmar pelo validador (implementador: `PrazoProdutividadeServiceTest`, 10 testes, 0 falhas).
 - **Pendências:** conferência contra o seed real (teste Oracle) fica para o validador.
+
+## 2026-11-12 · GH-89 · Data de conclusão e de atualização na listagem de demandas
+- **PR:** (a preencher pelo orquestrador) · **Status:** aguardando validação
+- **Agentes que atuaram:** `implementador-backend`
+- **O que foi feito:** `DemandaResumo` ganhou `concluidaEm` (nullable) e `atualizadoEm`, mapeados em `DemandaService.resumo` e refletidos no OpenAPI; `spring.data.web.pageable.max-page-size` passou de 100 para 500 para o quadro carregar todas as demandas.
+- **Decisões técnicas:** limite de 500 é global da paginação (config única); campos aditivos, sem migration.
+- **Arquivos principais:** `DemandaResumo`, `DemandaService`, `application.yml`, `DemandaServiceTest`, `ContratoOpenApiTest` (comentário), `docs/API.md`.
+- **Testes:** a confirmar pelo validador (implementador: `DemandaServiceTest`, ContratoOpenApiTest, EndpointsContratoWebMvcTest).
+- **Pendências:** nenhuma.

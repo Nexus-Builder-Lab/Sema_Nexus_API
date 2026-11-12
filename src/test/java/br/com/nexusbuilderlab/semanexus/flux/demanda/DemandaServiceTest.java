@@ -355,6 +355,23 @@ class DemandaServiceTest {
 
     @SuppressWarnings("unchecked")
     @Test
+    void listagemTrazConcluidaEmSoNasFinalizadasEAtualizadoEm() {
+        Demanda finalizada = demanda(1, StatusDemanda.FINALIZADA);
+        LocalDateTime fim = LocalDateTime.of(2026, 11, 10, 9, 30);
+        finalizada.setConcluidaEm(fim);
+        Demanda aberta = demanda(2, StatusDemanda.PENDENTE);
+        when(demandas.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<Demanda>(List.of(finalizada, aberta), PageRequest.of(0, 10), 2));
+
+        List<DemandaResumo> itens = service.listar(ator, SEM_FILTRO, PageRequest.of(0, 10)).content();
+
+        assertThat(itens.get(0).concluidaEm()).isEqualTo(fim);
+        assertThat(itens.get(1).concluidaEm()).isNull();
+        assertThat(itens.get(0).atualizadoEm()).isEqualTo(finalizada.getAtualizadoEm());
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
     void listagemDoFiscalConsultaAsEquipesDoFiscalEOutrosPerfisNao() {
         when(demandas.findAll(any(Specification.class), any(Pageable.class)))
                 .thenReturn(new PageImpl<Demanda>(List.of(demanda(1, StatusDemanda.PENDENTE)), PageRequest.of(0, 10), 1));

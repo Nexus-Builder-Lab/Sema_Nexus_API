@@ -11,7 +11,7 @@
 | Base | Prefixo `/api`, JSON UTF-8. Datas `AAAA-MM-DD` (`2026-11-27`); instantes sem deslocamento no fuso `America/Cuiaba` (`2026-11-27T14:30:00`). Campos nulos são omitidos da resposta |
 | Autenticação | `Authorization: Bearer <jwt>`; públicos: `POST /api/auth/login`, `GET /api/auth/config`, `POST /api/auth/demo/{perfil}` (só profile `demo`), `GET /actuator/health` |
 | Autorização | Por perfil no backend (`@PreAuthorize`); matriz em [ARCHITECTURE.md](ARCHITECTURE.md) §6. Escopo fino (fiscal só na sua equipe) no service |
-| Paginação | `?page=0&size=20&sort=campo,asc` → `{ "content": [], "page": 0, "size": 20, "totalElements": 0, "totalPages": 0 }`. Padrão `size=20`; `size` acima de 100 é reduzido a 100; `page` começa em 0. Só as listagens de demandas e documentos (e as demandas de uma equipe) são paginadas; catálogos, setores, equipes e membros são listas curtas e retornam um array |
+| Paginação | `?page=0&size=20&sort=campo,asc` → `{ "content": [], "page": 0, "size": 20, "totalElements": 0, "totalPages": 0 }`. Padrão `size=20`; `size` acima de 500 é reduzido a 500; `page` começa em 0. Só as listagens de demandas e documentos (e as demandas de uma equipe) são paginadas; catálogos, setores, equipes e membros são listas curtas e retornam um array |
 | Filtros | Query params opcionais e combináveis; datas `de`/`ate` inclusivas (`AAAA-MM-DD`); enums pelo **código** (`EM_ANDAMENTO`); valor inválido → `400` |
 | Enums | Sempre o código estável em MAIÚSCULAS (`MEDIA`, `AGUARDANDO_DISTRIBUICAO`); o rótulo para exibição vem de `GET /api/catalogos/*` |
 | Identificação | IDs numéricos; município pelo **código IBGE** (7 dígitos); demanda também tem `numero` (`DEM-AAAA/NNNN`) |
@@ -101,7 +101,7 @@ Os controllers, DTOs de requisição/resposta, validações e erros abaixo já e
 | `POST /api/demandas/{id}/conclusao` | `{resultadoFinal, justificativa}` | AGUARDANDO_CONCLUSAO → FINALIZADA |
 | `POST /api/demandas/{id}/devolucao` | `{justificativa}` | AGUARDANDO_CONCLUSAO → EM_ANDAMENTO |
 
-Listagem `GET /api/demandas`: filtros `q` (número ou título), `status`, `municipioId`, `categoria`, `prioridade`, `equipeId`, `fiscalId`, `atrasada`, `de`, `ate` + `page`, `size`, `sort`. `GET /api/equipes/{id}/demandas` aceita `status` + paginação.
+Listagem `GET /api/demandas`: filtros `q` (número ou título), `status`, `municipioId`, `categoria`, `prioridade`, `equipeId`, `fiscalId`, `atrasada`, `de`, `ate` + `page`, `size` (máx. 500), `sort`. Cada item (`DemandaResumo`) traz `concluidaEm` (date-time; preenchido só em demandas finalizadas, `null` nas demais) e `atualizadoEm`. `GET /api/equipes/{id}/demandas` aceita `status` + paginação.
 
 **Controle de prazos e produtividade (Implementado — Issue #84)** — todos autenticados; FISCAL só enxerga as demandas suas ou da sua equipe (escopo da listagem); tudo com `demonstrativo: true`. Só demandas com `prazo`; "hoje" no fuso de Mato Grosso.
 - `GET /api/flux/prazos/resumo?diasAlerta=5` → `{vencidas, proximas, noPrazo, concluidasNoPrazo, concluidasComAtraso, maisAntigaVencida{numero, diasAtraso}|null, demonstrativo}`. VENCIDA = prazo < hoje e não finalizada; PROXIMA = prazo entre hoje e hoje+`diasAlerta` (0-365, padrão 5); NO_PRAZO = além disso; CONCLUIDA = finalizada (com atraso se `concluidaEm` > prazo).
