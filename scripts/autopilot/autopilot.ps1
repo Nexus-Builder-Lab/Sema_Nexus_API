@@ -51,6 +51,10 @@ $apDir   = Join-Path $Raiz 'autopilot'
 $logDir  = Join-Path $apDir "logs-$Repo"
 $log     = Join-Path $apDir "autopilot-$Repo.log"
 $lock    = Join-Path $apDir "sessao-$Repo.lock"
+# Pastas compartilhadas que a sessão precisa acessar (outro repo: docker-compose; trava/relatório; status do Project; referência do protótipo)
+$outroRepo = Join-Path $Raiz $(if ($Repo -eq 'API') { 'Sema_Nexus_Web' } else { 'Sema_Nexus_API' })
+$dirsExtras = @()
+foreach ($d in @($outroRepo, $apDir, (Join-Path $Raiz 'planejamento'), (Join-Path $Raiz 'referencia'))) { if (Test-Path $d) { $dirsExtras += '--add-dir'; $dirsExtras += $d } }
 New-Item -ItemType Directory -Force $apDir, $logDir | Out-Null
 
 function Log([string]$msg) {
@@ -70,7 +74,7 @@ function Invoke-Iteracao([int]$n, [string]$p, [string]$modelo, [string]$esforco,
   $ErrorActionPreference = 'Continue'   # stderr de executável nativo não pode virar exceção no PS 5.1
   try {
     $inicio = Get-Date
-    & claude -p $p --model $modelo --effort $esforco --permission-mode auto --permission-prompts none --output-format json --max-turns $MaxTurnos > $saida 2> $saidaErr
+    & claude -p $p --model $modelo --effort $esforco --permission-mode auto --permission-prompts none --output-format json --max-turns $MaxTurnos @dirsExtras > $saida 2> $saidaErr
     $codigo = $LASTEXITCODE
   } finally { $ErrorActionPreference = $eapAnterior; Pop-Location }
   $dur = [int]((Get-Date) - $inicio).TotalMinutes
