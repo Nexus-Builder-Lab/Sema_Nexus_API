@@ -35,6 +35,7 @@ class ContratoOpenApiTest {
             "GET /api/catalogos/municipios", "GET /api/catalogos/biomas", "GET /api/catalogos/categorias",
             "GET /api/catalogos/origens", "GET /api/catalogos/prioridades", "GET /api/catalogos/status",
             "GET /api/setores", "GET /api/equipes", "GET /api/equipes/{id}/membros",
+            "GET /api/notificacoes", "GET /api/notificacoes/nao-lidas/contagem", "PATCH /api/notificacoes/{id}/lida",
             // Flux (contrato)
             "POST /api/demandas", "PUT /api/demandas/{id}", "GET /api/demandas", "GET /api/demandas/{id}",
             "DELETE /api/demandas/{id}", "GET /api/demandas/{id}/historico",
