@@ -62,6 +62,16 @@ class RelatorioServiceTest {
     }
 
     @Test
+    void demandaSemCategoriaNaoQuebraORelatorio() {
+        Demanda d = demanda("Demonstração ao vivo — Sinop");
+        d.setCategoria(null);
+        when(repo.demandasPagina(any(), eq(0), eq(Integer.MAX_VALUE))).thenReturn(List.of(d));
+        String csv = new String(service.csv(SEM_FILTRO), StandardCharsets.UTF_8);
+        assertThat(csv).contains("Demonstração ao vivo — Sinop;Não informada;Cuiabá;");
+        assertThat(RelatorioService.linha(d).categoria()).isEqualTo("Não informada");
+    }
+
+    @Test
     void csvEscapaSeparadorAspasEFormulas() {
         assertThat(RelatorioService.celula("a;b")).isEqualTo("\"a;b\"");
         assertThat(RelatorioService.celula("diz \"oi\"")).isEqualTo("\"diz \"\"oi\"\"\"");

@@ -60,7 +60,8 @@ public class RelatorioService {
     }
 
     static LinhaRelatorioDemanda linha(Demanda d) {
-        return new LinhaRelatorioDemanda(d.getNumero(), d.getTitulo(), d.getCategoria().rotulo(),
+        return new LinhaRelatorioDemanda(d.getNumero(), d.getTitulo(),
+                d.getCategoria() == null ? "Não informada" : d.getCategoria().rotulo(),
                 d.getMunicipio().getNome(), d.getMunicipio().getBioma().rotulo(), d.getStatus().rotulo(),
                 d.getPrioridade() == null ? "" : d.getPrioridade().rotulo(), d.getDataRecebimento(), d.getPrazo(),
                 d.getConcluidaEm() == null ? null : d.getConcluidaEm().toLocalDate());
