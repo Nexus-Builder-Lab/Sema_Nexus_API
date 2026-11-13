@@ -395,3 +395,9 @@
 - **O que foi feito:** `ESRI_API_KEY` repassada ao serviço `web` no compose (vazia por padrão), entrada comentada no `.env.example` e instruções em `docs/DOCKER.md`/`docs/DEMO.md`. A chave é do proprietário (ArcGIS Location Platform) e fica só no `.env`.
 - **Arquivos principais:** `docker-compose.yml`, `.env.example`, `docs/DOCKER.md`, `docs/DEMO.md`.
 - **Testes:** `docker compose config` local; CI do PR.
+
+## 2026-11-13 · GH-104 · Skills do Claude Code (API)
+- **Status:** feito pela sessão principal (pedido do proprietário)
+- **O que foi feito:** skills `preparar-demo`, `verificar-seguranca`, `nova-issue-sema`, `preparar-tag` e `dados-ficticios` em `.claude/skills/`; seção "Skills" em `docs/AGENTES.md` (inclui as do Web, Web#115).
+- **Apoio:** `preparar-demo/verificar-ambiente.ps1` (verificação somente leitura: `.env`, chave Esri só pelo formato, containers `sema-nexus-*`, web, API em modo demo, Swagger, tile Esri); `verificar-seguranca/verificar-diff.mjs` (linhas adicionadas + arquivos novos; compara com os segredos do `.env` sem exibi-los).
+- **Testes:** `verificar-ambiente.ps1` com o ambiente no ar (saída 0, 11 OK); `verificar-diff.mjs` contra `origin/main` e `v0.1.0-demo` (0 achados) e com arquivo temporário contendo a chave real, `VITE_API_KEY`, senha e CPF (5 bloqueantes e 2 avisos detectados, sem exibir valores; arquivo apagado).
