@@ -55,3 +55,20 @@ A análise das 24 primeiras iterações mostrou que o custo vem do **contexto re
 - `validador-qa`, `revisor`, `planejador-issue` e `diagnosticador` não editam código.
 - Merge exige: CI verde, validador aprovado, critérios comprovados, Docker quando aplicável, dependências fechadas, revisor sem bloqueante.
 - As regras `deny` do `.claude/settings.json` valem para todos.
+
+## Skills (13/11/2026)
+
+Skills do Claude Code ficam em `.claude/skills/<nome>/SKILL.md` e são **carregadas automaticamente pela descrição** quando o assunto aparece (também podem ser chamadas por `/<nome>`). Elas registram procedimentos; **não autorizam** nada além do que o `CLAUDE.md` permite (reset, tag, merge e ações destrutivas continuam exigindo autorização).
+
+| Skill | Repo | Quando é usada | Apoio |
+|---|---|---|---|
+| `preparar-demo` | API | apresentação, ensaio, demo-up/demo-reset | `verificar-ambiente.ps1` (somente leitura) |
+| `verificar-seguranca` | API e Web (variantes) | antes de PR, merge ou tag | `verificar-diff.mjs` (varre o diff sem exibir segredos) |
+| `nova-issue-sema` | API | criar Issue, dependência ou Status no Project | `C:\SEMANEXUS\planejamento\*.mjs` |
+| `preparar-tag` | API | nova versão `v0.1.N-demo` | checklist; a tag só com autorização |
+| `dados-ficticios` | API | seed, massa, usuários e documentos demonstrativos | — |
+| `revisao-visual-mapa` | Web | mudanças no mapa do SEMA Intelligence | roteiro no Chrome + regra dos panes |
+| `paridade-prototipo` | Web | comparar telas com o protótipo publicado | `docs/PARIDADE_PROTOTIPO.md` |
+| `integrar-camada-externa` | Web | nova camada/serviço externo (padrão Esri/INPE) | — |
+
+As skills de um repositório só ficam disponíveis em sessões abertas nele. Ao mudar um procedimento (scripts, portas, regras), atualize a skill no mesmo PR.
