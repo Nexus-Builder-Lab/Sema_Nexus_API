@@ -40,7 +40,11 @@ docker compose ps
 ```
 
 - Edite o `.env` (senhas e `JWT_SECRET` de 32+ caracteres) antes do `up`; se 8080, 3000 ou 1521 estiverem em uso, troque `API_PORT`, `WEB_PORT` ou `ORACLE_PORT`.
-- Aplicação: http://localhost:3000 · API: http://localhost:8080 · Swagger: http://localhost:8080/swagger-ui.html
+- Aplicação: http://127.0.0.1:3000 · API: http://127.0.0.1:8080 · Swagger: http://127.0.0.1:8080/swagger-ui.html (portas `WEB_PORT`/`API_PORT` do `.env`)
+- Atalho no Windows: `.\scripts\demo-up.ps1` sobe Oracle + API + Web e espera os healthchecks.
+
+> **Use `127.0.0.1`, não `localhost`.** Em alguns Windows, `localhost` resolve para IPv6 (`::1`) e cai em outro serviço que usa as mesmas portas. As portas abaixo são as padrão do `.env.example`; se você trocou `API_PORT`/`WEB_PORT` no `.env` (ex.: `API_PORT=18081`), use as suas.
+
 - Login de teste (**somente demonstração**): `admin@admin.com` / `12345678`
 - Parar sem perder dados: `docker compose down` (nunca `-v`, que apaga o banco e os uploads).
 - Requisitos: Docker com Compose v2, RAM de 8 GB+ no host (~2 GB para o Oracle), ~12 GB de disco; 1ª subida de 1 a 3 min (mais o download das imagens).
@@ -55,14 +59,14 @@ Requisitos: **JDK 21** e Maven 3.9. O Maven usa o JDK do `JAVA_HOME` (não o do 
 # Windows (só na sessão atual)
 $env:JAVA_HOME = 'C:\Program Files\Java\jdk-21'
 mvn -B verify                                          # build + testes
-mvn spring-boot:run -Dspring-boot.run.profiles=dev     # http://localhost:8080
+mvn spring-boot:run -Dspring-boot.run.profiles=dev     # http://127.0.0.1:8080
 ```
 
 A API precisa do **Oracle** (Issue #3): na primeira subida o Flyway cria o schema e carrega os 142 municípios; nas seguintes, nada muda. Se preferir, suba só o Oracle do compose (`docker compose up -d oracle`) ou avulso e informe a conexão por variáveis de ambiente (escolha a senha você mesmo; nunca a versione):
 
 ```powershell
 docker run -d --name sema-oracle -p 1521:1521 -e ORACLE_PASSWORD=<senha> -e APP_USER=SEMANEXUS -e APP_USER_PASSWORD=<senha> gvenzl/oracle-free:23-slim-faststart
-$env:SPRING_DATASOURCE_URL = 'jdbc:oracle:thin:@//localhost:1521/FREEPDB1'   # padrão do profile dev
+$env:SPRING_DATASOURCE_URL = 'jdbc:oracle:thin:@//127.0.0.1:1521/FREEPDB1'   # padrão do profile dev
 $env:SPRING_DATASOURCE_USERNAME = 'SEMANEXUS'
 $env:SPRING_DATASOURCE_PASSWORD = '<senha>'
 mvn spring-boot:run -Dspring-boot.run.profiles=dev
@@ -74,9 +78,9 @@ Testes: `mvn -B verify` roda só os testes **sem** Oracle. Os testes de integra�
 
 | URL | O que é |
 |---|---|
-| http://localhost:8080/actuator/health | Healthcheck (público) |
-| http://localhost:8080/swagger-ui.html | Swagger UI (público; desligado em `prod`) |
-| http://localhost:8080/v3/api-docs | Contrato OpenAPI (público) |
+| http://127.0.0.1:8080/actuator/health | Healthcheck (público) |
+| http://127.0.0.1:8080/swagger-ui.html | Swagger UI (público; desligado em `prod`) |
+| http://127.0.0.1:8080/v3/api-docs | Contrato OpenAPI (público) |
 
 Profiles: `dev` (padrão), `demo` (Docker/apresentação), `prod` (sem seed e sem Swagger), `openapi` (só para o CI exportar o contrato, sem banco).
 

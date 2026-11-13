@@ -383,3 +383,9 @@
 - **O que foi feito:** `RelatorioService.linha` usa "Não informada" quando a demanda não tem categoria (caso da demanda cadastrada ao vivo no roteiro, ainda Pendente), evitando o 500 em `/api/relatorios/demandas` e no CSV.
 - **Arquivos principais:** `RelatorioService`, `RelatorioServiceTest`.
 - **Testes:** `RelatorioServiceTest` e `RelatorioControllerWebMvcTest` (0 falhas, local); CI do PR.
+
+## 2026-11-12 · GH-100 · README: acessar por 127.0.0.1
+- **Status:** mesclado pela sessão principal (pedido do proprietário)
+- **O que foi feito:** instruções trocam `localhost` por `127.0.0.1` (no Windows do proprietário `localhost` resolve para IPv6 e cai em outro serviço).
+- **Arquivos principais:** `README.md`.
+- **Testes:** CI do PR.
