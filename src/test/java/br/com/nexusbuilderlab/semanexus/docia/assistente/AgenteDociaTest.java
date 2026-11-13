@@ -1,0 +1,149 @@
+package br.com.nexusbuilderlab.semanexus.docia.assistente;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.List;
+import java.util.Optional;
+
+import br.com.nexusbuilderlab.semanexus.agentes.AgentesConfiguracao;
+import br.com.nexusbuilderlab.semanexus.agentes.ClienteModelo;
+import br.com.nexusbuilderlab.semanexus.agentes.ExecutorAgente;
+import br.com.nexusbuilderlab.semanexus.core.auditoria.AuditService;
+import br.com.nexusbuilderlab.semanexus.docia.assistente.dto.RespostaAssistente;
+import br.com.nexusbuilderlab.semanexus.docia.documento.Documento;
+import br.com.nexusbuilderlab.semanexus.docia.documento.DocumentoRepository;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+class AgenteDociaTest {
+
+    private final ObjectMapper json = new ObjectMapper();
+    private final DocumentoRepository documentos = mock(DocumentoRepository.class);
+    private final BuscaDocumentos busca = mock(BuscaDocumentos.class);
+    private final AssistenteProvider provider = mock(AssistenteProvider.class);
+    private final AgentesConfiguracao config = new AgentesConfiguracao("ollama", "", "claude-haiku-5-5",
+            "claude-sonnet-5-5", "http://ollama:11434", "qwen3:4b-instruct", false, 30, 6);
+    private Documento parecer;
+
+    static class Roteiro implements ClienteModelo {
+        final Deque<RespostaModelo> respostas = new ArrayDeque<>();
+        boolean disponivel = true;
+
+        @Override
+        public boolean disponivel() {
+            return disponivel;
+        }
+
+        @Override
+        public String modelo(String sugerido) {
+            return "qwen3:4b-instruct";
+        }
+
+        @Override
+        public RespostaModelo criar(PedidoModelo pedido) {
+            if (respostas.isEmpty()) {
+                throw new IllegalStateException("fim do roteiro");
+            }
+            return respostas.poll();
+        }
+    }
+
+    @BeforeEach
+    void dados() {
+        parecer = mock(Documento.class);
+        when(parecer.getId()).thenReturn(7L);
+        when(parecer.getTitulo()).thenReturn("Parecer Técnico nº 014/2026");
+        when(parecer.getDescricao()).thenReturn("Parecer sobre queimada em Cáceres.");
+        when(parecer.getTextoExtraido()).thenReturn("O parecer conclui pela necessidade de recomposição da vegetação "
+                + "nativa na área atingida. A queimada atingiu 12 hectares.");
+        when(documentos.buscarAtivo(7L)).thenReturn(Optional.of(parecer));
+        when(documentos.buscarAtivo(99L)).thenReturn(Optional.empty());
+        when(busca.buscar(anyString(), anyInt())).thenReturn(List.of(
+                new BuscaDocumentos.Achado(parecer, "O parecer conclui pela necessidade de recomposição.")));
+    }
+
+    private AssistenteService servico(Roteiro modelo) {
+        ExecutorAgente executor = new ExecutorAgente(modelo, config, mock(AuditService.class), json);
+        return new AssistenteService(busca, provider, new AgenteDocia(executor, config, documentos, busca));
+    }
+
+    private ClienteModelo.RespostaModelo ferramenta(String nome, String args) throws Exception {
+        return new ClienteModelo.RespostaModelo("tool_calls",
+                List.of(new ClienteModelo.ChamadaFerramenta("c-" + nome, nome, json.readTree(args))), "", null, 10, 5, 0);
+    }
+
+    private static ClienteModelo.RespostaModelo fim(String texto) {
+        return new ClienteModelo.RespostaModelo("stop", List.of(), texto, null, 40, 30, 0);
+    }
+
+    @Test
+    void agenteBuscaLeERespondeComCitacaoConferida() throws Exception {
+        Roteiro modelo = new Roteiro();
+        modelo.respostas.add(ferramenta("buscar_documentos", "{\"consulta\":\"parecer 014\"}"));
+        modelo.respostas.add(ferramenta("ler_documento", "{\"documentoId\":7}"));
+        modelo.respostas.add(fim("{\"resposta\":\"O Parecer Técnico nº 014/2026 (documentoId: 7) conclui pela recomposição da vegetação.\","
+                + "\"suficiente\":true,\"referencias\":[{\"documentoId\":7,\"trecho\":\"O parecer conclui pela "
+                + "necessidade de recomposição da vegetação nativa\"},{\"documentoId\":99,\"trecho\":\"inventado\"}]}"));
+
+        RespostaAssistente r = servico(modelo).perguntar("O que o parecer 014/2026 concluiu?");
+
+        assertThat(r.agente()).isEqualTo("LOCAL");
+        assertThat(r.modelo()).isEqualTo("qwen3:4b-instruct");
+        assertThat(r.resposta()).isEqualTo("O Parecer Técnico nº 014/2026 conclui pela recomposição da vegetação.");
+        // documento 99 não veio das ferramentas: descartado; trecho conferido no texto
+        assertThat(r.referencias()).hasSize(1);
+        assertThat(r.referencias().get(0).titulo()).isEqualTo("Parecer Técnico nº 014/2026");
+        assertThat(r.referencias().get(0).trecho()).startsWith("O parecer conclui pela necessidade");
+        assertThat(r.passos()).containsExactly("Buscou \"parecer 014\": 1 documento(s).",
+                "Leu \"Parecer Técnico nº 014/2026\".");
+    }
+
+    @Test
+    void trechoInventadoETrocadoPeloTrechoReal() {
+        String t = AgenteDocia.trechoConferido(parecer, "Texto que não existe em lugar nenhum do documento.",
+                List.of("queimada"));
+        assertThat(t).isEqualTo("A queimada atingiu 12 hectares.");
+    }
+
+    @Test
+    void semBaseNosDocumentosDizQueNaoHaInformacao() throws Exception {
+        Roteiro modelo = new Roteiro();
+        modelo.respostas.add(ferramenta("buscar_documentos", "{\"consulta\":\"mineração\"}"));
+        modelo.respostas.add(fim("{\"resposta\":\"\",\"suficiente\":false,\"referencias\":[]}"));
+
+        RespostaAssistente r = servico(modelo).perguntar("Quantas licenças de mineração existem?");
+
+        assertThat(r.resposta()).isEqualTo(AssistenteService.SEM_INFORMACAO);
+        assertThat(r.agente()).isEqualTo("LOCAL");
+        assertThat(r.referencias()).isEmpty();
+    }
+
+    @Test
+    void falhaDoAgenteUsaOModoExtrativo() {
+        Roteiro modelo = new Roteiro(); // vazio: falha na primeira chamada
+        when(provider.responder(anyString(), org.mockito.ArgumentMatchers.anyList()))
+                .thenReturn(new RespostaAssistente("Trechos encontrados", DemoAssistenteProvider.MODO, List.of()));
+
+        RespostaAssistente r = servico(modelo).perguntar("O que o parecer concluiu?");
+
+        assertThat(r.agente()).isEqualTo("DEMONSTRATIVO");
+        assertThat(r.resposta()).isEqualTo("Trechos encontrados");
+    }
+
+    @Test
+    void perguntaSobreLegislacaoContinuaRecusadaSemChamarOAgente() {
+        Roteiro modelo = new Roteiro();
+        RespostaAssistente r = servico(modelo).perguntar("Qual a multa prevista em lei?");
+        assertThat(r.resposta()).isEqualTo(AssistenteService.RECUSA);
+        assertThat(modelo.respostas).isEmpty();
+    }
+}

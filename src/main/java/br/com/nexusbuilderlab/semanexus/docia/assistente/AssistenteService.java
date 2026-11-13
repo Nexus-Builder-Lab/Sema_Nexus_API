@@ -11,9 +11,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
+import br.com.nexusbuilderlab.semanexus.agentes.AgenteIndisponivelException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 /** Recupera trechos dos documentos por busca textual e delega a resposta ao provider. */
 @Service
@@ -34,44 +35,44 @@ public class AssistenteService {
             "ser", "tem", "existe", "existem", "este", "esta", "esse", "essa", "isso", "mais", "meu", "minha",
             "diga", "fale", "documento", "documentos");
 
-    private final JdbcTemplate jdbc;
-    private final DocumentoRepository documentos;
+    private final BuscaDocumentos busca;
     private final AssistenteProvider provider;
+    private final AgenteDocia agente;
 
-    public AssistenteService(JdbcTemplate jdbc, DocumentoRepository documentos, AssistenteProvider provider) {
-        this.jdbc = jdbc;
-        this.documentos = documentos;
+    /** {@code agente} nulo = só o modo extrativo/provider (testes e configuração sem agentes). */
+    @Autowired
+    public AssistenteService(BuscaDocumentos busca, AssistenteProvider provider, AgenteDocia agente) {
+        this.busca = busca;
         this.provider = provider;
+        this.agente = agente;
     }
 
-    @Transactional(readOnly = true)
+    public AssistenteService(JdbcTemplate jdbc, DocumentoRepository documentos, AssistenteProvider provider) {
+        this(new BuscaDocumentos(jdbc, documentos), provider, null);
+    }
+
+    /**
+     * Com IA disponível, o Agente DocIA (#108) busca e lê os documentos e responde com citações; sem IA ou em falha,
+     * recuperação textual + provider (extrativo por padrão). Sem transação própria: a auditoria do agente grava.
+     */
     public RespostaAssistente perguntar(String pergunta) {
         String normalizada = DocumentoSpecification.normalizar(pergunta.strip());
         if (RECUSAVEL.matcher(normalizada).find()) {
             return new RespostaAssistente(RECUSA, modo(), List.of());
         }
-        List<String> termos = termos(normalizada);
-        if (termos.isEmpty()) {
-            return semInformacao();
-        }
-        Map<Long, Integer> pontos = new LinkedHashMap<>();
-        for (String t : termos) {
-            String padrao = DocumentoSpecification.padraoBusca(t);
-            for (Long id : jdbc.queryForList(DocumentoSpecification.SQL_BUSCA, Long.class,
-                    padrao, padrao, padrao, padrao)) {
-                pontos.merge(id, 1, Integer::sum);
+        if (agente != null && agente.disponivel()) {
+            try {
+                return agente.responder(pergunta.strip());
+            } catch (AgenteIndisponivelException e) {
+                // segue no modo extrativo, que já identifica o próprio modo
             }
         }
-        List<ReferenciaDocumento> contexto = new ArrayList<>();
-        pontos.entrySet().stream()
-                .sorted(Map.Entry.<Long, Integer>comparingByValue().reversed().thenComparing(Map.Entry.comparingByKey()))
-                .limit(MAX_DOCUMENTOS)
-                .forEach(e -> documentos.buscarAtivo(e.getKey()).ifPresent(d -> {
-                    String trecho = melhorTrecho(d, termos);
-                    if (trecho != null) {
-                        contexto.add(new ReferenciaDocumento(d.getId(), d.getTitulo(), trecho));
-                    }
-                }));
+        if (termos(normalizada).isEmpty()) {
+            return semInformacao();
+        }
+        List<ReferenciaDocumento> contexto = busca.buscar(pergunta, MAX_DOCUMENTOS).stream()
+                .map(a -> new ReferenciaDocumento(a.documento().getId(), a.documento().getTitulo(), a.trecho()))
+                .toList();
         if (contexto.isEmpty()) {
             return semInformacao();
         }

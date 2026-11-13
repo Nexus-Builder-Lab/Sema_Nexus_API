@@ -1,6 +1,6 @@
 # SEMA NEXUS — Agentes de IA no sistema
 
-> **Status:** infraestrutura (Issue #106) e Agente de Triagem (Issue #107) implementados; Assistente DocIA agêntico (#108) em implementação.
+> **Status:** infraestrutura (Issue #106), Agente de Triagem (Issue #107) e Assistente DocIA agêntico (Issue #108) implementados.
 > Aprovado pelo proprietário em 13/11/2026. **AMBIENTE DEMONSTRATIVO — DADOS FICTÍCIOS.**
 
 Diferente dos agentes de **desenvolvimento** (`.claude/agents/`, usados pelo Claude Code para escrever o código — ver `docs/AGENTES.md`), estes agentes **rodam junto com o sistema**, dentro da API, e ajudam os usuários nos módulos.
@@ -38,7 +38,7 @@ Em qualquer falha (Ollama parado, modelo não baixado, erro, resposta inválida)
 | Agente | Módulo | Ferramentas | Issue |
 |---|---|---|---|
 | Agente de Triagem | SEMA Flux | `obter_demanda`, `buscar_demandas_semelhantes`, `alertas_inpe_municipio` | #107 (implementado) |
-| Assistente DocIA | SEMA DocIA | buscar documentos, ler documento | #108 |
+| Assistente DocIA | SEMA DocIA | `buscar_documentos`, `ler_documento` | #108 (implementado) |
 
 ## Preparar a IA local (uma vez)
 
@@ -61,6 +61,16 @@ Em qualquer falha (Ollama parado, modelo não baixado, erro, resposta inválida)
 Medido em 13/11/2026 (GTX 1660 SUPER, `qwen3:4b-instruct`): **7–11 s** por sugestão (10 de 10 demandas pendentes com IA, sem cair nas regras); a primeira após subir o Ollama leva ~30–50 s (carga na GPU).
 
 Lições com modelo pequeno: ferramentas **sem parâmetros** confundem o modelo (ele fica raciocinando sobre como passar o número) — toda ferramenta tem um parâmetro, e o servidor usa sempre a demanda em triagem; o `qwen3:4b` (com raciocínio) gastava ~1.000 tokens por etapa (15–20 s), por isso o padrão é a versão *instruct*; sem limite de tamanho no esquema o modelo pode se repetir até o limite de tokens.
+
+## Assistente DocIA agêntico (Issue #108)
+
+Mesmo endpoint `POST /api/docia/perguntas`. Com IA disponível, o agente decide o que buscar (`buscar_documentos`, a mesma busca textual da biblioteca) e o que ler (`ler_documento`, até 4.000 caracteres do texto extraído), em até 2 rodadas de ferramentas, e responde no esquema `{resposta, suficiente, referencias[{documentoId, trecho}]}`.
+
+A API valida: referências só de documentos que as ferramentas devolveram; título vindo do banco; **trecho conferido no texto** do documento (trecho inventado é trocado pelo trecho real mais aderente); sem citação, cita o primeiro documento consultado; `suficiente=false` → "não há informação suficiente". A recusa de perguntas sobre leis, multas e procedimentos oficiais continua antes do agente. Falha → modo extrativo (identificado).
+
+Resposta ganhou `agente` (LOCAL/CLAUDE/DEMONSTRATIVO/EXTERNO), `modelo` e `passos` (compatível).
+
+Medido em 13/11/2026 (`qwen3:4b-instruct`, GTX 1660 SUPER): 3–12 s por pergunta; "O que o parecer 014/2026 concluiu?" → resposta correta citando a versão 1 do parecer; pergunta sem base nos documentos → "não há informação suficiente".
 
 ## Configuração (`.env`)
 
