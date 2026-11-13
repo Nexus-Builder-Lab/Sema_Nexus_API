@@ -191,3 +191,7 @@ Um fiscal cadastrado e associado a uma equipe passa a constar em `GET /api/equip
 
 ## Relatórios de demandas (Implementado — Issue #28)
 `GET /api/relatorios/demandas` (JSON paginado: `{demonstrativo, aviso, content[], page, size, totalElements, totalPages}`; `page` base 0, `size` padrão 20, máximo 100) e `GET /api/relatorios/demandas.csv` (sem paginação). Filtros combináveis iguais aos de `/api/intelligence/*` (que também aceitam `setorId`): `de`/`ate` (data de recebimento, inclusivos; `de` > `ate` → 400), `municipioId`, `bioma`, `categoria`, `status`, `setorId` (setor da equipe responsável; demandas sem equipe ficam fora; Issue #90). Ordenação: mais recentes primeiro. Perfis: ADMIN, GESTOR, ANALISTA e CONSULTA; FISCAL → 403. CSV: UTF-8 com BOM, separador `;`, fim de linha CRLF, linha 1 "AMBIENTE DEMONSTRATIVO — DADOS FICTÍCIOS", linha 2 cabeçalho, datas `dd/MM/AAAA`, `Content-Disposition: attachment; filename="relatorio-demandas-ficticio.csv"`. Células iniciadas por `=`, `+`, `-` ou `@` recebem `'` (proteção contra injeção de fórmula no Excel).
+
+## Agentes de IA (Implementado — Issue #106)
+
+`GET /api/agentes/status` (qualquer perfil autenticado) → `{modo, descricao, agentes[{id, nome, modulo, modelo, descricao}]}`. `modo` = `LOCAL` (modelo aberto no Ollama do próprio servidor, padrão, sem custo), `CLAUDE` (Anthropic, opcional, exige chave) ou `DEMONSTRATIVO` (regras locais, quando não há IA disponível; `modelo` = "Regras locais (sem IA generativa)"). Nunca expõe chaves. Funcionamento, configuração e segurança em `docs/AGENTES_IA.md`.

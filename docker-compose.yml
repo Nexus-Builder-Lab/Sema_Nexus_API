@@ -48,6 +48,13 @@ services:
       DOCIA_PROVIDER: ${DOCIA_PROVIDER:-demo}
       DOCIA_API_URL: ${DOCIA_API_URL:-}
       DOCIA_API_KEY: ${DOCIA_API_KEY:-}
+      # Agentes de IA (#106): padrão = modelo local (Ollama); sem ele, modo demonstrativo. Claude é opcional.
+      AGENTES_PROVEDOR: ${AGENTES_PROVEDOR:-ollama}
+      OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
+      OLLAMA_MODELO: ${OLLAMA_MODELO:-qwen3:4b}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      AGENTE_TRIAGEM_MODELO: ${AGENTE_TRIAGEM_MODELO:-claude-haiku-5-5}
+      AGENTE_DOCIA_MODELO: ${AGENTE_DOCIA_MODELO:-claude-sonnet-5-5}
       DEMO_RESET_CONFIRM: ${DEMO_RESET_CONFIRM:-}
     ports:
       - "${API_PORT:-8080}:8080"
@@ -75,6 +82,50 @@ services:
       # Visão de satélite (Esri World Imagery) opcional; vazio = indisponível. O Nginx usa a chave só no servidor.
       ESRI_API_KEY: ${ESRI_API_KEY:-}
 
+  # ---- IA local (Issue #106): modelo aberto via Ollama, sem custo e sem enviar dados para fora ----------------
+  # Opcional: só sobe com COMPOSE_PROFILES=ia (GPU NVIDIA) ou ia-cpu (sem GPU, mais lento). Sem porta no host:
+  # apenas a API o acessa, pela rede interna (http://ollama:11434). Modelo: scripts/ia-preparar.ps1.
+  ollama:
+    image: ollama/ollama:0.40.11
+    profiles: ["ia"]
+    restart: unless-stopped
+    volumes:
+      - ollama:/root/.ollama
+    environment:
+      OLLAMA_KEEP_ALIVE: 30m
+      OLLAMA_NO_CLOUD: "1"  # nunca usar modelos na nuvem: nada sai da máquina
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+
+  ollama-cpu:
+    image: ollama/ollama:0.40.11
+    profiles: ["ia-cpu"]
+    restart: unless-stopped
+    volumes:
+      - ollama:/root/.ollama
+    environment:
+      OLLAMA_KEEP_ALIVE: 30m
+      OLLAMA_NO_CLOUD: "1"  # nunca usar modelos na nuvem: nada sai da máquina
+    networks:
+      default:
+        aliases: [ollama]
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+
 volumes:
   oradata:
   uploads:
+  ollama:
