@@ -1,7 +1,9 @@
 package br.com.nexusbuilderlab.semanexus.agentes;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import com.anthropic.client.AnthropicClient;
 import com.anthropic.client.okhttp.AnthropicOkHttpClient;
@@ -121,8 +123,21 @@ public class AnthropicClienteModelo implements ClienteModelo {
 
     private static JsonOutputFormat.Schema esquema(PedidoModelo pedido) {
         JsonOutputFormat.Schema.Builder b = JsonOutputFormat.Schema.builder();
-        pedido.esquemaResposta().forEach((k, v) -> b.putAdditionalProperty(k, JsonValue.from(v)));
+        semLimites(pedido.esquemaResposta()).forEach((k, v) -> b.putAdditionalProperty(k, JsonValue.from(v)));
         return b.build();
+    }
+
+    /** Limites de tamanho servem aos modelos locais; os structured outputs do Claude não os aceitam. */
+    @SuppressWarnings("unchecked")
+    static Map<String, Object> semLimites(Map<String, Object> esquema) {
+        Map<String, Object> r = new LinkedHashMap<>();
+        esquema.forEach((k, v) -> {
+            if (k.equals("maxLength") || k.equals("minLength") || k.equals("maxItems") || k.equals("minItems")) {
+                return;
+            }
+            r.put(k, v instanceof Map<?, ?> m ? semLimites((Map<String, Object>) m) : v);
+        });
+        return r;
     }
 
     private AnthropicClient cliente() {

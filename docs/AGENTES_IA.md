@@ -1,6 +1,6 @@
 # SEMA NEXUS — Agentes de IA no sistema
 
-> **Status:** infraestrutura implementada (Issue #106). Agente de Triagem (#107) e Assistente DocIA agêntico (#108) em implementação.
+> **Status:** infraestrutura (Issue #106) e Agente de Triagem (Issue #107) implementados; Assistente DocIA agêntico (#108) em implementação.
 > Aprovado pelo proprietário em 13/11/2026. **AMBIENTE DEMONSTRATIVO — DADOS FICTÍCIOS.**
 
 Diferente dos agentes de **desenvolvimento** (`.claude/agents/`, usados pelo Claude Code para escrever o código — ver `docs/AGENTES.md`), estes agentes **rodam junto com o sistema**, dentro da API, e ajudam os usuários nos módulos.
@@ -27,7 +27,7 @@ Card "Sugestão de IA"  ──►  endpoint do módulo (ex.: /triagem/sugestao)
 
 | Provedor (`AGENTES_PROVEDOR`) | Modelo | Custo | Dados saem da máquina? |
 |---|---|---|---|
-| `ollama` (**padrão**) | `qwen3:4b` (aberto, licença Apache 2.0, ~2,5 GB) no serviço `ollama` do compose, com GPU NVIDIA | **zero** | **não** (`OLLAMA_NO_CLOUD=1`, sem porta no host) |
+| `ollama` (**padrão**) | `qwen3:4b-instruct` (Qwen3-4B-Instruct-2507, aberto, licença Apache 2.0, ~2,5 GB, sem modo de raciocínio) no serviço `ollama` do compose, com GPU NVIDIA | **zero** | **não** (`OLLAMA_NO_CLOUD=1`, sem porta no host) |
 | `anthropic` (opcional, futuro) | Claude Haiku 5.5 (triagem) e Sonnet 5.5 (DocIA), SDK oficial `anthropic-java` | pago por uso (chave com créditos) | sim (API da Anthropic) |
 | `demo` | nenhum: regras locais | zero | não |
 
@@ -37,7 +37,7 @@ Em qualquer falha (Ollama parado, modelo não baixado, erro, resposta inválida)
 
 | Agente | Módulo | Ferramentas | Issue |
 |---|---|---|---|
-| Agente de Triagem | SEMA Flux | dados da demanda, demandas semelhantes, focos/alertas do INPE no município | #107 |
+| Agente de Triagem | SEMA Flux | `obter_demanda`, `buscar_demandas_semelhantes`, `alertas_inpe_municipio` | #107 (implementado) |
 | Assistente DocIA | SEMA DocIA | buscar documentos, ler documento | #108 |
 
 ## Preparar a IA local (uma vez)
@@ -49,6 +49,19 @@ Em qualquer falha (Ollama parado, modelo não baixado, erro, resposta inválida)
 
 **Rede com inspeção HTTPS (ex.: firewall da SEMA):** o download do modelo pode falhar com `x509: certificate signed by unknown authority`. Não desligue a verificação TLS. Opções: baixar em outra rede, ou (feito em 13/11/2026, com autorização do proprietário) adicionar temporariamente o certificado **público** da CA do firewall — já confiado pelo Windows — só no container do Ollama, baixar o modelo e recriar o container (`docker compose up -d --force-recreate ollama`) para remover a confiança.
 
+## Agente de Triagem (Issue #107)
+
+`POST /api/demandas/{id}/triagem/sugestao` (ADMIN, GESTOR, ANALISTA; demanda Pendente ou Em triagem, senão 409). Não grava nada.
+
+1. Uma rodada de ferramentas (o modelo costuma chamar as três juntas): dados da demanda; até 8 demandas do mesmo município (escopo do usuário); focos de calor e alertas DETER do INPE no município.
+2. Resposta final já no esquema JSON (`maxRodadasFerramentas = 1`): decisão, categoria, prioridade, justificativa, duplicatas.
+3. A API valida: enums inválidos ou ausentes são completados pelas regras locais (com aviso); duplicatas só se vieram da ferramenta e não estão finalizadas; justificativa limitada a 3 frases completas; o **núcleo regional** vem da região do município (determinístico).
+4. Falha da IA → regras locais (`RegrasTriagem`: palavras-chave → categoria; gravidade e INPE → prioridade), com aviso.
+
+Medido em 13/11/2026 (GTX 1660 SUPER, `qwen3:4b-instruct`): **7–11 s** por sugestão (10 de 10 demandas pendentes com IA, sem cair nas regras); a primeira após subir o Ollama leva ~30–50 s (carga na GPU).
+
+Lições com modelo pequeno: ferramentas **sem parâmetros** confundem o modelo (ele fica raciocinando sobre como passar o número) — toda ferramenta tem um parâmetro, e o servidor usa sempre a demanda em triagem; o `qwen3:4b` (com raciocínio) gastava ~1.000 tokens por etapa (15–20 s), por isso o padrão é a versão *instruct*; sem limite de tamanho no esquema o modelo pode se repetir até o limite de tokens.
+
 ## Configuração (`.env`)
 
 | Variável | Padrão | Descrição |
@@ -56,7 +69,8 @@ Em qualquer falha (Ollama parado, modelo não baixado, erro, resposta inválida)
 | `AGENTES_PROVEDOR` | `ollama` | `ollama`, `anthropic` ou `demo`. |
 | `COMPOSE_PROFILES` | vazio | `ia` ou `ia-cpu` para subir o serviço Ollama. |
 | `OLLAMA_URL` | `http://ollama:11434` | Endereço interno do Ollama. |
-| `OLLAMA_MODELO` | `qwen3:4b` | Modelo local (precisa suportar ferramentas). |
+| `OLLAMA_MODELO` | `qwen3:4b-instruct` | Modelo local (precisa suportar ferramentas). |
+| `OLLAMA_PENSAR` | `false` | `true` só para modelos com modo de raciocínio (ex.: `qwen3:4b`); os demais recusam o campo. |
 | `ANTHROPIC_API_KEY` | vazia | Só com `AGENTES_PROVEDOR=anthropic`; criada pelo proprietário, nunca versionada. |
 | `AGENTE_TRIAGEM_MODELO` / `AGENTE_DOCIA_MODELO` | `claude-haiku-5-5` / `claude-sonnet-5-5` | Modelos do Claude, se usado. |
 | `AGENTES_TIMEOUT_SEGUNDOS` | `90` | Tempo máximo por chamada (5–300). |

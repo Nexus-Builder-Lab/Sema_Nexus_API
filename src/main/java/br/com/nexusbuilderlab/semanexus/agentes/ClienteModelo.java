@@ -14,7 +14,7 @@ public interface ClienteModelo {
     /** true quando o provedor está configurado e acessível (sem custo de tokens). */
     boolean disponivel();
 
-    /** Nome exibido do modelo efetivamente usado para o agente (ex.: "qwen3:4b"). */
+    /** Nome exibido do modelo efetivamente usado para o agente (ex.: "qwen3:4b-instruct"). */
     String modelo(String modeloSugerido);
 
     /** Envia a requisição e devolve a resposta. Lança exceção em qualquer falha de rede/API. */
