@@ -377,3 +377,9 @@
 - **Arquivos principais:** `DemoMassaGerador`, `DemoMassaGeradorTest`, `docs/DEMO.md`.
 - **Testes:** a confirmar pelo validador (implementador: testes do pacote demo, 0 falhas).
 - **Pendências:** `demo-reset` após o merge (sessão principal).
+
+## 2026-11-12 · GH-76 · Relatório de demandas com demanda sem categoria
+- **PR:** (ver GH-76) · **Status:** mesclado pela sessão principal antes da tag `v0.1.0-demo`
+- **O que foi feito:** `RelatorioService.linha` usa "Não informada" quando a demanda não tem categoria (caso da demanda cadastrada ao vivo no roteiro, ainda Pendente), evitando o 500 em `/api/relatorios/demandas` e no CSV.
+- **Arquivos principais:** `RelatorioService`, `RelatorioServiceTest`.
+- **Testes:** `RelatorioServiceTest` e `RelatorioControllerWebMvcTest` (0 falhas, local); CI do PR.
