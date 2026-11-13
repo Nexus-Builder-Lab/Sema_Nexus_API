@@ -53,7 +53,7 @@ class ProvedoresModeloTest {
                 .andExpect(content().string(org.hamcrest.Matchers.allOf(
                         org.hamcrest.Matchers.containsString("\"model\":\"qwen3:4b\""),
                         org.hamcrest.Matchers.containsString("\"tools\""),
-                        org.hamcrest.Matchers.containsString("\"think\":true"))))
+                        org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("\"think\"")))))
                 .andRespond(withSuccess("{\"message\":{\"role\":\"assistant\",\"content\":\"\",\"tool_calls\":"
                         + "[{\"function\":{\"name\":\"buscar\",\"arguments\":{\"q\":\"queimada\"}}}]},"
                         + "\"prompt_eval_count\":120,\"eval_count\":15}", MediaType.APPLICATION_JSON));

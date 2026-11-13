@@ -85,6 +85,13 @@ public class OllamaClienteModelo implements ClienteModelo {
     public RespostaModelo criar(PedidoModelo pedido) {
         List<Map<String, Object>> mensagens = mensagens(pedido);
         Map<String, Object> corpo = corpo(pedido, mensagens);
+        if (pedido.ferramentas().isEmpty()) {
+            // Etapa sem ferramentas: resposta final direto no esquema JSON (uma chamada a menos).
+            corpo.put("format", pedido.esquemaResposta());
+            JsonNode r = chat(corpo);
+            return new RespostaModelo("stop", List.of(), semRaciocinio(r.path("message").path("content").asText("")),
+                    null, r.path("prompt_eval_count").asLong(), r.path("eval_count").asLong(), 0);
+        }
         corpo.put("tools", pedido.ferramentas().stream().map(OllamaClienteModelo::definicao).toList());
         JsonNode r = chat(corpo);
         JsonNode mensagem = r.path("message");
@@ -105,7 +112,7 @@ public class OllamaClienteModelo implements ClienteModelo {
         if (!chamadas.isEmpty()) {
             return new RespostaModelo("tool_calls", chamadas, texto, null, entrada, saida, 0);
         }
-        if (objetoJson(texto)) {
+        if (respostaCompleta(texto, pedido.esquemaResposta())) {
             return new RespostaModelo("stop", List.of(), texto, null, entrada, saida, 0);
         }
         // Resposta final estruturada: mesma conversa, sem ferramentas, com o esquema JSON obrigatório.
@@ -123,8 +130,10 @@ public class OllamaClienteModelo implements ClienteModelo {
         corpo.put("model", configuracao.modeloLocal());
         corpo.put("messages", mensagens);
         corpo.put("stream", false);
-        // Raciocínio separado no campo "thinking" (com think=false o Qwen3 mistura o raciocínio no texto).
-        corpo.put("think", true);
+        if (configuracao.pensar()) {
+            // Modelos com modo de raciocínio: raciocínio separado no campo "thinking" (mais lento).
+            corpo.put("think", true);
+        }
         corpo.put("keep_alive", "30m");
         corpo.put("options", Map.of("temperature", 0.2, "num_ctx", 8192, "num_predict", pedido.maxTokens()));
         return corpo;
@@ -177,9 +186,24 @@ public class OllamaClienteModelo implements ClienteModelo {
         return (fim >= 0 ? texto.substring(fim + "</think>".length()) : texto).strip();
     }
 
-    private boolean objetoJson(String texto) {
+    /** JSON objeto com todos os campos obrigatórios do esquema (senão a chamada final impõe o esquema). */
+    private boolean respostaCompleta(String texto, Map<String, Object> esquema) {
         try {
-            return texto != null && !texto.isBlank() && json.readTree(texto.strip()).isObject();
+            if (texto == null || texto.isBlank()) {
+                return false;
+            }
+            JsonNode n = json.readTree(texto.strip());
+            if (n == null || !n.isObject()) {
+                return false;
+            }
+            if (esquema.get("required") instanceof List<?> obrigatorios) {
+                for (Object campo : obrigatorios) {
+                    if (!n.has(String.valueOf(campo))) {
+                        return false;
+                    }
+                }
+            }
+            return true;
         } catch (Exception e) {
             return false;
         }

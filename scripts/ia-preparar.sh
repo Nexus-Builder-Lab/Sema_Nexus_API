@@ -13,7 +13,7 @@ case ",${perfis// /}," in
   *,ia-cpu,*) servico=ollama-cpu ;;
   *) echo "ERRO: defina COMPOSE_PROFILES=ia (GPU NVIDIA) ou COMPOSE_PROFILES=ia-cpu (sem GPU) no .env." >&2; exit 1 ;;
 esac
-modelo="$(env_get OLLAMA_MODELO 'qwen3:4b')"
+modelo="$(env_get OLLAMA_MODELO 'qwen3:4b-instruct')"
 if ! [[ "$modelo" =~ ^[a-z0-9][a-z0-9._-]{1,60}(:[a-z0-9._-]{1,40})?$ ]]; then
   echo "ERRO: OLLAMA_MODELO inválido: '$modelo'." >&2; exit 1
 fi

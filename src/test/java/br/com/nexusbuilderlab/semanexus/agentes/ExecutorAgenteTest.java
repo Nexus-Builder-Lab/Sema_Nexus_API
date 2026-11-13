@@ -57,7 +57,7 @@ class ExecutorAgenteTest {
 
     static AgentesConfiguracao config(String provedor, String chave, int maxIteracoes) {
         return new AgentesConfiguracao(provedor, chave, "claude-haiku-5-5", "claude-sonnet-5-5",
-                "http://ollama:11434", "qwen3:4b", 30, maxIteracoes);
+                "http://ollama:11434", "qwen3:4b", false, 30, maxIteracoes);
     }
 
     private static RespostaModelo ferramenta(String id, String nome, String entradaJson) throws Exception {
@@ -80,7 +80,7 @@ class ExecutorAgenteTest {
         });
         return new DefinicaoAgente("teste", "claude-haiku-5-5", "Instruções.", List.of(eco, falha),
                 Map.of("type", "object", "properties", Map.of("ok", Map.of("type", "boolean")),
-                        "required", List.of("ok"), "additionalProperties", false), "low", 2000);
+                        "required", List.of("ok"), "additionalProperties", false), "low", 2000, 5);
     }
 
     private ExecutorAgente executor(ClienteFalso cliente, int maxIteracoes) {
@@ -108,6 +108,22 @@ class ExecutorAgenteTest {
         assertThat(cliente.pedidos.get(2).mensagens()).hasSize(5);
         assertThat(cliente.pedidos.get(2).mensagens().get(4).erro()).isTrue();
         verify(auditoria).registrar(eq("AGENTE_EXECUCAO"), eq("AGENTE"), eq("teste:10"), contains("eco, falha"));
+    }
+
+    @Test
+    void depoisDasRodadasDeFerramentasOPedidoVaiSemFerramentas() throws Exception {
+        ClienteFalso cliente = new ClienteFalso();
+        cliente.respostas.add(ferramenta("t1", "eco", "{\"texto\":\"oi\"}"));
+        cliente.respostas.add(fim("Resposta: {\"ok\":true} fim"));
+        DefinicaoAgente base = agente(new ArrayList<>());
+        DefinicaoAgente umaRodada = new DefinicaoAgente(base.nome(), base.modelo(), base.instrucoes(),
+                base.ferramentas(), base.esquemaResposta(), base.esforco(), base.maxTokens(), 1);
+
+        ResultadoAgente r = executor(cliente, 6).executar(umaRodada, "Tarefa", "1");
+
+        assertThat(cliente.pedidos.get(0).ferramentas()).hasSize(2);
+        assertThat(cliente.pedidos.get(1).ferramentas()).isEmpty();
+        assertThat(r.resposta().get("ok").asBoolean()).isTrue(); // JSON extraído do texto em volta
     }
 
     @Test
@@ -150,7 +166,7 @@ class ExecutorAgenteTest {
         assertThat(c.chaveAnthropicValida()).isTrue();
         assertThat(c.toString()).doesNotContain(CHAVE_FICTICIA).doesNotContain("sk-ant");
         AgentesConfiguracao invalida = new AgentesConfiguracao("qualquer", "chave", "modelo inválido!", "",
-                "ftp://x", "Modelo Ruim!", 30, 99);
+                "ftp://x", "Modelo Ruim!", false, 30, 99);
         assertThat(invalida.provedor()).isEqualTo(AgentesConfiguracao.Provedor.OLLAMA);
         assertThat(invalida.chaveAnthropicValida()).isFalse();
         assertThat(invalida.modeloTriagem()).isEqualTo(AgentesConfiguracao.MODELO_TRIAGEM_PADRAO);

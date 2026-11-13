@@ -51,7 +51,8 @@ services:
       # Agentes de IA (#106): padrão = modelo local (Ollama); sem ele, modo demonstrativo. Claude é opcional.
       AGENTES_PROVEDOR: ${AGENTES_PROVEDOR:-ollama}
       OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
-      OLLAMA_MODELO: ${OLLAMA_MODELO:-qwen3:4b}
+      OLLAMA_MODELO: ${OLLAMA_MODELO:-qwen3:4b-instruct}
+      OLLAMA_PENSAR: ${OLLAMA_PENSAR:-false}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       AGENTE_TRIAGEM_MODELO: ${AGENTE_TRIAGEM_MODELO:-claude-haiku-5-5}
       AGENTE_DOCIA_MODELO: ${AGENTE_DOCIA_MODELO:-claude-sonnet-5-5}

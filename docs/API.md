@@ -195,3 +195,5 @@ Um fiscal cadastrado e associado a uma equipe passa a constar em `GET /api/equip
 ## Agentes de IA (Implementado — Issue #106)
 
 `GET /api/agentes/status` (qualquer perfil autenticado) → `{modo, descricao, agentes[{id, nome, modulo, modelo, descricao}]}`. `modo` = `LOCAL` (modelo aberto no Ollama do próprio servidor, padrão, sem custo), `CLAUDE` (Anthropic, opcional, exige chave) ou `DEMONSTRATIVO` (regras locais, quando não há IA disponível; `modelo` = "Regras locais (sem IA generativa)"). Nunca expõe chaves. Funcionamento, configuração e segurança em `docs/AGENTES_IA.md`.
+
+**Agente de Triagem (Implementado — Issue #107)** — `POST /api/demandas/{id}/triagem/sugestao` (ADMIN, GESTOR, ANALISTA; demanda em PENDENTE ou EM_TRIAGEM, senão 409; 404/403 conforme o escopo) → `{modo, modelo, decisao, categoria, prioridade, nucleo{sigla, nome}, justificativa, duplicatas[{id, numero, titulo, status, dataRecebimento}], evidencias[], avisos[]}`. Não grava nada: para aceitar, `POST /api/demandas/{id}/triagem`. `modo` LOCAL/CLAUDE (IA) ou DEMONSTRATIVO (regras locais, inclusive quando a IA falha — com aviso). Detalhes em `docs/AGENTES_IA.md`.

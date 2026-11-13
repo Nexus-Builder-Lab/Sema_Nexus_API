@@ -22,8 +22,8 @@ public class AgentesConfiguracao {
 
     public enum Provedor { OLLAMA, ANTHROPIC, DEMO }
 
-    /** Modelo aberto padrão (licença Apache 2.0, usa ferramentas, ~2,5 GB). */
-    public static final String MODELO_LOCAL_PADRAO = "qwen3:4b";
+    /** Modelo aberto padrão: Qwen3-4B-Instruct-2507 (Apache 2.0, ferramentas, sem modo de raciocínio, ~2,5 GB). */
+    public static final String MODELO_LOCAL_PADRAO = "qwen3:4b-instruct";
     public static final String MODELO_TRIAGEM_PADRAO = "claude-haiku-5-5";
     public static final String MODELO_DOCIA_PADRAO = "claude-sonnet-5-5";
 
@@ -38,6 +38,7 @@ public class AgentesConfiguracao {
     private final String modeloDocia;
     private final String ollamaUrl;
     private final String modeloLocal;
+    private final boolean pensar;
     private final Duration timeout;
     private final int maxIteracoes;
 
@@ -47,6 +48,7 @@ public class AgentesConfiguracao {
                                @Value("${AGENTE_DOCIA_MODELO:" + MODELO_DOCIA_PADRAO + "}") String modeloDocia,
                                @Value("${OLLAMA_URL:http://ollama:11434}") String ollamaUrl,
                                @Value("${OLLAMA_MODELO:" + MODELO_LOCAL_PADRAO + "}") String modeloLocal,
+                               @Value("${OLLAMA_PENSAR:false}") boolean pensar,
                                @Value("${AGENTES_TIMEOUT_SEGUNDOS:90}") int timeoutSegundos,
                                @Value("${AGENTES_MAX_ITERACOES:6}") int maxIteracoes) {
         this.provedor = provedor(provedor);
@@ -55,6 +57,7 @@ public class AgentesConfiguracao {
         this.modeloDocia = valido(modeloDocia, FORMATO_MODELO_CLAUDE, MODELO_DOCIA_PADRAO);
         this.ollamaUrl = valido(ollamaUrl, FORMATO_URL, "http://ollama:11434").replaceAll("/$", "");
         this.modeloLocal = valido(modeloLocal, FORMATO_MODELO_LOCAL, MODELO_LOCAL_PADRAO);
+        this.pensar = pensar;
         this.timeout = Duration.ofSeconds(Math.max(5, Math.min(timeoutSegundos, 300)));
         this.maxIteracoes = Math.max(1, Math.min(maxIteracoes, 10));
     }
@@ -87,6 +90,11 @@ public class AgentesConfiguracao {
 
     public String modeloLocal() {
         return modeloLocal;
+    }
+
+    /** Envia {@code think=true} ao Ollama (só para modelos com modo de raciocínio; os demais recusam o campo). */
+    public boolean pensar() {
+        return pensar;
     }
 
     public Duration timeout() {

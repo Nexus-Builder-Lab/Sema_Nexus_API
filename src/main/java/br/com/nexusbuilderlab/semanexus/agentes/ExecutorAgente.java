@@ -76,13 +76,18 @@ public class ExecutorAgente {
             agente.ferramentas().forEach(f -> ferramentas.put(f.nome(), f));
             List<Mensagem> mensagens = new ArrayList<>();
             mensagens.add(Mensagem.usuario(tarefa));
+            int rodadas = 0;
             for (int iteracao = 0; iteracao < configuracao.maxIteracoes(); iteracao++) {
-                RespostaModelo resposta = chamar(new PedidoModelo(modelo, agente.instrucoes(), agente.ferramentas(),
+                // Esgotadas as rodadas de ferramentas, o pedido vai sem ferramentas: resposta final no esquema.
+                List<FerramentaAgente> disponiveis = rodadas < agente.maxRodadasFerramentas()
+                        ? agente.ferramentas() : List.of();
+                RespostaModelo resposta = chamar(new PedidoModelo(modelo, agente.instrucoes(), disponiveis,
                         List.copyOf(mensagens), agente.esquemaResposta(), agente.esforco(), agente.maxTokens()));
                 entrada += resposta.tokensEntrada();
                 saida += resposta.tokensSaida();
                 cache += resposta.tokensCache();
                 if (!resposta.chamadas().isEmpty()) {
+                    rodadas++;
                     mensagens.add(Mensagem.assistente(resposta));
                     for (ChamadaFerramenta chamada : resposta.chamadas()) {
                         mensagens.add(executarFerramenta(ferramentas, chamada, passos));
@@ -149,9 +154,11 @@ public class ExecutorAgente {
 
     private JsonNode lerJson(String texto) {
         String t = texto == null ? "" : texto.strip();
-        // Alguns modelos locais embrulham o JSON em bloco de código.
-        if (t.startsWith("```")) {
-            t = t.replaceFirst("^```[a-zA-Z]*\\s*", "").replaceFirst("\\s*```$", "");
+        // Modelos locais às vezes embrulham o JSON em bloco de código ou texto: usa do primeiro { ao último }.
+        int ini = t.indexOf('{');
+        int fim = t.lastIndexOf('}');
+        if (ini >= 0 && fim > ini) {
+            t = t.substring(ini, fim + 1);
         }
         try {
             JsonNode n = json.readTree(t);

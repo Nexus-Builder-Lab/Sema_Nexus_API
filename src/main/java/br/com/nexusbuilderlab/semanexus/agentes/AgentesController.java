@@ -69,6 +69,6 @@ public class AgentesController {
 
     @Schema(description = "Agente disponível no sistema")
     public record AgenteInfo(@Schema(example = "triagem") String id, String nome, String modulo,
-                             @Schema(example = "qwen3:4b") String modelo, String descricao) {
+                             @Schema(example = "qwen3:4b-instruct") String modelo, String descricao) {
     }
 }
