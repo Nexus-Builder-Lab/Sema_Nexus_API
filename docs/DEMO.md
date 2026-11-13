@@ -40,7 +40,7 @@ Regras: essas contas existem **apenas** nos profiles `demo`/`dev`, são gravadas
 2. `docker compose ps`: `oracle`, `api` e `web` **healthy**.
 3. Restaurar a massa: `.\scripts\demo-reset.ps1` (apaga apenas os volumes do projeto `sema_nexus`, sem afetar outros projetos; exige confirmação `RESETAR` ou `DEMO_RESET_CONFIRM=yes`). Aguardar o seed (120 demandas, 12 documentos).
 4. Abrir **http://127.0.0.1:3000** (ou `WEB_PORT` do `.env`; não use `localhost`) e entrar com `admin@admin.com` / `12345678`.
-5. **Sem internet:** o mapa de MT funciona offline (camada OpenStreetMap desligada por padrão) e todo o ambiente roda local (Oracle, API, web, arquivos no volume). Desconectar a rede e recarregar para confirmar.
+5. **Sem internet:** o mapa de MT funciona offline (camadas OpenStreetMap e Visão de satélite desligadas por padrão; ambas exigem internet, e o satélite exige `ESRI_API_KEY` no `.env` — ver `docs/DOCKER.md`) e todo o ambiente roda local (Oracle, API, web, arquivos no volume). Desconectar a rede e recarregar para confirmar.
 6. Para refazer a demonstração, rode `demo-reset` de novo: o cenário volta ao estado inicial.
 
 Usuário único recomendado para o fluxo inteiro: **admin** (perfil com todas as ações). Para mostrar perfis (3–6 min, opcional): `gestor@demo.semanexus.local`, `fiscal1@demo.semanexus.local`, `analista@demo.semanexus.local` e `consulta@demo.semanexus.local` (senha `Demo@Sema2026`; consulta só lê).

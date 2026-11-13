@@ -174,6 +174,16 @@ O script `demo-reset` (Issue API#9) faz o mesmo exigindo confirmação e recusan
 
 > O Claude Code está configurado para **nunca** executar `down -v`, `docker volume rm` ou `docker system prune` sem confirmação do proprietário.
 
+## Visão de satélite (opcional)
+
+O mapa da Inteligência ambiental tem a opção **Visão de satélite** (Esri World Imagery), **desligada por padrão** e que **exige internet**.
+
+1. Crie uma conta gratuita no [ArcGIS Location Platform](https://location.arcgis.com) e gere uma API Key só com permissão de mapas base (basemaps).
+2. No `.env`: `ESRI_API_KEY=<sua chave>` (nunca versione).
+3. `docker compose up -d web` (ou `demo-up`). Sem a chave, o botão aparece desabilitado com aviso.
+
+A chave fica **só no Nginx do container `web`**: ele repassa `/tiles/esri/{z}/{y}/{x}` à Esri acrescentando o `token`; o navegador e o bundle nunca a veem, e as imagens **não são armazenadas** localmente (regra de uso da Esri). A atribuição "Powered by Esri" e as fontes das imagens ficam sempre visíveis com o satélite ligado. Para uso em produção por um órgão, troque a chave pela licença do próprio órgão.
+
 ## Segurança
 
 - Nenhum segredo em Dockerfiles, imagens ou `docker-compose.yml`; tudo vem do `.env` (ignorado pelo Git).
