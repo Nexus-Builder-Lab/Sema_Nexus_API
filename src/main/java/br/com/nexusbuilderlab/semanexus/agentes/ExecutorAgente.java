@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
@@ -37,13 +38,27 @@ public class ExecutorAgente {
     private final AgentesConfiguracao configuracao;
     private final AuditService auditoria;
     private final ObjectMapper json;
+    private final MetricasAgentes metricas;
 
+    @Autowired
     public ExecutorAgente(ClienteModelo cliente, AgentesConfiguracao configuracao, AuditService auditoria,
-                          ObjectMapper json) {
+                          ObjectMapper json, MetricasAgentes metricas) {
         this.cliente = cliente;
         this.configuracao = configuracao;
         this.auditoria = auditoria;
         this.json = json;
+        this.metricas = metricas;
+    }
+
+    /** Sem métricas compartilhadas (testes). */
+    public ExecutorAgente(ClienteModelo cliente, AgentesConfiguracao configuracao, AuditService auditoria,
+                          ObjectMapper json) {
+        this(cliente, configuracao, auditoria, json, new MetricasAgentes());
+    }
+
+    /** Informações do provedor para o Painel do sistema (sem segredos). */
+    public Map<String, Object> diagnosticoProvedor() {
+        return cliente.diagnostico();
     }
 
     /** true quando o provedor configurado está acessível (com o Ollama: serviço no ar e modelo baixado). */
@@ -67,11 +82,14 @@ public class ExecutorAgente {
         long entrada = 0;
         long saida = 0;
         long cache = 0;
+        long inicio = System.currentTimeMillis();
+        boolean tentou = false;
         try {
             if (!cliente.disponivel()) {
                 throw new AgenteIndisponivelException("Provedor de IA (" + configuracao.provedor()
                         + ") indisponível ou modelo não baixado.");
             }
+            tentou = true;
             Map<String, FerramentaAgente> ferramentas = new LinkedHashMap<>();
             agente.ferramentas().forEach(f -> ferramentas.put(f.nome(), f));
             List<Mensagem> mensagens = new ArrayList<>();
@@ -97,6 +115,7 @@ public class ExecutorAgente {
                 ResultadoAgente r = new ResultadoAgente(lerJson(resposta.texto()), List.copyOf(passos), modelo,
                         entrada, saida, cache);
                 auditar(agente, modelo, entidadeId, "AGENTE_EXECUCAO", passos, entrada, saida, cache, null);
+                metricas.sucesso(agente.nome(), modelo, System.currentTimeMillis() - inicio);
                 LOG.info("Agente {} concluiu: provedor={}, modelo={}, ferramentas={}, tokens entrada={} saída={}",
                         agente.nome(), configuracao.provedor(), modelo, passos.size(), entrada, saida);
                 return r;
@@ -105,6 +124,9 @@ public class ExecutorAgente {
                     + " iterações atingido sem resposta final.");
         } catch (AgenteIndisponivelException e) {
             auditar(agente, modelo, entidadeId, "AGENTE_FALHA", passos, entrada, saida, cache, e.getMessage());
+            if (tentou) {
+                metricas.falha(agente.nome(), modelo, System.currentTimeMillis() - inicio, e.getMessage());
+            }
             LOG.warn("Agente {} indisponível; usando o modo demonstrativo ({})", agente.nome(), e.getMessage());
             throw e;
         }
@@ -112,8 +134,14 @@ public class ExecutorAgente {
 
     /** Registra na auditoria uma execução feita pelas regras locais do modo demonstrativo. */
     public void registrarDemonstrativo(String agente, String entidadeId, String detalhe) {
+        metricas.demonstrativo(agente);
         auditoria.registrar("AGENTE_DEMONSTRATIVO", "AGENTE", agente + ":" + entidadeId,
                 "Modo demonstrativo (regras locais, sem IA generativa). " + detalhe);
+    }
+
+    /** Conta um uso do modo demonstrativo sem auditoria própria (ex.: DocIA extrativo, que já identifica o modo). */
+    public void contarDemonstrativo(String agente) {
+        metricas.demonstrativo(agente);
     }
 
     private RespostaModelo chamar(PedidoModelo pedido) {

@@ -76,6 +76,46 @@ public class OllamaClienteModelo implements ClienteModelo {
         return ok;
     }
 
+    /** Versão do Ollama, modelos instalados e modelos carregados (memória de vídeo). Falhas viram "erro". */
+    @Override
+    public Map<String, Object> diagnostico() {
+        Map<String, Object> d = new LinkedHashMap<>();
+        d.put("provedor", "Ollama (local)");
+        d.put("modeloConfigurado", configuracao.modeloLocal());
+        try {
+            long t0 = System.currentTimeMillis();
+            JsonNode versao = http.get().uri("/api/version").retrieve().body(JsonNode.class);
+            d.put("latenciaMs", System.currentTimeMillis() - t0);
+            d.put("versao", versao == null ? null : versao.path("version").asText(null));
+            List<Map<String, Object>> instalados = new ArrayList<>();
+            JsonNode tags = http.get().uri("/api/tags").retrieve().body(JsonNode.class);
+            if (tags != null) {
+                for (JsonNode m : tags.path("models")) {
+                    instalados.add(Map.of("nome", m.path("name").asText(), "tamanhoMb", m.path("size").asLong() / 1_000_000,
+                            "parametros", m.path("details").path("parameter_size").asText(""),
+                            "quantizacao", m.path("details").path("quantization_level").asText("")));
+                }
+            }
+            d.put("instalados", instalados);
+            List<Map<String, Object>> carregados = new ArrayList<>();
+            JsonNode ps = http.get().uri("/api/ps").retrieve().body(JsonNode.class);
+            if (ps != null) {
+                for (JsonNode m : ps.path("models")) {
+                    long total = m.path("size").asLong();
+                    long vram = m.path("size_vram").asLong();
+                    carregados.add(Map.of("nome", m.path("name").asText(), "memoriaMb", total / 1_000_000,
+                            "memoriaVideoMb", vram / 1_000_000,
+                            "percentualGpu", total > 0 ? Math.round(vram * 100.0 / total) : 0,
+                            "ateQuando", m.path("expires_at").asText("")));
+                }
+            }
+            d.put("carregados", carregados);
+        } catch (RuntimeException e) {
+            d.put("erro", "Ollama não respondeu (" + e.getClass().getSimpleName() + ")");
+        }
+        return d;
+    }
+
     @Override
     public String modelo(String modeloSugerido) {
         return configuracao.modeloLocal();
