@@ -48,6 +48,32 @@ class DemoMassaGeradorTest {
     }
 
     @Test
+    void finalizadasRecentesETemposVariadosPorNucleo() {
+        List<DemandaSeed> fin = DemoMassaGerador.gerar(HOJE, municipios()).stream()
+                .filter(d -> d.status().equals("FINALIZADA")).toList();
+        assertThat(fin).hasSize(30);
+        long recentes = fin.stream().filter(d -> !d.concluidaEm().isBefore(HOJE.minusDays(30))).count();
+        assertThat(recentes).isBetween(12L, 18L);
+        assertThat(fin).allSatisfy(d -> assertThat(d.concluidaEm()).isBefore(HOJE.plusDays(1)));
+        var porNucleo = fin.stream().collect(Collectors.groupingBy(
+                d -> DemoMassaGerador.siglaNucleo(d.municipio().regiao())));
+        assertThat(porNucleo).hasSize(5);
+        assertThat(porNucleo.values()).allSatisfy(v -> assertThat(v.size()).isGreaterThanOrEqualTo(2));
+        var medias = porNucleo.values().stream().map(v -> v.stream().mapToLong(
+                d -> java.time.temporal.ChronoUnit.DAYS.between(d.recebimento(), d.concluidaEm())).average()
+                .orElseThrow()).toList();
+        assertThat(medias.stream().distinct().count()).isEqualTo(5);
+        assertThat(medias).allSatisfy(m -> assertThat(m).isBetween(5.0, 22.0));
+        assertThat(fin.stream().filter(d -> d.concluidaEm().isAfter(d.prazo())).count()).isPositive();
+        assertThat(fin.stream().filter(d -> !d.concluidaEm().isAfter(d.prazo())).count()).isPositive();
+        // continua relativo ao dia do reset
+        List<DemandaSeed> outro = DemoMassaGerador.gerar(HOJE.plusDays(16), municipios()).stream()
+                .filter(d -> d.status().equals("FINALIZADA")).toList();
+        assertThat(outro.stream().filter(d -> !d.concluidaEm().isBefore(HOJE.plusDays(16).minusDays(30))).count())
+                .isBetween(12L, 18L);
+    }
+
+    @Test
     void regiaoDesconhecidaNaoTemNucleo() {
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> DemoMassaGerador.siglaNucleo("Marte"))
                 .isInstanceOf(IllegalArgumentException.class);

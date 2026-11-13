@@ -359,3 +359,12 @@
 - **Arquivos principais:** `usuarios.json`, `DemoMassaGerador`, `DemoMassaService`, testes `DemoMassaGeradorTest`, `DemoSeedServiceTest`, `DemoSeedRecursoTest`, `DemoSeedOracleTest`, `docs/DEMO.md`.
 - **Testes:** a confirmar pelo validador (implementador: testes unitários do pacote demo e `DemoSeedOracleTest` com Oracle, 0 falhas).
 - **Pendências:** `demo-reset` após o merge.
+
+## 2026-11-12 · GH-97 · Seed com conclusões recentes e tempos variados por núcleo
+- **PR:** a abrir · **Status:** em validação
+- **Agentes que atuaram:** `implementador-backend`
+- **O que foi feito:** as 30 finalizadas do seed passam a ser distribuídas em rodízio pelos 5 núcleos (6 cada); `concluidaEm` relativo ao dia do reset (cerca de metade entre 1 e 25 dias atrás, o resto de 35 dias em diante); recebimento = conclusão − tempo do núcleo (base 6/9/13/16/20 dias + 0 a 2, médias distintas); fiscalização 1 dia antes da conclusão; prazos mistos (no prazo e atrasadas).
+- **Decisões técnicas:** sem migration; só `DemoMassaGerador` (determinístico por dia); a numeração DEM-AAAA/NNNN pode mudar.
+- **Arquivos principais:** `DemoMassaGerador`, `DemoMassaGeradorTest`, `docs/DEMO.md`.
+- **Testes:** a confirmar pelo validador (implementador: testes do pacote demo, 0 falhas).
+- **Pendências:** `demo-reset` após o merge (sessão principal).
