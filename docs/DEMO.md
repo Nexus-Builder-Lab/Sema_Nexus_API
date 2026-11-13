@@ -9,11 +9,11 @@
 |---|---|---|---|
 | Administrador | `admin@admin.com` | `12345678` | Ativo — **usuário de teste padrão** |
 | Gestor | `gestor@demo.semanexus.local` | `Demo@Sema2026` | Ativo (seed — Issue #5) |
-| Fiscal | `fiscal1@demo.semanexus.local` | `Demo@Sema2026` | Ativo (seed — Issue #5) |
+| Fiscal | `fiscal1@demo.semanexus.local` | `Demo@Sema2026` | Ativo (seed — Issue #5); equipes Alfa–Delta, **sem demandas** desde a #91 |
 | Fiscal | `fiscal2@demo.semanexus.local` | `Demo@Sema2026` | Ativo (seed — Issue #5) |
 | Analista | `analista@demo.semanexus.local` | `Demo@Sema2026` | Ativo (seed — Issue #5) |
 | Consulta | `consulta@demo.semanexus.local` | `Demo@Sema2026` | Ativo (seed — Issue #5) |
-| Fiscal (Cuiabá) | `fiscal.cba1@demo.semanexus.local` | `Demo@Sema2026` | Ativo (seed — Issue #91) |
+| Fiscal (Cuiabá) | `fiscal.cba1@demo.semanexus.local` | `Demo@Sema2026` | Ativo (seed — Issue #91); **conta do botão "Fiscal"** do login (Issue #112) |
 | Fiscal (Cuiabá) | `fiscal.cba2@demo.semanexus.local` | `Demo@Sema2026` | Ativo (seed — Issue #91) |
 | Fiscal (Cáceres) | `fiscal.cac1@demo.semanexus.local` | `Demo@Sema2026` | Ativo (seed — Issue #91) |
 | Fiscal (Cáceres) | `fiscal.cac2@demo.semanexus.local` | `Demo@Sema2026` | Ativo (seed — Issue #91) |
@@ -43,7 +43,7 @@ Regras: essas contas existem **apenas** nos profiles `demo`/`dev`, são gravadas
 5. **Sem internet:** o mapa de MT funciona offline (camadas OpenStreetMap e Visão de satélite desligadas por padrão; ambas exigem internet, e o satélite exige `ESRI_API_KEY` no `.env` — ver `docs/DOCKER.md`) e todo o ambiente roda local (Oracle, API, web, arquivos no volume). Desconectar a rede e recarregar para confirmar.
 6. Para refazer a demonstração, rode `demo-reset` de novo: o cenário volta ao estado inicial.
 
-Usuário único recomendado para o fluxo inteiro: **admin** (perfil com todas as ações). Para mostrar perfis (3–6 min, opcional): `gestor@demo.semanexus.local`, `fiscal1@demo.semanexus.local`, `analista@demo.semanexus.local` e `consulta@demo.semanexus.local` (senha `Demo@Sema2026`; consulta só lê).
+Usuário único recomendado para o fluxo inteiro: **admin** (perfil com todas as ações). Para mostrar perfis (3–6 min, opcional): `gestor@demo.semanexus.local`, `fiscal.cba1@demo.semanexus.local` (Núcleo Cuiabá; o fiscal só vê as demandas da sua equipe ou atribuídas a ele), `analista@demo.semanexus.local` e `consulta@demo.semanexus.local` (senha `Demo@Sema2026`; consulta só lê).
 
 ## Roteiro (~10 minutos)
 

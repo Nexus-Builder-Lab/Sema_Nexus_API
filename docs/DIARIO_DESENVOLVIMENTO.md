@@ -420,3 +420,9 @@
 - **Status:** feito pela sessão principal (MVP de agentes aprovado pelo proprietário)
 - **O que foi feito:** `AgenteDocia` (ferramentas `buscar_documentos` e `ler_documento`, até 2 rodadas, resposta no esquema JSON) dentro do `AssistenteService` (mesmo endpoint); `BuscaDocumentos` extraída (busca por pontuação compartilhada com o modo extrativo); validação das referências (só documentos vistos pelas ferramentas, título do banco, trecho conferido no texto, ids removidos do texto da resposta); `RespostaAssistente` com `agente`, `modelo` e `passos` (construtor antigo mantido). `perguntar` deixou de ser `readOnly` (a auditoria do agente grava).
 - **Testes:** `AgenteDociaTest` (5) e `AssistenteServiceTest` (6, inalterado); suíte completa. Real no Docker: 4 perguntas, 3–12 s, respostas corretas com citação; pergunta sem base → "não há informação suficiente".
+
+## 2026-11-13 · GH-112 · Perfil Fiscal da demonstração sem demandas
+- **Status:** corrigido pela sessão principal (relatado pelo proprietário)
+- **Causa:** `loginDemo` usava o primeiro fiscal demonstrativo (`fiscal1`, equipes Alfa–Delta), que ficou sem demandas desde os núcleos regionais (#91); a regra de visibilidade do fiscal (equipe ou atribuídas) está correta.
+- **O que foi feito:** `AuthService.CONTA_DEMO_PREFERIDA` (FISCAL → `fiscal.cba1@demo.semanexus.local`, Núcleo Cuiabá), com reserva no primeiro usuário demonstrativo do perfil se a conta não existir ou estiver inativa; `docs/DEMO.md` atualizado. Sem mudança de autorização nem de massa (não exige demo-reset).
+- **Testes:** `AuthServiceTest` (novo caso: conta preferida e reserva); conferido no Docker.

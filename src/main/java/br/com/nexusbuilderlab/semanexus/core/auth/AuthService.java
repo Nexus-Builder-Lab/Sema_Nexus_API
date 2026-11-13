@@ -17,6 +17,7 @@ import br.com.nexusbuilderlab.semanexus.security.JwtService;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Locale;
 import java.util.Optional;
 import org.springframework.core.env.Environment;
@@ -37,6 +38,13 @@ public class AuthService {
             new PerfilDemo(Perfil.FISCAL, "Fiscal", "Executa fiscalizações e registra vistorias."),
             new PerfilDemo(Perfil.ANALISTA, "Analista", "Cadastra e distribui demandas; analisa documentos."),
             new PerfilDemo(Perfil.CONSULTA, "Consulta", "Acesso somente leitura aos painéis."));
+
+    /**
+     * Conta preferida por perfil no login demonstrativo (Issue #112): o fiscal1 (equipes Alfa–Delta) ficou sem
+     * demandas desde os núcleos regionais (#91); o fiscal do Núcleo Cuiabá tem demandas em vários estágios.
+     * Sem a conta preferida (ou inativa), vale o primeiro usuário demonstrativo do perfil.
+     */
+    static final Map<Perfil, String> CONTA_DEMO_PREFERIDA = Map.of(Perfil.FISCAL, "fiscal.cba1@demo.semanexus.local");
 
     private final UsuarioRepository usuarios;
     private final PasswordEncoder encoder;
@@ -98,7 +106,10 @@ public class AuthService {
     @Transactional
     public LoginResponse loginDemo(String perfilTexto) {
         Perfil perfil = interpretarPerfil(perfilTexto);
-        Usuario usuario = usuarios.findFirstByPerfilAndDemoTrueAndAtivoTrueOrderByIdAsc(perfil)
+        Usuario usuario = Optional.ofNullable(CONTA_DEMO_PREFERIDA.get(perfil))
+                .flatMap(usuarios::findByEmail)
+                .filter(u -> u.isDemo() && u.isAtivo() && u.getPerfil() == perfil)
+                .or(() -> usuarios.findFirstByPerfilAndDemoTrueAndAtivoTrueOrderByIdAsc(perfil))
                 .orElseThrow(() -> new RecursoNaoEncontradoException(
                         "Nenhum usuário demonstrativo ativo para o perfil " + perfil + "."));
         usuario.setUltimoAcesso(LocalDateTime.now(clock));
