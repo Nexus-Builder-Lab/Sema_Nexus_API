@@ -431,3 +431,8 @@
 - **Status:** feito pela sessão principal (pedido e aprovado pelo proprietário: aba "Painel do sistema" só para ADMIN)
 - **O que foi feito:** `GET /api/sistema/painel` (`core/sistema`): `PainelSistemaService` com verificações isoladas (API, Oracle, IA dos agentes, INPE, armazenamento) e estado OK/ATENCAO/INDISPONIVEL; `MetricasAgentes` (memória) alimentada pelo `ExecutorAgente` (sucesso, falha, tempo) e pelos modos demonstrativos (triagem por regras, DocIA extrativo); `ClienteModelo.diagnostico()` (Ollama: versão, modelos instalados e carregados com % na GPU; Claude: só chave configurada sim/não).
 - **Testes:** `PainelSistemaServiceTest` (2), `PainelSistemaControllerWebMvcTest` (2: só ADMIN, 401/403); suíte 349/349. Docker: 5 verificações OK, Ollama 0.40.11 com o modelo 100% na GPU, métricas da triagem registradas; gestor → 403.
+
+## 2026-11-13 · GH-116 · CLAUDE.md com as skills e os agentes de IA
+- **Status:** feito pela sessão principal (pedido do proprietário)
+- **O que foi feito:** seções "Agentes de IA no sistema" (pacote `agentes`, provedores ollama/anthropic/demo, Triagem e DocIA com suas ferramentas, regras: só consulta, nunca grava nem decide, chaves só no `.env`, aquecer o modelo antes da demonstração) e "Skills do Claude Code" (as 5 skills deste repositório e o aviso de que não autorizam nada além do `CLAUDE.md`); `docs/AGENTES_IA.md` na lista de detalhes.
+- **Testes:** só documentação; nomes de classes, endpoints, ferramentas e scripts conferidos no código.
