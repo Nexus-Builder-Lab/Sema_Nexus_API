@@ -62,14 +62,6 @@ public class DemoMassaService {
     ResultadoMassa aplicar(LocalDate hoje) {
         long analista = usuario("analista@demo.semanexus.local");
         long gestor = usuario("gestor@demo.semanexus.local");
-        long fiscal1 = usuario("fiscal1@demo.semanexus.local");
-        long fiscal2 = usuario("fiscal2@demo.semanexus.local");
-        List<Long> equipes = jdbc.queryForList("SELECT ID FROM EQUIPE WHERE NOME LIKE 'Equipe % (demonstrativa)' "
-                + "ORDER BY NOME", Long.class);
-        if (equipes.size() < 4) {
-            throw new IllegalStateException("Seed da massa: equipes demonstrativas ausentes (execute o seed base).");
-        }
-        long[] fiscalDaEquipe = {fiscal1, fiscal2, fiscal1, fiscal2};
 
         int novasDemandas = 0;
         Integer existentes = jdbc.queryForObject(
@@ -78,7 +70,7 @@ public class DemoMassaService {
             if (existentes != null && existentes > 0) {
                 throw new IllegalStateException("Seed da massa: carga parcial detectada; execute o demo-reset.");
             }
-            novasDemandas = inserirDemandas(hoje, analista, gestor, equipes, fiscalDaEquipe);
+            novasDemandas = inserirDemandas(hoje, analista, gestor);
         }
         int[] docs = inserirDocumentos(hoje, analista, gestor);
         return new ResultadoMassa(novasDemandas, docs[0], docs[1]);
@@ -86,24 +78,25 @@ public class DemoMassaService {
 
     // ------------------------------------------------------------------ demandas
 
-    private int inserirDemandas(LocalDate hoje, long analista, long gestor, List<Long> equipes, long[] fiscais) {
+    private int inserirDemandas(LocalDate hoje, long analista, long gestor) {
         String ids = DemoMassaGerador.MUNICIPIOS_IDS.stream().map(String::valueOf).collect(Collectors.joining(","));
-        List<MunicipioRef> municipios = jdbc.query("SELECT ID, NOME, BIOMA, LATITUDE, LONGITUDE FROM MUNICIPIO "
+        List<MunicipioRef> municipios = jdbc.query("SELECT ID, NOME, BIOMA, LATITUDE, LONGITUDE, REGIAO FROM MUNICIPIO "
                         + "WHERE ID IN (" + ids + ") ORDER BY ID",
                 (rs, n) -> new MunicipioRef(rs.getLong(1), rs.getString(2), rs.getString(3), rs.getDouble(4),
-                        rs.getDouble(5)));
+                        rs.getDouble(5), rs.getString(6)));
         List<DemandaSeed> lista = DemoMassaGerador.gerar(hoje, municipios);
         // ordem estável independente do banco: a posição na lista de ids fixa define o sorteio
         Map<Integer, Integer> sequencia = new java.util.HashMap<>();
+        Map<String, Long[]> nucleos = new java.util.HashMap<>();
 
         for (DemandaSeed d : lista) {
             int ano = d.recebimento().getYear();
             int seq = sequencia.computeIfAbsent(ano, this::ultimoNumero) + 1;
             sequencia.put(ano, seq);
             String numero = "DEM-%d/%04d".formatted(ano, seq);
-            int equipeIdx = d.indice() % 4;
-            Long equipe = d.passou("DISTRIBUIDA") ? equipes.get(equipeIdx) : null;
-            Long fiscal = equipe != null ? fiscais[equipeIdx] : null;
+            Long[] nucleo = d.passou("DISTRIBUIDA") ? nucleo(nucleos, d.municipio().regiao()) : null;
+            Long equipe = nucleo != null ? nucleo[0] : null;
+            Long fiscal = nucleo != null ? nucleo[1] : null;
             LocalDateTime criada = d.recebimento().atTime(8, 0);
             LocalDateTime ultima = ultimaMovimentacao(d);
 
@@ -177,6 +170,20 @@ public class DemoMassaService {
                     e.getValue());
         }
         return lista.size();
+    }
+
+    /** Equipe e fiscal responsável do núcleo regional da região (cache por sigla do setor). */
+    private Long[] nucleo(Map<String, Long[]> cache, String regiao) {
+        return cache.computeIfAbsent(DemoMassaGerador.siglaNucleo(regiao), sigla -> {
+            List<Long[]> r = jdbc.query("SELECT e.ID, e.RESPONSAVEL_ID FROM EQUIPE e JOIN SETOR s ON s.ID = e.SETOR_ID "
+                    + "WHERE s.SIGLA = ? AND e.NOME LIKE 'Equipe % (demonstrativa)' AND e.RESPONSAVEL_ID IS NOT NULL",
+                    (rs, n) -> new Long[] {rs.getLong(1), rs.getLong(2)}, sigla);
+            if (r.size() != 1) {
+                throw new IllegalStateException("Seed da massa: equipe do núcleo " + sigla
+                        + " ausente (execute o seed base).");
+            }
+            return r.get(0);
+        });
     }
 
     private static LocalDateTime ultimaMovimentacao(DemandaSeed d) {

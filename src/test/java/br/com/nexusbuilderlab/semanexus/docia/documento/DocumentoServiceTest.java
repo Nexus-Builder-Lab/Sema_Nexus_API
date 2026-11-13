@@ -47,7 +47,8 @@ class DocumentoServiceTest {
     @BeforeEach
     void preparar() throws IOException {
         service = new DocumentoService(documentos, mock(MunicipioRepository.class), usuarios, storage,
-                new TextExtractor(), auditoria, mock(DemandaService.class), jdbc);
+                new TextExtractor(), auditoria, mock(DemandaService.class), jdbc,
+                mock(br.com.nexusbuilderlab.semanexus.core.notificacao.NotificacaoService.class));
         when(storage.store(any())).thenReturn("2026/11/uuid");
         when(usuarios.findById(3L)).thenReturn(Optional.of(mock(Usuario.class)));
         when(documentos.save(any())).thenAnswer(i -> i.getArgument(0));

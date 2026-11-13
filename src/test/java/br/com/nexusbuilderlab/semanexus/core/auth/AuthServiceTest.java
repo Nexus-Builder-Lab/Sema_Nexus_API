@@ -140,6 +140,39 @@ class AuthServiceTest {
     }
 
     @Test
+    void configuracaoDemoListaPerfisSomenteNoProfileDemo() {
+        assertThat(servico.configuracao().perfisDemo()).isNull();
+        ambiente.setActiveProfiles("demo");
+        var perfis = servico.configuracao().perfisDemo();
+        assertThat(perfis).extracting(p -> p.perfil()).containsExactly(Perfil.values());
+        assertThat(perfis).allSatisfy(p -> assertThat(p.nome()).isNotBlank());
+    }
+
+    @Test
+    void loginDemoDevolveTokenDoUsuarioDemoEAuditaModoDemonstracao() {
+        when(usuarios.findFirstByPerfilAndDemoTrueAndAtivoTrueOrderByIdAsc(Perfil.GESTOR))
+                .thenReturn(Optional.of(usuario));
+
+        LoginResponse r = servico.loginDemo("gestor");
+
+        assertThat(r.usuario().id()).isEqualTo(5L);
+        assertThat(jwt.validar(r.token())).isPresent();
+        verify(auditoria).registrarComo(eq(5L), eq("LOGIN"), eq("USUARIO"), eq("5"),
+                org.mockito.ArgumentMatchers.contains("modo demonstração"));
+        verify(encoder, never()).matches(any(), any());
+    }
+
+    @Test
+    void loginDemoPerfilInvalidoOuSemUsuarioFalha() {
+        assertThatThrownBy(() -> servico.loginDemo("XPTO"))
+                .isInstanceOf(br.com.nexusbuilderlab.semanexus.common.exception.DadosInvalidosException.class);
+        when(usuarios.findFirstByPerfilAndDemoTrueAndAtivoTrueOrderByIdAsc(Perfil.FISCAL))
+                .thenReturn(Optional.empty());
+        assertThatThrownBy(() -> servico.loginDemo("FISCAL")).isInstanceOf(RecursoNaoEncontradoException.class);
+        verify(auditoria, never()).registrarComo(any(), eq("LOGIN"), any(), any(), any());
+    }
+
+    @Test
     void dtosNaoExpoemSenhaNemTokenEmToString() {
         assertThat(new LoginRequest("a@b.test", SENHA).toString()).doesNotContain(SENHA);
         assertThat(new LoginResponse("tok.en.secreto", 1, null).toString()).doesNotContain("secreto");

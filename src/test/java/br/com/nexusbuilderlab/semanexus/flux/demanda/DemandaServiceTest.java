@@ -86,7 +86,7 @@ class DemandaServiceTest {
     @BeforeEach
     void preparar() {
         service = new DemandaService(demandas, historicos, fiscalizacoes, municipios, equipes, usuarios, numeracao,
-                auditoria, RELOGIO);
+                auditoria, RELOGIO, mock(br.com.nexusbuilderlab.semanexus.core.notificacao.NotificacaoService.class));
         cuiaba = mock(Municipio.class);
         when(cuiaba.getId()).thenReturn(5103403);
         when(cuiaba.getNome()).thenReturn("Cuiabá");
@@ -144,11 +144,30 @@ class DemandaServiceTest {
     }
 
     @Test
+    void detalheExpoePrazoSugeridoNoCadastroEnullQuandoAusente() {
+        assertThat(service.cadastrar(ator, pedido(5103403, HOJE, HOJE.plusDays(5))).prazoSugerido())
+                .isEqualTo(HOJE.plusDays(5));
+        assertThat(service.cadastrar(ator, pedido(5103403, HOJE, null)).prazoSugerido()).isNull();
+    }
+
+    @Test
+    void detalheExpoePrazoSugeridoNaObtencaoEnullQuandoAusente() {
+        Demanda comPrazo = demanda(1, StatusDemanda.PENDENTE);
+        comPrazo.setPrazoSugerido(HOJE.plusDays(10));
+        Demanda semPrazo = demanda(2, StatusDemanda.PENDENTE);
+        when(demandas.buscarDetalhe(1L)).thenReturn(Optional.of(comPrazo));
+        when(demandas.buscarDetalhe(2L)).thenReturn(Optional.of(semPrazo));
+
+        assertThat(service.detalhar(ator, 1L).prazoSugerido()).isEqualTo(HOJE.plusDays(10));
+        assertThat(service.detalhar(ator, 2L).prazoSugerido()).isNull();
+    }
+
+    @Test
     void cadastroUsaOAnoDeHojeEmCuiabaParaANumeracao() {
         // 02:00 UTC de 01/01/2027 ainda é 31/12/2026 em Cuiabá
         Clock virada = Clock.fixed(Instant.parse("2027-01-01T02:00:00Z"), ZoneOffset.UTC);
         DemandaService s = new DemandaService(demandas, historicos, fiscalizacoes, municipios, equipes, usuarios,
-                numeracao, auditoria, virada);
+                numeracao, auditoria, virada, mock(br.com.nexusbuilderlab.semanexus.core.notificacao.NotificacaoService.class));
         s.cadastrar(ator, pedido(5103403, LocalDate.of(2026, 12, 30), null));
         verify(numeracao).proximoNumero(2026);
     }
@@ -332,6 +351,23 @@ class DemandaServiceTest {
             assertThat(service.detalhar(UsuarioAutenticado.de(usuario(30L, p)), 1L).id()).isEqualTo(1L);
         }
         verify(equipes, never()).findIdsByMembro(any());
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    void listagemTrazConcluidaEmSoNasFinalizadasEAtualizadoEm() {
+        Demanda finalizada = demanda(1, StatusDemanda.FINALIZADA);
+        LocalDateTime fim = LocalDateTime.of(2026, 11, 10, 9, 30);
+        finalizada.setConcluidaEm(fim);
+        Demanda aberta = demanda(2, StatusDemanda.PENDENTE);
+        when(demandas.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<Demanda>(List.of(finalizada, aberta), PageRequest.of(0, 10), 2));
+
+        List<DemandaResumo> itens = service.listar(ator, SEM_FILTRO, PageRequest.of(0, 10)).content();
+
+        assertThat(itens.get(0).concluidaEm()).isEqualTo(fim);
+        assertThat(itens.get(1).concluidaEm()).isNull();
+        assertThat(itens.get(0).atualizadoEm()).isEqualTo(finalizada.getAtualizadoEm());
     }
 
     @SuppressWarnings("unchecked")

@@ -20,12 +20,13 @@ final class DemoMassaGerador {
     static final int TOTAL = 120;
     static final long SEMENTE = 18L;
 
-    /** Municípios de MT (IBGE) usados no seed: 11 Amazônia, 10 Cerrado, 5 Pantanal. */
+    /** Municípios de MT (IBGE) usados no seed, cobrindo as 5 regiões intermediárias (inclui 6 de Barra do Garças). */
     static final List<Long> MUNICIPIOS_IDS = List.of(
             5100250L, 5103254L, 5101407L, 5105150L, 5106422L, 5107909L, 5107925L, 5105259L, 5103205L, 5105606L,
             5103379L,
             5103403L, 5107602L, 5107958L, 5107040L, 5106224L, 5103007L, 5108402L, 5104807L, 5103502L, 5106307L,
-            5102504L, 5106505L, 5107800L, 5101605L, 5106109L);
+            5102504L, 5106505L, 5107800L, 5101605L, 5106109L,
+            5101803L, 5100201L, 5102702L, 5106257L, 5107065L, 5103353L);
 
     private static final Map<String, Integer> CONTAGEM = Map.of(
             "PENDENTE", 10, "EM_TRIAGEM", 10, "AGUARDANDO_DISTRIBUICAO", 12, "DISTRIBUIDA", 16,
@@ -35,6 +36,11 @@ final class DemoMassaGerador {
     private static final Map<String, Integer> IDADE_MINIMA = Map.of(
             "PENDENTE", 0, "EM_TRIAGEM", 1, "AGUARDANDO_DISTRIBUICAO", 2, "DISTRIBUIDA", 4,
             "EM_ANDAMENTO", 7, "AGUARDANDO_CONCLUSAO", 14, "FINALIZADA", 21);
+
+    /** Tempo base de conclusão (dias) por núcleo; cada demanda soma 0 a 2 dias. */
+    private static final Map<String, Integer> DURACAO_BASE = Map.of(
+            "NR-CBA", 6, "NR-ROO", 9, "NR-BAG", 13, "NR-CAC", 16, "NR-SNO", 20);
+    private static final List<String> NUCLEOS_ORDEM = List.of("NR-CBA", "NR-CAC", "NR-ROO", "NR-BAG", "NR-SNO");
 
     static final List<String> STATUS_ORDEM = List.of("PENDENTE", "EM_TRIAGEM", "AGUARDANDO_DISTRIBUICAO",
             "DISTRIBUIDA", "EM_ANDAMENTO", "AGUARDANDO_CONCLUSAO", "FINALIZADA");
@@ -56,7 +62,7 @@ final class DemoMassaGerador {
             "RESIDUOS_POLUICAO", "Descarte irregular de resíduos",
             "AREA_PRESERVACAO_PERMANENTE", "Ocupação irregular de área de preservação permanente");
 
-    record MunicipioRef(long id, String nome, String bioma, double latitude, double longitude) {
+    record MunicipioRef(long id, String nome, String bioma, double latitude, double longitude, String regiao) {
     }
 
     /** Demanda do cenário fixo do roteiro (docs/DEMO.md). */
@@ -87,6 +93,18 @@ final class DemoMassaGerador {
         }
     }
 
+    /** Sigla do setor do Núcleo Regional de Fiscalização (fictício) da região intermediária do IBGE. */
+    static String siglaNucleo(String regiao) {
+        return switch (regiao) {
+            case "Cuiabá" -> "NR-CBA";
+            case "Cáceres" -> "NR-CAC";
+            case "Rondonópolis" -> "NR-ROO";
+            case "Barra do Garças" -> "NR-BAG";
+            case "Sinop" -> "NR-SNO";
+            default -> throw new IllegalArgumentException("Região sem núcleo regional: " + regiao);
+        };
+    }
+
     private DemoMassaGerador() {
     }
 
@@ -110,12 +128,29 @@ final class DemoMassaGerador {
 
         List<DemandaSeed> lista = new ArrayList<>();
         int n = municipios.size();
+        int fin = 0;
         for (int i = 0; i < TOTAL; i++) {
             Cenario cen = i < CENARIOS.size() ? CENARIOS.get(i) : null;
             String status = cen != null ? cen.status() : statuses.get(i - CENARIOS.size());
-            int idade = cen != null ? cen.idadeDias() : sortearIdade(rnd, hoje, IDADE_MINIMA.get(status));
+            boolean finalizadaSorteada = cen == null && status.equals("FINALIZADA");
+            MunicipioRef m = cen != null ? municipio(municipios, cen.municipioId())
+                    : finalizadaSorteada ? municipioDoNucleo(municipios, fin) : municipios.get((i * 7) % n);
+            int duracao = DURACAO_BASE.get(siglaNucleo(m.regiao())) + (cen != null ? 1 : fin % 3);
+            LocalDate conclusao = null;
+            int idade;
+            if (cen != null) {
+                idade = cen.idadeDias();
+                conclusao = hoje.minusDays(idade).plusDays(duracao);
+            } else if (finalizadaSorteada) {
+                // metade conclui nos últimos 25 dias (1 a 25); as demais, de 35 dias em diante
+                int atras = fin % 2 == 0 ? 1 + (fin / 2) * 24 / 14 : 35 + (fin / 2) * 20;
+                conclusao = hoje.minusDays(atras);
+                idade = atras + duracao;
+                fin++;
+            } else {
+                idade = sortearIdade(rnd, hoje, IDADE_MINIMA.get(status));
+            }
             LocalDate recebimento = hoje.minusDays(idade);
-            MunicipioRef m = cen != null ? municipio(municipios, cen.municipioId()) : municipios.get((i * 7) % n);
             String categoria = cen != null ? cen.categoria() : categoria(rnd, recebimento);
             String origem = ORIGENS.get(rnd.nextInt(ORIGENS.size()));
             String prioridade = PRIORIDADES.get(rnd.nextInt(PRIORIDADES.size()));
@@ -129,13 +164,25 @@ final class DemoMassaGerador {
             LocalDate prazoSugerido = pos >= 2 ? recebimento.plusDays(31) : null;
             int diasPrazo = cen != null && cen.chave().equals("C6") ? 7 : (i % 4 == 0 ? 7 : 20 + (i % 25));
             LocalDate prazo = pos >= 3 ? recebimento.plusDays(2L + diasPrazo) : null;
+            if (pos == 6) {
+                // finalizadas: parte concluída dentro do prazo, parte atrasada
+                prazo = conclusao.plusDays(i % 3 == 0 ? -3 : 4);
+            }
             lista.add(new DemandaSeed(cen != null ? cen.chave() : null, titulo, descricao, origem, categoria, m,
                     "Zona rural de " + m.nome() + " (fictícia)", lat, lon, recebimento,
                     pos >= 2 ? prioridade : null, prazoSugerido, prazo, status, i,
-                    pos >= 5 ? recebimento.plusDays(7) : null, pos == 6 ? recebimento.plusDays(10) : null));
+                    pos == 6 ? conclusao.minusDays(1) : pos >= 5 ? recebimento.plusDays(7) : null,
+                    pos == 6 ? conclusao : null));
         }
         lista.sort(Comparator.comparing(DemandaSeed::recebimento).thenComparing(DemandaSeed::indice));
         return lista;
+    }
+
+    /** Município de um núcleo, alternando os cinco núcleos para que todos tenham finalizadas. */
+    private static MunicipioRef municipioDoNucleo(List<MunicipioRef> ms, int k) {
+        String sigla = NUCLEOS_ORDEM.get(k % NUCLEOS_ORDEM.size());
+        List<MunicipioRef> doNucleo = ms.stream().filter(x -> siglaNucleo(x.regiao()).equals(sigla)).toList();
+        return doNucleo.get((k / NUCLEOS_ORDEM.size()) % doNucleo.size());
     }
 
     private static MunicipioRef municipio(List<MunicipioRef> ms, long id) {

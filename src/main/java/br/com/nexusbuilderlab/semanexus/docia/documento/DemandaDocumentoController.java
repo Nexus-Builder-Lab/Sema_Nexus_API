@@ -5,6 +5,9 @@ import br.com.nexusbuilderlab.semanexus.docia.documento.dto.VinculoDocumentoRequ
 import br.com.nexusbuilderlab.semanexus.security.Autorizacao;
 import br.com.nexusbuilderlab.semanexus.security.UsuarioAutenticado;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -36,6 +39,8 @@ public class DemandaDocumentoController {
 
     @Operation(summary = "Documentos vinculados à demanda",
             description = "Qualquer perfil autenticado; FISCAL só nas demandas da sua equipe ou atribuídas a ele.")
+    @ApiResponse(responseCode = "200", description = "Documentos vinculados à demanda",
+            content = @Content(array = @ArraySchema(schema = @Schema(implementation = DocumentoResumo.class))))
     @ApiResponse(responseCode = "403", description = "Fiscal fora do escopo (demanda de outra equipe)")
     @GetMapping
     public List<DocumentoResumo> listar(@AuthenticationPrincipal UsuarioAutenticado ator, @PathVariable Long id) {

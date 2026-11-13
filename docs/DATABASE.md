@@ -52,7 +52,7 @@ Conexão: `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOU
 | `FISCALIZACAO` | `ID`, `DEMANDA_ID` (UK), `DATA`, `EQUIPE_ID`, `ATIVIDADES`, `RESULTADO`, `EVIDENCIAS`, `RECOMENDACOES`, `REGISTRADO_POR` | 1:1 com a demanda no MVP | #11 ✅ |
 | `DOCUMENTO` | `ID`, `TITULO`, `DESCRICAO`, `CATEGORIA`, `TIPO`, `DATA_DOCUMENTO`, `MUNICIPIO_ID`, `PALAVRAS_CHAVE`, `NOME_ARQUIVO`, `MIME`, `TAMANHO`, `STORAGE_KEY`, `SHA256`, `TEXTO_EXTRAIDO` (CLOB), `RESPONSAVEL_ID`, `EXCLUIDO_EM` | arquivo **fora** do banco; índices em `CATEGORIA`, `DATA_DOCUMENTO` | #15 ✅ |
 | `DOCUMENTO_DEMANDA` | `DOCUMENTO_ID`, `DEMANDA_ID`, `VINCULADO_EM`, `VINCULADO_POR` | PK composta | #15 ✅ (migration `V4__docia.sql`) |
-| `NOTIFICACAO` (P1) | `ID`, `USUARIO_ID`, `TIPO`, `MENSAGEM`, `LINK`, `LIDA`, `CRIADA_EM` | | #25 |
+| `NOTIFICACAO` (P1) | `ID`, `USUARIO_ID`, `TIPO`, `TITULO`, `MENSAGEM`, `DEMANDA_ID`, `CHAVE`, `LIDA`, `CRIADA_EM`, `LIDA_EM` | UK `(USUARIO_ID, CHAVE)` evita duplicidade (V6) | #25 |
 
 ## Catálogos (enums)
 
@@ -73,3 +73,16 @@ Conexão: `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOU
 - Reset: `scripts/demo-reset` (Issue #9) — exige confirmação, recusa profiles diferentes de `demo`/`dev`, recria os volumes e recarrega o seed.
 
 - **Implementado (Issue #18) — massa demonstrativa:** `DemoMassaRunner` → `DemoMassaService` (depois do seed base; profiles `demo`/`dev`, nunca `openapi`). Gera de forma determinística (`DemoMassaGerador`, semente fixa; datas relativas ao dia da execução, fuso America/Cuiaba): 120 demandas em 26 municípios de MT (11 Amazônia, 10 Cerrado, 5 Pantanal) cobrindo os 7 status (10 Pendente, 10 Em triagem, 12 Aguardando distribuição, 16 Distribuída, 26 Em andamento, 16 Aguardando conclusão, 30 Finalizada), últimos 12 meses com mais queimadas em jul–out, algumas atrasadas; histórico (`DEMANDA_HISTORICO`), `DISTRIBUICAO` e `FISCALIZACAO` coerentes com o status; 12 documentos fictícios (PDF/TXT gerados, gravados no volume `STORAGE_DIR`, incluindo as duas versões do "Parecer Técnico nº 014/2026") vinculados às demandas do cenário. Idempotente: demandas marcadas com `[DEMO-SEED]` em `OBSERVACOES` (já existindo 120, nada é criado); documentos por (título, arquivo). `NUMERACAO_DEMANDA` é atualizada. Sem migration nova.
+
+## Camada de referência de satélite — INPE (Implementado — Issue #34)
+
+Migration `V5__referencia_satelite.sql`: `IMPORTACAO_REFERENCIA` (`FONTE`, `TIPO`, `PERIODO_DE/ATE`, `IMPORTADO_EM`, `REGISTROS`, `URL_ORIGEM`, `LICENCA`, `ARQUIVO`, `SHA256` único) e `REFERENCIA_SATELITE` (`IMPORTACAO_ID` FK, `TIPO` `FOCO_CALOR|DESMATAMENTO`, `DATA_HORA` em UTC, `LATITUDE/LONGITUDE` com CHECK dentro de MT, `MUNICIPIO_ID` FK, `BIOMA`, `SATELITE`, `CLASSE`, `AREA_KM2`, `ATRIBUTOS` CLOB), índices em `(TIPO, DATA_HORA)`, `MUNICIPIO_ID` e `IMPORTACAO_ID`.
+
+**Fontes (exceção de escopo aprovada em 10/11/2026: somente dados públicos abertos do INPE, sempre identificados):**
+
+| Fonte | Endereço | Formato | Termos |
+|---|---|---|---|
+| Focos de calor — Programa Queimadas/BDQueimadas | `https://dataserver-coids.inpe.br/queimadas/queimadas/focos/csv/diario/Brasil/focos_diario_br_AAAAMMDD.csv` (filtro `estado = MATO GROSSO`) | CSV diário (`lat, lon, data_hora_gmt, satelite, municipio_id (IBGE), bioma, frp...`) | Dados abertos do INPE; citar "Fonte: INPE — Programa Queimadas". |
+| Alertas DETER Amazônia e Cerrado — TerraBrasilis | WFS `https://terrabrasilis.dpi.inpe.br/geoserver/ows`, camadas `deter-amz:deter_amz` e `deter-cerrado-nb:deter_cerrado` (`uf='MT'`) | CSV com geometria WKT (reduzida a centroide) | Páginas do TerraBrasilis indicam Creative Commons Atribuição-CompartilhaIgual 4.0 (CC BY-SA 4.0); citar "Fonte: INPE — TerraBrasilis". **Confirmar os termos vigentes no site antes de redistribuir.** |
+
+**Snapshot:** `scripts/referencia/baixar-inpe.ps1` / `.sh [dias=60]` (requer internet) geram `src/main/resources/referencia/{focos_calor_mt,deter_mt}.csv.gz` e os `.properties` (fonte, período, URL, licença). O `ReferenciaSateliteLoader` (profiles `demo`/`dev`, `@Order(30)`) importa sem internet, é idempotente pelo SHA-256 do arquivo (trocar o arquivo gera nova importação), descarta pontos fora de MT, usa o código IBGE da fonte (ou o município de centroide mais próximo) e o bioma da fonte (ou do município). Falha na carga não impede a subida da API.

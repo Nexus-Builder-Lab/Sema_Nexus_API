@@ -8,6 +8,8 @@ import br.com.nexusbuilderlab.semanexus.common.exception.RecursoNaoEncontradoExc
 import br.com.nexusbuilderlab.semanexus.core.auditoria.AuditService;
 import br.com.nexusbuilderlab.semanexus.core.municipio.Municipio;
 import br.com.nexusbuilderlab.semanexus.core.municipio.MunicipioRepository;
+import br.com.nexusbuilderlab.semanexus.core.notificacao.NotificacaoService;
+import br.com.nexusbuilderlab.semanexus.core.notificacao.TipoNotificacao;
 import br.com.nexusbuilderlab.semanexus.core.usuario.UsuarioRepository;
 import br.com.nexusbuilderlab.semanexus.common.dto.PageResponse;
 import br.com.nexusbuilderlab.semanexus.common.exception.ConflitoException;
@@ -56,10 +58,11 @@ public class DocumentoService {
     private final AuditService auditoria;
     private final DemandaService demandas;
     private final JdbcTemplate jdbc;
+    private final NotificacaoService notificacoes;
 
     public DocumentoService(DocumentoRepository documentos, MunicipioRepository municipios, UsuarioRepository usuarios,
                             StorageService storage, TextExtractor extrator, AuditService auditoria,
-                            DemandaService demandas, JdbcTemplate jdbc) {
+                            DemandaService demandas, JdbcTemplate jdbc, NotificacaoService notificacoes) {
         this.documentos = documentos;
         this.municipios = municipios;
         this.usuarios = usuarios;
@@ -68,6 +71,7 @@ public class DocumentoService {
         this.auditoria = auditoria;
         this.demandas = demandas;
         this.jdbc = jdbc;
+        this.notificacoes = notificacoes;
     }
 
     /** Arquivo pronto para download (nome original já saneado). */
@@ -174,7 +178,7 @@ public class DocumentoService {
 
     @Transactional
     public DocumentoResumo vincular(UsuarioAutenticado ator, Long demandaId, Long documentoId) {
-        demandas.detalhar(ator, demandaId);
+        var demanda = demandas.detalhar(ator, demandaId);
         Documento d = ativo(documentoId);
         Integer existentes = jdbc.queryForObject(
                 "SELECT COUNT(*) FROM DOCUMENTO_DEMANDA WHERE DOCUMENTO_ID = ? AND DEMANDA_ID = ?", Integer.class,
@@ -190,6 +194,12 @@ public class DocumentoService {
         }
         demandas.registrarEventoDocumento(ator, demandaId,
                 "Documento vinculado: " + d.getTitulo() + " (#" + documentoId + ").");
+        if (demanda.fiscal() != null && !demanda.fiscal().id().equals(ator.id())) {
+            notificacoes.notificar(demanda.fiscal().id(), TipoNotificacao.DOCUMENTO_VINCULADO,
+                    "Novo documento na demanda " + demanda.numero(),
+                    "O documento \"" + d.getTitulo() + "\" foi vinculado à demanda " + demanda.numero() + ".",
+                    demandaId, "DOCUMENTO:" + demandaId + ":" + documentoId + ":" + System.currentTimeMillis());
+        }
         auditoria.registrar("VINCULAR", ENTIDADE, String.valueOf(documentoId), "Vinculado à demanda " + demandaId);
         return resumo(d);
     }

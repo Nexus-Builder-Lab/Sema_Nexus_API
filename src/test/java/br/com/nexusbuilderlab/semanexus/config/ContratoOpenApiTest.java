@@ -35,6 +35,7 @@ class ContratoOpenApiTest {
             "GET /api/catalogos/municipios", "GET /api/catalogos/biomas", "GET /api/catalogos/categorias",
             "GET /api/catalogos/origens", "GET /api/catalogos/prioridades", "GET /api/catalogos/status",
             "GET /api/setores", "GET /api/equipes", "GET /api/equipes/{id}/membros",
+            "GET /api/notificacoes", "GET /api/notificacoes/nao-lidas/contagem", "PATCH /api/notificacoes/{id}/lida",
             // Flux (contrato)
             "POST /api/demandas", "PUT /api/demandas/{id}", "GET /api/demandas", "GET /api/demandas/{id}",
             "DELETE /api/demandas/{id}", "GET /api/demandas/{id}/historico",
@@ -45,14 +46,24 @@ class ContratoOpenApiTest {
             "POST /api/demandas/{id}/devolucao",
             "GET /api/demandas/{id}/documentos", "POST /api/demandas/{id}/documentos",
             "DELETE /api/demandas/{id}/documentos/{documentoId}",
+            "GET /api/flux/prazos", "GET /api/flux/prazos/resumo", "GET /api/flux/produtividade",
             // DocIA (contrato)
             "POST /api/documentos", "GET /api/documentos", "GET /api/documentos/{id}", "GET /api/documentos/{id}/arquivo",
+            "POST /api/docia/perguntas",
+            "POST /api/documentos/comparacao",
             // Intelligence e dashboard (contrato)
             "GET /api/intelligence/resumo", "GET /api/intelligence/serie-mensal", "GET /api/intelligence/por-municipio",
             "GET /api/intelligence/por-bioma", "GET /api/intelligence/por-categoria", "GET /api/intelligence/por-situacao",
             "GET /api/intelligence/mapa", "GET /api/dashboard",
+            "GET /api/relatorios/demandas", "GET /api/relatorios/demandas.csv",
+            "GET /api/intelligence/referencia/metadados", "GET /api/intelligence/referencia/pontos",
+            "GET /api/intelligence/referencia/por-municipio",
             // Core — auditoria (implementado)
-            "GET /api/auditoria");
+            "GET /api/auditoria",
+            // Core — gestão de usuários, setores e equipes (Issue #24)
+            "GET /api/usuarios", "POST /api/usuarios", "GET /api/usuarios/{id}", "PUT /api/usuarios/{id}",
+            "PATCH /api/usuarios/{id}/ativacao", "POST /api/setores", "PUT /api/setores/{id}",
+            "POST /api/equipes", "PUT /api/equipes/{id}", "PUT /api/equipes/{id}/membros");
 
     /** Endpoints com contrato publicado que ainda respondem 501 (saem desta lista quando a Issue os implementa). */
     static final Map<String, Integer> PENDENTES = Map.of();
@@ -149,6 +160,27 @@ class ContratoOpenApiTest {
     }
 
     @Test
+    void todaOperacaoDeclaraRespostaDeSucesso2xx() throws Exception {
+        List<String> sem2xx = new ArrayList<>();
+        for (String chave : ENDPOINTS_P0) {
+            boolean tem2xx = false;
+            var codigos = operacao(chave).path("responses").fieldNames();
+            while (codigos.hasNext()) {
+                tem2xx |= codigos.next().startsWith("2");
+            }
+            if (!tem2xx) {
+                sem2xx.add(chave);
+            }
+        }
+        assertThat(sem2xx).as("operações sem resposta 2xx").isEmpty();
+        JsonNode login = operacao("POST /api/auth/login").path("responses").path("200");
+        assertThat(login.path("content").path("application/json").path("schema").path("$ref").asText())
+                .isEqualTo("#/components/schemas/LoginResponse");
+        assertThat(contrato().path("components").path("schemas").path("LoginResponse").path("properties").fieldNames())
+                .toIterable().contains("token", "expiresIn", "usuario");
+    }
+
+    @Test
     void erro401AusenteSoNosEndpointsPublicos() throws Exception {
         List<String> publicos = List.of("POST /api/auth/login", "GET /api/auth/config");
         for (String chave : ENDPOINTS_P0) {
@@ -237,7 +269,7 @@ class ContratoOpenApiTest {
         operacao("GET /api/demandas").path("parameters").forEach(p -> parametros.add(p.path("name").asText()));
         assertThat(parametros).contains("q", "status", "municipioId", "categoria", "prioridade", "equipeId", "fiscalId",
                 "atrasada", "de", "ate", "page", "size", "sort");
-        // Os campos "sort" e "page"/"size" vêm do Pageable (?page&size&sort); paginação máxima de 100 está em application.yml.
+        // Os campos "sort" e "page"/"size" vêm do Pageable (?page&size&sort); paginação máxima de 500 está em application.yml.
         List<String> doc = new ArrayList<>();
         operacao("GET /api/documentos").path("parameters").forEach(p -> doc.add(p.path("name").asText()));
         assertThat(doc).contains("q", "categoria", "tipo", "municipioId", "demandaId", "de", "ate", "page", "size", "sort");

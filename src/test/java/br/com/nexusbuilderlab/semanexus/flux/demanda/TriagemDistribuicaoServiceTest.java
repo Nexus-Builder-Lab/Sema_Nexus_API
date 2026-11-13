@@ -59,6 +59,7 @@ class TriagemDistribuicaoServiceTest {
     @Mock UsuarioRepository usuarios;
     @Mock AuditService auditoria;
     @Mock DemandaService demandaService;
+    @Mock br.com.nexusbuilderlab.semanexus.core.notificacao.NotificacaoService notificacoes;
 
     TriagemService triagem;
     DistribuicaoService distribuicao;
@@ -72,7 +73,7 @@ class TriagemDistribuicaoServiceTest {
         DemandaStateMachine maquina = new DemandaStateMachine();
         triagem = new TriagemService(demandas, historicos, usuarios, maquina, demandaService, auditoria);
         distribuicao = new DistribuicaoService(demandas, historicos, distribuicoes, equipes, usuarios, maquina,
-                demandaService, auditoria, RELOGIO);
+                demandaService, auditoria, RELOGIO, notificacoes);
         gestor = usuario(10L, Perfil.GESTOR);
         ator = UsuarioAutenticado.de(gestor);
         when(usuarios.findById(10L)).thenReturn(Optional.of(gestor));
@@ -208,6 +209,9 @@ class TriagemDistribuicaoServiceTest {
         assertThat(h.getTipo()).isEqualTo(TipoHistorico.DISTRIBUICAO);
         assertThat(h.getStatusAnterior()).isEqualTo(StatusDemanda.AGUARDANDO_DISTRIBUICAO);
         assertThat(h.getStatusNovo()).isEqualTo(StatusDemanda.DISTRIBUIDA);
+        verify(notificacoes).notificar(org.mockito.ArgumentMatchers.eq(20L),
+                org.mockito.ArgumentMatchers.eq(br.com.nexusbuilderlab.semanexus.core.notificacao.TipoNotificacao.DISTRIBUICAO),
+                anyString(), anyString(), org.mockito.ArgumentMatchers.eq(5L), anyString());
         verify(auditoria).registrar(anyString(), anyString(), anyString(), anyString());
     }
 

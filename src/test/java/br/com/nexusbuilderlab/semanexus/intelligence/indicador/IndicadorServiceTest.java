@@ -29,7 +29,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 class IndicadorServiceTest {
 
     static final LocalDate HOJE = LocalDate.of(2026, 11, 10);
-    static final IndicadorFiltro SEM_FILTRO = new IndicadorFiltro(null, null, null, null, null, null);
+    static final IndicadorFiltro SEM_FILTRO = new IndicadorFiltro(null, null, null, null, null, null, null);
 
     IndicadorRepository repo = mock(IndicadorRepository.class);
     IndicadorService service;

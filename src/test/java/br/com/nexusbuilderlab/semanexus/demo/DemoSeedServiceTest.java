@@ -70,10 +70,10 @@ class DemoSeedServiceTest {
     void primeiraExecucaoCriaSetoresUsuariosEEquipes() {
         ResultadoSeed r = seed.aplicar();
 
-        assertThat(r.setores()).isEqualTo(3);
-        assertThat(r.usuarios()).isEqualTo(6);
-        assertThat(r.equipes()).isEqualTo(4);
-        assertThat(r.membros()).isEqualTo(6);
+        assertThat(r.setores()).isEqualTo(8);
+        assertThat(r.usuarios()).isEqualTo(16);
+        assertThat(r.equipes()).isEqualTo(9);
+        assertThat(r.membros()).isEqualTo(16);
         assertThat(r.vazio()).isFalse();
         assertThat(usuarios.keySet()).contains("admin@admin.com");
     }
@@ -90,7 +90,8 @@ class DemoSeedServiceTest {
         assertThat(usuarios.values()).allMatch(Usuario::isDemo);
         assertThat(usuarios.values()).extracting(Usuario::getPerfil)
                 .containsExactlyInAnyOrder(Perfil.ADMIN, Perfil.GESTOR, Perfil.FISCAL, Perfil.FISCAL,
-                        Perfil.ANALISTA, Perfil.CONSULTA);
+                        Perfil.ANALISTA, Perfil.CONSULTA, Perfil.FISCAL, Perfil.FISCAL, Perfil.FISCAL, Perfil.FISCAL,
+                        Perfil.FISCAL, Perfil.FISCAL, Perfil.FISCAL, Perfil.FISCAL, Perfil.FISCAL, Perfil.FISCAL);
         assertThat(usuarios.keySet().stream().filter(e -> !e.equals("admin@admin.com")))
                 .allMatch(e -> e.endsWith("@demo.semanexus.local"));
     }
@@ -122,11 +123,11 @@ class DemoSeedServiceTest {
 
         ResultadoSeed r = seed.aplicar();
 
-        assertThat(r.usuarios()).isEqualTo(5);
+        assertThat(r.usuarios()).isEqualTo(15);
         assertThat(usuarios.get("admin@admin.com")).isSameAs(existente);
         assertThat(existente.getNome()).isEqualTo("Outro Nome");
         ArgumentCaptor<Usuario> salvos = ArgumentCaptor.forClass(Usuario.class);
-        verify(usuarioRepo, org.mockito.Mockito.times(5)).save(salvos.capture());
+        verify(usuarioRepo, org.mockito.Mockito.times(15)).save(salvos.capture());
         assertThat(salvos.getAllValues()).noneMatch(x -> x.getEmail().equals("admin@admin.com"));
     }
 

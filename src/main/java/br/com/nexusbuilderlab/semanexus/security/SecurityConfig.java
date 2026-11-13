@@ -77,6 +77,7 @@ public class SecurityConfig {
                         .requestMatchers(PUBLICOS).permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/auth/config").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/demo/*").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(new JwtAuthFilter(jwtService, usuarios), UsernamePasswordAuthenticationFilter.class)
                 .exceptionHandling(e -> e

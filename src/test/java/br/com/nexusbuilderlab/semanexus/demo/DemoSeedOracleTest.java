@@ -25,7 +25,7 @@ import org.testcontainers.oracle.OracleContainer;
  * Fora do build padrão: {@code mvn -B -ntp verify -Poracle}.
  */
 @Tag("oracle")
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 // O profile demo exige JWT_SECRET; este valor é fictício e só existe no teste.
 @SpringBootTest(properties = "semanexus.jwt.secret=segredo-ficticio-somente-para-teste-0123456789")
 @AutoConfigureMockMvc
@@ -62,10 +62,10 @@ class DemoSeedOracleTest {
         int setores = contar("SETOR");
         int equipes = contar("EQUIPE");
         int membros = contar("EQUIPE_MEMBRO");
-        assertThat(usuarios).isEqualTo(6);
-        assertThat(setores).isEqualTo(3);
-        assertThat(equipes).isEqualTo(4);
-        assertThat(membros).isEqualTo(6);
+        assertThat(usuarios).isEqualTo(16);
+        assertThat(setores).isEqualTo(8);
+        assertThat(equipes).isEqualTo(9);
+        assertThat(membros).isEqualTo(16);
 
         assertThat(seed.aplicar().vazio()).isTrue();
 
@@ -111,6 +111,23 @@ class DemoSeedOracleTest {
         assertThat(contar("DEMANDA")).isEqualTo(demandas);
         assertThat(contar("DOCUMENTO")).isEqualTo(documentos);
         assertThat(contar("DEMANDA_HISTORICO")).isEqualTo(historico);
+    }
+
+    @Test
+    void demandasDistribuidasPertencemAoNucleoDaRegiaoDoMunicipio() {
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM SETOR WHERE SIGLA LIKE 'NR-%'", Integer.class))
+                .isEqualTo(5);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM DEMANDA WHERE EQUIPE_ID IS NOT NULL", Integer.class))
+                .isPositive();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM DEMANDA d JOIN MUNICIPIO m ON m.ID = d.MUNICIPIO_ID "
+                + "JOIN EQUIPE e ON e.ID = d.EQUIPE_ID JOIN SETOR s ON s.ID = e.SETOR_ID "
+                + "WHERE d.OBSERVACOES LIKE '[DEMO-SEED]%' AND s.SIGLA <> CASE m.REGIAO WHEN 'Cuiabá' THEN 'NR-CBA' "
+                + "WHEN 'Cáceres' THEN 'NR-CAC' WHEN 'Rondonópolis' THEN 'NR-ROO' WHEN 'Barra do Garças' THEN 'NR-BAG' "
+                + "ELSE 'NR-SNO' END", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM DEMANDA WHERE EQUIPE_ID IS NULL AND STATUS NOT IN "
+                + "('PENDENTE', 'EM_TRIAGEM', 'AGUARDANDO_DISTRIBUICAO')", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(DISTINCT c) FROM (SELECT COUNT(*) c FROM DEMANDA "
+                + "WHERE EQUIPE_ID IS NOT NULL GROUP BY EQUIPE_ID)", Integer.class)).isGreaterThan(1);
     }
 
     @Test

@@ -30,7 +30,7 @@ Depois do prefixo vem o módulo ou tipo: `[CORE]` `[INTELLIGENCE]` `[FLUX]` `[DO
 | View | Uso |
 |---|---|
 | Board geral | Kanban de tudo por Status |
-| **Sprint 1 (10–13/11)** · **Sprint 2 (16–19/11)** · **Sprint 3 (23–25/11)** | Um quadro por sprint, colunas por Status — use no dia a dia |
+| **Sprint 1 (10–13/11)** · **Sprint 2 (16–19/11)** · **Sprint 3 (21–26/11, folga; implementação até 20/11, meta 15/11)** | Um quadro por sprint, colunas por Status — use no dia a dia |
 | Sprint atual | Tabela filtrada por `sprint:@current` |
 | Backlog futuro (P2) | Itens sem sprint |
 | Roadmap · Backlog · Por módulo · P0 — MVP · Por repositório | Planejamento e acompanhamento |
@@ -83,6 +83,7 @@ projetos/
 Execução via Docker: [DOCKER.md](DOCKER.md). Execução da API fora do Docker (após a Issue #1): Oracle em container + `mvn spring-boot:run -Dspring-boot.run.profiles=dev` (passo a passo no README).
 
 Testes da API: `mvn -B verify` exclui a tag `oracle` (unitários, sem banco); `mvn -B verify -Poracle` roda só os testes com Oracle real via Testcontainers (exige Docker).
+Sem Docker, os testes `oracle` aparecem como ignorados ("disabledWithoutDocker"); credenciais do container são efêmeras, geradas pelo Testcontainers.
 
 ## CI (GitHub Actions)
 
@@ -91,7 +92,7 @@ Testes da API: `mvn -B verify` exclui a tag `oracle` (unitários, sem banco); `m
 | API | `ci.yml` | push `main` e `feature/GH-*`, PR para `main`, manual | Nome do branch · Compilar e testar (Maven) · Exportar contrato OpenAPI · Build da imagem Docker |
 | API | `project-health.yml` | diário 12:00 UTC + manual | Resumo de saúde do projeto ([PROJECT_HEALTH.md](PROJECT_HEALTH.md)) |
 | API | `compose-smoke.yml` | manual + noturno | Planejado (Issue #20) |
-| API | `oracle-it.yml` | manual + noturno | Planejado, P1 (Issue #23) |
+| API | `oracle-it.yml` | manual + noturno | Implementado (Issue #23) |
 | Web | `ci.yml` | push `main` e `feature/GH-*`, PR para `main`, manual | Nome do branch · Lint, testes e build · Build da imagem Docker |
 
 Enquanto `pom.xml` / `package.json` / `Dockerfile` não existirem, os jobs correspondentes terminam com **aviso** (não com sucesso falso nem falha). Todos usam `concurrency` com cancelamento de execuções antigas.

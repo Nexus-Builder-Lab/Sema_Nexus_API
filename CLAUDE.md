@@ -5,7 +5,7 @@ Regras permanentes. Detalhes: `docs/ARCHITECTURE.md`, `docs/DATABASE.md`, `docs/
 ## Projeto
 - Plataforma **demonstrativa** (inteligência ambiental, demandas de fiscalização, gestão documental) de **Mato Grosso**. **Só dados fictícios** (municípios/biomas do IBGE são reais; o resto é simulado). Exceção aprovada: dados públicos do INPE na camada de satélite, sempre identificados.
 - **Nenhuma integração institucional** (SEMA-MT, SIGA, SISREV…). Dados simulados exibem "AMBIENTE DEMONSTRATIVO — DADOS FICTÍCIOS".
-- Implementação até 25/11/2026 · revisão/tag 26/11 · apresentação 27/11.
+- **Meta de implementação: 15/11/2026 · limite máximo 20/11/2026** (redefinido pelo proprietário em 12/11) · ensaio/revisão/tag até 26/11 · apresentação 27/11.
 - Repos: este = backend + infra/docs transversais (compose, `scripts/`, `docs/`); `Sema_Nexus_Web` = frontend; `FabricioJorge0/prototipo_SEMA_NEXUS` = referência, nunca alterar. Nunca misturar código dos dois repos: uma Issue e um PR por repositório.
 
 ## Stack e arquitetura
@@ -19,7 +19,7 @@ Java 21 · Spring Boot 3.5 · Oracle 23ai Free · Flyway · JWT/BCrypt · spring
 ## Segurança (inegociável)
 - Sem credenciais no código, imagens ou compose; configuração por variáveis de ambiente (`.env` fora do Git; `.env.example` atualizado).
 - Credencial `admin@admin.com` / `12345678` **só demonstrativa**: profiles `demo`/`dev`, só hash BCrypt, trava `TestUserProfileGuard`. Texto puro só em README, `docs/DEMO.md`, `docs/DOCKER.md` e testes. Não relaxar validações (senha ≥ 8).
-- Nunca `docker compose down -v`, `docker volume rm`, `docker system prune`, nem parar/remover containers de outros projetos. Nunca encerrar processos que você não iniciou (a porta 8080 do host é de outro serviço: use 18080).
+- Nunca `docker compose down -v`, `docker volume rm`, `docker system prune`, nem parar/remover containers de outros projetos. Nunca encerrar processos que você não iniciou (as portas 8080 e 3000 em `localhost`/IPv6 são de outro serviço: acesse sempre por `127.0.0.1` e use as portas do `.env` — hoje `API_PORT=18081`, `WEB_PORT=3000`).
 - GitHub: nunca se adicionar como colaborador, convidar contas, mudar permissões/visibilidade, apagar histórico, force push ou push na `main`. Tag/release só com autorização.
 
 ## Fluxo

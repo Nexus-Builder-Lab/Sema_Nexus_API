@@ -38,7 +38,7 @@ import org.testcontainers.oracle.OracleContainer;
  * criado pelo Flyway, o contexto nem inicia.
  */
 @Tag("oracle")
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest
 class CoreSchemaOracleTest {
 

@@ -106,7 +106,7 @@
 - **PendÃªncias / observaÃ§Ãµes:** scripts `demo-up/down/reset` (#9), `docs/DOCKER.md` completo com requisitos e soluÃ§Ã£o de problemas (#10) e smoke test no CI (#20) sÃ£o Issues seguintes. Aviso do Flyway "Oracle 23.26 is newer than this version" Ã© informativo (a migraÃ§Ã£o funciona).
 
 ## 2026-11-10 18:50 — GH-9 · Scripts demo-up, demo-down e demo-reset para Linux/macOS e Windows
-- **PR:** (a preencher pelo orquestrador) · **Status:** PR aberto; merge conforme CI
+- **PR:** #94 · **Status:** PR aberto; merge conforme CI
 - **Executado por:** autopilot (sessão API, Sonnet 5.5) na execução original; retomada e conclusão pelo orquestrador em 2026-11-11 (commit `45fad54` existente, merge com a `main` e conflitos de docs resolvidos pelo orquestrador)
 - **Agentes que atuaram:** `planejador-issue` não atuou (retomada de trabalho existente); `implementador-backend` não atuou nesta execução; `validador-qa` APROVADO; `revisor-codigo` APROVADO; `revisor-seguranca` sem bloqueios; `documentador` (esta entrada, status na documentação e rascunho do PR). `diagnosticador` não atuou.
 - **O que foi feito:** `scripts/demo-up|demo-down|demo-reset` em `.sh` (POSIX) e `.ps1`, com funções comuns em `scripts/lib/demo-common.{sh,ps1}`; `Makefile` opcional (`up`, `down`, `reset`, `logs`, `ps`); testes `scripts/tests/demo-scripts.test.sh` (41 verificações) e job `scripts-demo` no CI; `docs/DOCKER.md`, `README.md`, `docs/DEMO.md`, `docs/ARCHITECTURE.md` atualizados.
@@ -136,7 +136,7 @@
 - **PendÃªncias / observaÃ§Ãµes:** o critÃ©rio "executado por alguÃ©m do time" foi atendido pelo autopilot, nÃ£o por uma pessoa â€” vale uma releitura humana; conflitos de merge previsÃ­veis com o PR #46 (Issue #9) em `README.md`/`docs/DOCKER.md`, a resolver por quem mesclar depois; Apple Silicon nÃ£o validado.
 
 ## 2026-11-11 11:32 â€” GH-11 Â· Schema do Flux e endpoints de cadastro, ediÃ§Ã£o, listagem e detalhes de demanda
-- **PR:** (a preencher pelo orquestrador) Â· **Status:** aguardando CI e merge
+- **PR:** #94 Â· **Status:** aguardando CI e merge
 - **Executado por:** autopilot (sessÃ£o API), retomada de WIP (commits `88fd16e` salvo antes da pausa e `02ad489` com testes, locks e correÃ§Ãµes). O `planejador-issue` nÃ£o atuou nesta retomada.
 - **Agentes que atuaram:** `implementador-backend` (conclusÃ£o do WIP e correÃ§Ãµes apontadas na revisÃ£o); `validador-qa` (build, testes unitÃ¡rios e Oracle, 0 falhas); `revisor-codigo` (APROVADO apÃ³s 1 ciclo de correÃ§Ã£o); `revisor-seguranca` (sem bloqueios, com achados baixos listados abaixo); `documentador` (esta entrada, status na documentaÃ§Ã£o e rascunho do PR). `diagnosticador` nÃ£o atuou.
 - **O que foi feito:** `V3__flux.sql` com `DEMANDA`, `NUMERACAO_DEMANDA`, `DEMANDA_HISTORICO`, `DISTRIBUICAO` e `FISCALIZACAO` (FKs, CHECKs de enums, Ã­ndices em status, municÃ­pio, categoria, data de recebimento e equipe). Endpoints `POST /api/demandas`, `PUT /api/demandas/{id}`, `GET /api/demandas` (paginaÃ§Ã£o e filtros `q`, `status`, `municipioId`, `categoria`, `prioridade`, `equipeId`, `fiscalId`, `atrasada`, `de`, `ate`), `GET /api/demandas/{id}`, `GET /api/demandas/{id}/historico` e `DELETE /api/demandas/{id}` (exclusÃ£o lÃ³gica). NÃºmero `DEM-AAAA/NNNN` gerado por `NumeracaoService`. Os endpoints saÃ­ram do contrato `501` (`ContratoOpenApiTest` com `PENDENTES` reduzido).
@@ -152,7 +152,7 @@
   - Documentos anexados Ã  demanda (`totalDocumentos` com conteÃºdo real) dependem da Issue #16; triagem, distribuiÃ§Ã£o e fiscalizaÃ§Ã£o sÃ£o #12 e #13.
 
 ## 2026-11-11 · GH-12 · Máquina de estados, triagem e distribuição de demandas
-- **PR:** (a preencher pelo orquestrador) · **Status:** aguardando validação
+- **PR:** #94 · **Status:** aguardando validação
 - **Agentes que atuaram:** `implementador-backend`
 - **O que foi feito:** `DemandaStateMachine` (todas as transições de ARCHITECTURE §5; ação fora do status de origem gera 409), `TriagemService` (`POST /triagem/iniciar` e `/triagem` com `decisao` CLASSIFICAR ou SOLICITAR_COMPLEMENTACAO), `DistribuicaoService` (`POST /distribuicao`: fiscal deve ser membro da equipe ativa e prazo >= hoje em Cuiabá, senão 400; grava `DISTRIBUICAO`, equipe/fiscal/prazo da demanda), entidade `Distribuicao` e `GET /api/equipes/{id}/demandas`. Toda transição grava `DEMANDA_HISTORICO` (status anterior/novo, texto, usuário, data) e auditoria, com lock pessimista na demanda.
 - **Decisões técnicas:** mantido o contrato já publicado na #7 (`decisao`/`CLASSIFICAR|SOLICITAR_COMPLEMENTACAO`) em vez de `acao: CONCLUIR|COMPLEMENTAR` do texto da Issue; a máquina também expõe as ações da #13 (início, fiscalização, conclusão, devolução) para reaproveitamento; sem migration nova (tabelas já em V3).
@@ -161,7 +161,7 @@
 - **Pendências:** teste Oracle de ponta a ponta da distribuição não incluído (validador pode rodar `-Poracle`).
 
 ## 2026-11-11 · GH-13 · Acompanhamento, fiscalização, conclusão e devolução de demandas
-- **PR:** (a preencher pelo orquestrador) · **Status:** aguardando validação
+- **PR:** #94 · **Status:** aguardando validação
 - **Agentes que atuaram:** `implementador-backend`
 - **O que foi feito:** `AcompanhamentoService` (`POST /inicio` DISTRIBUIDA → EM_ANDAMENTO e `POST /atividades` com registro no histórico), `FiscalizacaoService` (`POST /fiscalizacao`: grava/atualiza `FISCALIZACAO` 1:1 e vai para AGUARDANDO_CONCLUSAO) e `ConclusaoService` (`POST /conclusao` → FINALIZADA com `resultadoFinal`, justificativa e `concluidaEm`; `POST /devolucao` → EM_ANDAMENTO). Todos usam a máquina de estados, lock pessimista, histórico e auditoria. Endpoints saíram do contrato `501`.
 - **Decisões técnicas:** FISCAL só age se for o fiscal designado (senão 403); GESTOR/ADMIN em qualquer demanda. Conclusão sem registro de fiscalização responde 409 (além da exigência de status). Demanda FINALIZADA não aceita nenhuma transição (409). Reenvio da fiscalização após devolução atualiza o mesmo registro (1:1). Mantido o contrato do DTO da #7 (`descricao`/`data` em atividades) em vez de `{texto}` do texto da Issue. Textos do histórico limitados a 2000 caracteres. Sem migration nova.
@@ -170,7 +170,7 @@
 - **Pendências:** sem teste Oracle ponta a ponta do fluxo completo (validador pode rodar `-Poracle`).
 
 ## 2026-11-11 · GH-14 · Auditoria centralizada e consulta GET /api/auditoria
-- **PR:** (a preencher pelo orquestrador) · **Status:** aguardando validação
+- **PR:** #94 · **Status:** aguardando validação
 - **Agentes que atuaram:** `implementador-backend`
 - **O que foi feito:** `AuditService` ganhou `consultar` (paginado, filtros de período, usuário, ação e entidade, por Specification), `recentes(n)` (limite 1..100, para o dashboard da #17) e mascaramento de senha/token/Bearer/JWT no `detalhe`. Novo `AuditoriaController` (`GET /api/auditoria`, somente ADMIN) com DTOs `AuditoriaDto` (inclui `usuarioNome`) e `AuditoriaFiltro`. Cadastro, edição, exclusão, status e distribuição de demanda já gravavam auditoria (#11 a #13); upload fica para a #15.
 - **Decisões técnicas:** sem migration (tabela e índices por data e entidade já existem na V1); `sort` restrito a `id,data,usuarioId,acao,entidade` (fora disso usa data desc); `de`/`ate` inclusivos por dia.
@@ -178,7 +178,7 @@
 - **Testes:** a confirmar pelo validador (implementador rodou AuditServiceTest, AuditoriaControllerWebMvcTest, EndpointsContratoWebMvcTest, AuthServiceTest: 0 falhas).
 - **Pendências:** sem teste Oracle do filtro; validador pode rodar `-Poracle`.
 ## 2026-11-11 · GH-17 · Indicadores agregados, pontos do mapa e dashboard inicial
-- **PR:** (a preencher pelo orquestrador) · **Status:** aguardando validação
+- **PR:** #94 · **Status:** aguardando validação
 - **Agentes que atuaram:** `implementador-backend`
 - **O que foi feito:** implementados `GET /api/intelligence/{resumo,serie-mensal,por-municipio,por-bioma,por-categoria,por-situacao,mapa}` e `GET /api/dashboard` (removido `@ContratoPendente`). Novos `IndicadorRepository` (Criteria API, filtros `de/ate/municipioId/bioma/categoria/status`), `IndicadorService` e `DashboardService`. `ResumoIndicadores` ganhou `fiscalizacoes`, `percentualConclusao`, `tempoMedioAtendimentoDias`; `DashboardResponse` ganhou `porBioma` e `porCategoria` (campos aditivos).
 - **Decisões técnicas:** agregação em memória sobre as demandas filtradas (volume demonstrativo; uma consulta); documentos = 0 até a #15; atividades recentes vêm de `DemandaHistorico` (`findRecentes`, contrato já publicado da #7), não da tabela AUDITORIA; hoje calculado no fuso America/Cuiaba. Sem migration.
@@ -188,7 +188,7 @@
 - **Observações:** agregados, mapa e dashboard são visão institucional aberta a todos os perfis autenticados (sem escopo de FISCAL); `atividadesRecentes` vem de `DemandaHistorico` (desvio da AUDITORIA citada na Issue, justificado pelo DTO publicado); `de`/`ate` aplicam-se à data de recebimento; campos novos nos DTOs (`ResumoIndicadores`, `DashboardResponse`): avisar o Web; mapa medido em 10–19 ms com 7 demandas do seed; `IndicadorOracleTest` cobre cadastro e finalização alterando `resumo` e `por-situacao`.
 
 ## 2026-11-11 · GH-15 · DocIA: schema, armazenamento em volume, upload, download e extração de texto
-- **PR:** (a preencher pelo orquestrador) · **Status:** aguardando validação
+- **PR:** #94 · **Status:** aguardando validação
 - **Agentes que atuaram:** `implementador-backend`
 - **O que foi feito:** `V4__docia.sql` (`DOCUMENTO`, `DOCUMENTO_DEMANDA`); `StorageService` + `LocalFileStorageService` (`${STORAGE_DIR}/AAAA/MM/<uuid>`, chave confinada à raiz); `TipoArquivo` (extensão + bytes iniciais), `TextExtractor` (PDFBox/UTF-8; DOCX sem extração), `DocumentoService` (SHA-256, auditoria `UPLOAD`, vínculo opcional por `demandaId`); `POST /api/documentos` e `GET /api/documentos/{id}/arquivo` saíram do contrato `501`. Erros 415/413 no `GlobalExceptionHandler`; limite multipart 10 MB no `application.yml`; `STORAGE_DIR` no `.env.example`.
 - **Decisões técnicas:** nome original saneado (sem caminho nem controles) só no banco; palavras-chave em coluna única separada por vírgula; texto sem extração (PDF ilegível/criptografado, DOCX) fica nulo; download sempre `octet-stream` + `attachment` + `nosniff`; arquivo órfão é removido se a persistência falhar. SHA256 em `VARCHAR2(64)` (o Hibernate valida CHAR como outro tipo). Dependência nova: `pdfbox 3.0.4`.
@@ -198,7 +198,7 @@
 
 
 ## 2026-11-11 · GH-16 · DocIA: biblioteca documental, pesquisa textual, detalhes e vínculo com demandas
-- **PR:** (a preencher pelo orquestrador) · **Status:** aguardando validação
+- **PR:** #94 · **Status:** aguardando validação
 - **Agentes que atuaram:** `implementador-backend`
 - **O que foi feito:** implementados `GET /api/documentos` (paginado; `q`, categoria, tipo, município, demanda, `de`/`ate`, ordenação), `GET /api/documentos/{id}` (metadados, trecho do texto, demandas vinculadas, histórico) e `GET|POST|DELETE /api/demandas/{id}/documentos` (removido `@ContratoPendente`; `PENDENTES` do `ContratoOpenApiTest` ficou vazio). Vínculo/desvínculo gravam evento `DOCUMENTO` no histórico da demanda (`DemandaService.registrarEventoDocumento`) e `VINCULAR`/`DESVINCULAR` na auditoria; duplicado → 409.
 - **Decisões técnicas:** pesquisa ignora caixa e acento via `TRANSLATE(coluna, ...) LIKE ? ESCAPE ''` em SQL parametrizado (a Criteria API do Hibernate recusa funções de texto sobre CLOB), com o termo normalizado no Java (`Normalizer`); ids encontrados alimentam a Specification dos demais filtros; `BINARY_AI` não foi usado para não alterar NLS da sessão; mantido o contrato publicado na #7 (`POST /api/demandas/{id}/documentos` com corpo `{documentoId}`, não `/{docId}`); `DocumentoDetalhe` ganhou `historico` (aditivo) e `textoExtraido` passou a ser trecho de 2000 caracteres; `AuditService.historicoDaEntidade` (até 50).
@@ -208,7 +208,7 @@
 
 
 ## 2026-11-11 · GH-18 · Seed de demandas e documentos fictícios coerentes para a demonstração
-- **PR:** (a preencher pelo orquestrador) · **Status:** aguardando validação
+- **PR:** #94 · **Status:** aguardando validação
 - **Agentes que atuaram:** `implementador-backend`
 - **O que foi feito:** massa demonstrativa idempotente (`DemoMassaRunner` → `DemoMassaService`, após o `DemoSeedRunner`): 120 demandas em 26 municípios de MT (3 biomas, 7 status, algumas atrasadas), histórico, distribuições e 46 fiscalizações coerentes com o status, 12 documentos fictícios (PDF gerados com PDFBox e TXT) no volume, incluindo as duas versões do "Parecer Técnico nº 014/2026", vinculados às demandas do cenário fixo; cenário documentado em `docs/DEMO.md`.
 - **Decisões técnicas:** JDBC direto (preserva datas retroativas e evita a regra de máquina de estados); `DemoMassaGerador` puro e determinístico (semente fixa, datas relativas ao dia); idempotência pela marca `[DEMO-SEED]` em `OBSERVACOES` (demandas) e por (título, arquivo) (documentos); `NUMERACAO_DEMANDA` atualizada; execução fora do `DemoSeedRunner` para não acoplar o teste de profile (ordem via `@Order`). Textos autorais adaptados (o `seed-docs.js` do protótipo não estava acessível). Sem migration.
@@ -217,7 +217,7 @@
 - **Pendências:** Docker/`demo-reset` com volume real não exercitado; "números do dashboard conferem" cobertos por contagens SQL, não por chamada ao `/api/dashboard`.
 
 ## 2026-11-11 · GH-19 · Cobertura de testes dos serviços críticos e revisão de segurança da API
-- **PR:** (a preencher pelo orquestrador) · **Status:** aguardando validação
+- **PR:** #94 · **Status:** aguardando validação
 - **Agentes que atuaram:** `implementador-backend`
 - **O que foi feito:** `RevisaoSegurancaApiTest` (checklist automatizado: `@PreAuthorize` em todos os endpoints, cabeçalhos de segurança, actuator só health, erros sem stacktrace, CORS fora do dev, logs sem segredos); `docs/REVISAO_SEGURANCA.md` com o checklist e evidências. Achado corrigido: leituras de demandas/documentos/catálogos/indicadores sem `@PreAuthorize` explícito; agora `@PreAuthorize(Autorizacao.AUTENTICADO)` na classe (sem mudança de comportamento).
 - **Decisões técnicas:** os testes de máquina de estados, numeração concorrente (Oracle), território, upload, trava e perfis já existiam; não foram duplicados.
@@ -226,10 +226,154 @@
 - **Pendências:** varredura de CVE em dependências não executada (sem scanner no projeto).
 
 ## 2026-11-11 · GH-21 · Roteiro de demonstração de 10 minutos e cenário integrado
-- **PR:** (a preencher pelo orquestrador) · **Status:** aguardando validação
+- **PR:** #68 · **Status:** mesclado após ensaio do proprietário (12/11/2026: roteiro coube em 10 min)
 - **Agentes que atuaram:** `implementador-backend`
 - **O que foi feito:** `docs/DEMO.md` reescrito com preparação (demo-up, `docker compose ps`, demo-reset, login, modo offline), roteiro cronometrado 0-10 min usando os registros C1-C6 do seed (#18), usuários/senhas demonstrativos e limitações/futuro restritos ao implementado (conferido contra rotas do frontend e endpoints da API).
 - **Decisões técnicas:** só documentação; comparação de versões, assistente e satélite listados como futuro; o comportamento do mapa sem internet e a atualização dos indicadores ficam marcados "a confirmar no ensaio".
 - **Arquivos principais:** `docs/DEMO.md`, `docs/DIARIO_DESENVOLVIMENTO.md`.
 - **Testes:** a confirmar pelo validador (sem código alterado).
 - **Pendências:** ensaio cronometrado em 26/11 e execução no Docker após `demo-reset` não realizados; nomes exatos de botões do frontend podem divergir.
+
+## 2026-11-11 · GH-27 · Assistente DocIA com provider desacoplado, modo demonstrativo e citações
+- **PR:** #94 · **Status:** aguardando validação
+- **Agentes que atuaram:** `implementador-backend`
+- **O que foi feito:** `POST /api/docia/perguntas` (`docia/assistente`): `AssistenteService` recupera trechos por busca textual em `DOCUMENTO`, `AssistenteProvider` desacoplado, `DemoAssistenteProvider` (extrativo, padrão) e `ExternalAssistenteProvider` (HTTP, só por `DOCIA_PROVIDER`/`DOCIA_API_URL`/`DOCIA_API_KEY`; cai no demonstrativo se faltar configuração ou falhar). Resposta sempre com `modo` e `referencias`; sem base → "não há informação suficiente"; legislação/multas/procedimentos oficiais → recusa.
+- **Decisões técnicas:** reuso do SQL de busca da #16 (`DocumentoSpecification` tornou-se pública); recusa por palavras-chave sobre texto normalizado (heurística simples); contrato do provider externo definido aqui (`{pergunta, contexto[]}` → `{resposta}`); sem migration.
+- **Arquivos principais:** `docia/assistente/*.java`, `docia/documento/DocumentoSpecification.java`, teste `AssistenteServiceTest`, `docs/API.md`.
+- **Testes:** a confirmar pelo validador (implementador: AssistenteServiceTest sem Oracle).
+- **Pendências:** sem teste Oracle ponta a ponta contra o seed; provider externo sem teste de integração HTTP.
+
+## 2026-11-11 · GH-34 · Camada de referência com dados públicos de satélite do INPE (focos de calor e DETER) em MT
+- **PR:** #94 · **Status:** aguardando validação
+- **Agentes que atuaram:** `implementador-backend`
+- **O que foi feito:** migration `V5__referencia_satelite.sql` (`IMPORTACAO_REFERENCIA`, `REFERENCIA_SATELITE`), snapshot versionado (focos de calor e alertas DETER, ~230 KB) em `resources/referencia/`, `ReferenciaSateliteLoader` idempotente por SHA-256 (profiles demo/dev), endpoints somente leitura `/api/intelligence/referencia/{metadados,pontos,por-municipio}`, scripts `scripts/referencia/baixar-inpe.{ps1,sh}`.
+- **Decisões técnicas:** exceção de escopo aprovada (só dados públicos do INPE, camada separada, `oficialSema=false`); detalhes de fonte/licença em `docs/DATABASE.md` e `docs/ARCHITECTURE.md`.
+- **Arquivos principais:** `intelligence/referencia/*.java`, `V5__referencia_satelite.sql`, testes `ReferenciaSateliteLoaderTest`, `ReferenciaSateliteServiceTest`, `ContratoOpenApiTest`, docs API/DATABASE/ARCHITECTURE/REQUIREMENTS/DEMO.
+- **Testes:** a confirmar pelo validador (implementador: ReferenciaSatelite*Test e ContratoOpenApiTest sem Oracle: 0 falhas).
+- **Pendências:** carga em Oracle real/Docker e tempo de resposta < 1 s não exercitados.
+
+## 2026-11-11 · GH-26 · Comparação documental de metadados e conteúdo textual
+- **PR:** #94 · **Status:** aguardando validação
+- **Agentes que atuaram:** `implementador-backend`
+- **O que foi feito:** `POST /api/documentos/comparacao` (`docia/comparacao`): `ComparacaoService` + `TextoDiff` (LCS por linhas e palavras, Jaccard de termos, trechos semelhantes, termos exclusivos, metadados iguais/diferentes). Resposta declara `geradoPorIa=false`. Documento sem texto extraído → 400 com mensagem clara; inexistente → 404.
+- **Decisões técnicas:** sem migration (lê `DOCUMENTO.TEXTO_EXTRAIDO`); limite de 2000 palavras/1500 linhas por documento (flag `truncado`) para conter a matriz LCS; comparação ignora caixa/acento/pontuação; números curtos contam como termos.
+- **Arquivos principais:** `docia/comparacao/*.java`, `ComparacaoServiceTest`, `ContratoOpenApiTest` (novo endpoint), `docs/API.md`.
+- **Testes:** a confirmar pelo validador (implementador: ComparacaoServiceTest 7 testes e ContratoOpenApiTest 14, 0 falhas).
+- **Pendências:** sem teste Oracle ponta a ponta contra as versões do parecer no seed (o teste unitário usa texto equivalente).
+
+## 2026-11-11 · GH-25 · Notificações de novas demandas, prazos, atrasos, distribuição e documentos
+- **PR:** #94 · **Status:** aguardando validação
+- **Agentes que atuaram:** `implementador-backend`
+- **O que foi feito:** migration `V6__notificacoes.sql` (`NOTIFICACAO`, UK `(USUARIO_ID, CHAVE)`), `core/notificacao` (`NotificacaoService`, controller `GET /api/notificacoes`, `GET /api/notificacoes/nao-lidas/contagem`, `PATCH /api/notificacoes/{id}/lida`), `PrazoNotificacaoService` com `@Scheduled` diário (07:00 America/Cuiaba) e ganchos em `DemandaService.cadastrar`, `DistribuicaoService.distribuir` e `DocumentoService.vincular`.
+- **Decisões técnicas:** a Issue cita V5, mas V5 já era da #34, então a migration é V6; anti-duplicidade por chave única (inclui a data para prazo/atraso); "gestores" = GESTOR + ADMIN ativos; atraso notifica fiscal e gestores; autor da ação não é notificado de si mesmo.
+- **Arquivos principais:** `core/notificacao/*`, `flux/demanda/PrazoNotificacaoService.java`, `common/AgendamentoConfig.java`, testes `NotificacaoServiceTest`, `PrazoNotificacaoServiceTest`, ajustes em `DemandaServiceTest`/`TriagemDistribuicaoServiceTest`/`DocumentoServiceTest`, `docs/API.md`, `docs/DATABASE.md`.
+- **Testes:** a confirmar pelo validador (implementador: testes unitários dos 5 arquivos citados, 0 falhas).
+- **Pendências:** JPQL das consultas de prazo/atraso e a migration V6 não foram exercitadas em Oracle (validar com perfil `oracle`/Docker).
+
+## 2026-11-12 · GH-45 · Contrato OpenAPI com resposta 2xx em login e demandas
+- **PR:** #94 · **Status:** aguardando validação
+- **Agentes que atuaram:** `implementador-backend`
+- **O que foi feito:** `200` declarado com schema em `POST /api/auth/login` (`LoginResponse`), `GET /api/demandas/{id}` (`DemandaDetalhe`), `/historico` (lista de `HistoricoItem`) e `/documentos` (lista de `DocumentoResumo`). Causa: `@ApiResponse` só com códigos de erro suprimia o 200 implícito.
+- **Decisões técnicas:** `@ApiResponse(200)` explícito nos controllers; sem mudança de comportamento em runtime.
+- **Arquivos principais:** `AuthController`, `DemandaController`, `DemandaDocumentoController`, `ContratoOpenApiTest` (novo teste: toda operação tem 2xx).
+- **Testes:** a confirmar pelo validador (implementador: ContratoOpenApiTest, EndpointsContratoWebMvcTest, AuthControllerWebMvcTest, 0 falhas).
+- **Pendências:** nenhuma.
+
+## 2026-11-12 · GH-24 · Gestão de usuários, setores e equipes
+- **PR:** #94 · **Status:** aguardando validação
+- **Agentes que atuaram:** `implementador-backend`
+- **O que foi feito:** `UsuarioController/Service` (`GET/POST/PUT /api/usuarios`, `GET /{id}`, `PATCH /{id}/ativacao`, pesquisa `q` + filtros perfil/ativo, paginado), cadastro/edição de setores (`POST/PUT /api/setores`) e equipes (`POST/PUT /api/equipes`, `PUT /{id}/membros`, responsável). Senha de 8 a 72 caracteres (400), BCrypt, e-mail único (409), proteção do último ADMIN ativo (409 ao desativar ou rebaixar), escrita só ADMIN e consulta ADMIN/GESTOR, auditoria de todas as operações sem senha.
+- **Decisões técnicas:** sem migration (tabelas existentes); responsável sempre é membro; PUT de equipe sem `responsavelId` limpa o responsável; membros e responsável precisam estar ativos; `Specification` para a pesquisa (sem problemas de parâmetro nulo no Oracle).
+- **Arquivos principais:** `core/usuario/*`, `core/setor/*`, `core/equipe/*` (services, controllers, DTOs de requisição), testes `UsuarioServiceTest`, `UsuarioControllerWebMvcTest`, `SetorCadastroServiceTest`, `EquipeCadastroServiceTest`, `ContratoOpenApiTest`, `docs/API.md`.
+- **Testes:** a confirmar pelo validador (implementador: testes afetados sem Oracle, ver relatório).
+- **Pendências:** sem teste Oracle da pesquisa `q`/Specification; token de usuário desativado depende do filtro JWT existente.
+
+## 2026-11-12 · GH-28 · Relatórios de demandas com filtros e exportação CSV
+- **PR:** #94 · **Status:** aguardando validação
+- **Agentes que atuaram:** `implementador-backend`
+- **O que foi feito:** `GET /api/relatorios/demandas` (JSON paginado) e `/demandas.csv` (UTF-8 com BOM, `;`, aviso demonstrativo na linha 1) com filtros período, município, bioma, categoria e status (`intelligence/relatorio`: controller, service, DTOs; consultas novas em `IndicadorRepository`).
+- **Decisões técnicas:** sem migration; reaproveita `IndicadorFiltro` e o predicado dos indicadores; `Autorizacao.RELATORIOS` (ADMIN, GESTOR, ANALISTA, CONSULTA; FISCAL → 403, conforme matriz); `size` limitado a 100; CSV neutraliza fórmulas e escapa aspas/`;`.
+- **Arquivos principais:** `RelatorioController/Service`, `IndicadorRepository`, `Autorizacao`, testes `RelatorioServiceTest`, `RelatorioControllerWebMvcTest`, `ContratoOpenApiTest`, `docs/API.md`.
+- **Testes:** a confirmar pelo validador (implementador: RelatorioServiceTest, RelatorioControllerWebMvcTest e ContratoOpenApiTest, 0 falhas).
+- **Pendências:** consulta paginada/CSV não exercitada contra Oracle real; abertura no Excel não verificada manualmente (BOM e `;` cobertos por teste).
+
+## 2026-11-12 · GH-23 · Testes de integração Oracle em job separado
+- **PR:** #75 · **Status:** concluído (reforço Opus)
+- **Agentes que atuaram:** `implementador-backend`, `validador-qa`, `revisor`, orquestrador (reforço Opus)
+- **O que foi feito:** `.github/workflows/oracle-it.yml` (`workflow_dispatch` + cron noturno, `mvn verify -Poracle`, upload dos relatórios); `@Testcontainers(disabledWithoutDocker = true)` nos 8 testes `oracle`, que passam a aparecer como ignorados com mensagem quando não há Docker. Cobertura já existente: migrations/schema (`CoreSchemaOracleTest`), numeração e filtros (`DemandaOracleTest`), busca documental (`DocumentoOracleTest`), agregações (`IndicadorOracleTest`).
+- **Decisões técnicas:** perfil Maven `oracle` e exclusão da tag no build padrão já existiam; sem credenciais (container efêmero via Testcontainers); sem secrets no workflow.
+- **Arquivos principais:** `.github/workflows/oracle-it.yml`, `*OracleTest.java`, `docs/DEVELOPMENT.md`.
+- **Testes:** `mvn verify -Poracle` local: 30 testes, 0 falhas. Job `oracle-it` no GitHub (run 43160648983, gatilho `push` temporário no branch, já removido): 30 testes, 0 falhas. A 1ª execução no runner falhou com `AccessDeniedException: /data` (padrão `STORAGE_DIR=/data/uploads` não gravável) → o workflow define `STORAGE_DIR` em `runner.temp`.
+- **Pendências:** nenhuma; após o merge o job também fica disponível via `workflow_dispatch`.
+
+## 2026-11-11 · GH-20 · Smoke test do Docker Compose em workflow manual e noturno
+- **PR:** #94 · **Status:** aguardando validação
+- **Agentes que atuaram:** `implementador-backend`
+- **O que foi feito:** `compose-smoke.yml` (`workflow_dispatch` + cron noturno): gate do secret `CROSS_REPO_TOKEN` (ausente → aviso + resumo explicativo, sem falha silenciosa), checkout API+Web lado a lado, `.env` com segredos aleatórios, `compose up --build`, espera `healthy` (15 min), login e `GET /api/demandas` em `localhost:3000`, logs como artefato em falha, limpeza final.
+- **Decisões técnicas:** segredos do `.env` gerados por `openssl rand` (nada fixo); usuário demo (profile demo) em env do job; limpeza com `down --remove-orphans` (runner efêmero, sem `-v`).
+- **Arquivos principais:** `.github/workflows/compose-smoke.yml`, `docs/DOCKER.md`.
+- **Testes:** a confirmar pelo validador (implementador: sintaxe YAML validada com PyYAML; execução real do workflow depende do secret e de push).
+- **Pendências:** execução verde com o secret só após merge/dispatch no GitHub.
+
+## 2026-11-12 · GH-47 · prazoSugerido no DemandaDetalhe
+- **PR:** #94 · **Status:** aguardando validação
+- **Agentes que atuaram:** `implementador-backend`
+- **O que foi feito:** verificado que `DemandaDetalhe.prazoSugerido` (nullable) e seu mapeamento em `DemandaService` já existiam desde o GH-11; adicionados 2 testes unitários de regressão (cadastro e obtenção, com valor e com null).
+- **Decisões técnicas:** nenhuma mudança de código de produção; contrato OpenAPI já inclui o campo.
+- **Arquivos principais:** `DemandaServiceTest`.
+- **Testes:** a confirmar pelo validador (implementador: `mvn -Dtest=DemandaServiceTest test`, 0 falhas).
+- **Pendências:** nenhuma.
+
+## 2026-11-12 · GH-83 · Login demonstrativo por perfil (Modo demonstração)
+- **PR:** #94 · **Status:** aguardando validação
+- **Agentes que atuaram:** `implementador-backend`
+- **O que foi feito:** `POST /api/auth/demo/{perfil}` (`AuthDemoController`, `@Profile("demo")`) devolve `LoginResponse` do primeiro usuário ativo com `DEMO=1` do perfil; `GET /api/auth/config` inclui `perfisDemo` quando `demo=true`. Auditoria `LOGIN` com detalhe "modo demonstração"; perfil inválido 400, sem usuário 404.
+- **Decisões técnicas:** rota liberada no `SecurityConfig` (`permitAll`), mas o bean só existe no profile `demo` (404 nos demais); nenhuma senha envolvida; lógica em `AuthService.loginDemo`.
+- **Arquivos principais:** `AuthDemoController`, `AuthService`, `PerfilDemo`, `AuthConfigResponse`, `UsuarioRepository`, `SecurityConfig`, `docs/API.md`.
+- **Testes:** a confirmar pelo validador (implementador: AuthServiceTest, AuthControllerWebMvcTest, AuthDemoControllerWebMvcTest, 0 falhas).
+- **Pendências:** nenhuma.
+
+## 2026-11-12 · GH-84 · Endpoints de controle de prazos e de produtividade
+- **PR:** #94 · **Status:** aguardando validação
+- **Agentes que atuaram:** `implementador-backend`
+- **O que foi feito:** `GET /api/flux/prazos/resumo`, `GET /api/flux/prazos` (por estado, paginado) e `GET /api/flux/produtividade` (KPIs, por setor, tempo médio por setor, histórico mensal, por responsável), todos `demonstrativo: true` e com o escopo de perfil da listagem de demandas (reuso de `DemandaSpecification`).
+- **Decisões técnicas:** agregações em memória sobre o recorte já filtrado/escopado (volume demonstrativo), cálculo puro testável sem banco; setor da demanda = setor da equipe; sem migration.
+- **Arquivos principais:** `PrazoController/Service`, `ProdutividadeController/Service`, `PrazoDtos`, `ProdutividadeResposta`, `PrazoProdutividadeServiceTest`, `docs/API.md`.
+- **Testes:** a confirmar pelo validador (implementador: `PrazoProdutividadeServiceTest`, 10 testes, 0 falhas).
+- **Pendências:** conferência contra o seed real (teste Oracle) fica para o validador.
+
+## 2026-11-12 · GH-89 · Data de conclusão e de atualização na listagem de demandas
+- **PR:** #94 · **Status:** aguardando validação
+- **Agentes que atuaram:** `implementador-backend`
+- **O que foi feito:** `DemandaResumo` ganhou `concluidaEm` (nullable) e `atualizadoEm`, mapeados em `DemandaService.resumo` e refletidos no OpenAPI; `spring.data.web.pageable.max-page-size` passou de 100 para 500 para o quadro carregar todas as demandas.
+- **Decisões técnicas:** limite de 500 é global da paginação (config única); campos aditivos, sem migration.
+- **Arquivos principais:** `DemandaResumo`, `DemandaService`, `application.yml`, `DemandaServiceTest`, `ContratoOpenApiTest` (comentário), `docs/API.md`.
+- **Testes:** a confirmar pelo validador (implementador: `DemandaServiceTest`, ContratoOpenApiTest, EndpointsContratoWebMvcTest).
+- **Pendências:** nenhuma.
+
+## 2026-11-12 · GH-90 · Filtro por setor nos indicadores, no mapa e nos relatórios
+- **PR:** a abrir · **Status:** em validação
+- **Executado por:** autopilot (sessão API)
+- **O que foi feito:** parâmetro opcional `setorId` (setor da equipe responsável) em `/api/intelligence/*` (resumo, série mensal, por município/bioma/categoria/situação, mapa) e `/api/relatorios/demandas[.csv]`. Demandas sem equipe ficam fora quando informado; sem `setorId` nada muda.
+- **Decisões técnicas:** campo `setorId` adicionado ao record `IndicadorFiltro` (compartilhado por todos os endpoints); join interno `demanda.equipe.setor` só quando o filtro é usado; sem migration.
+- **Arquivos principais:** `IndicadorFiltro`, `IndicadorRepository`, `DashboardService`, controllers (descrições OpenAPI), `IndicadorOracleTest`, `docs/API.md`.
+- **Testes:** a confirmar pelo validador (implementador: IndicadorServiceTest, RelatorioServiceTest, teste Oracle de setor adicionado, não executado sem Docker/Oracle).
+- **Pendências:** nenhuma.
+
+## 2026-11-12 · GH-91 · Seed com núcleos regionais de fiscalização fictícios
+- **PR:** a abrir · **Status:** em validação
+- **Agentes que atuaram:** `implementador-backend`
+- **O que foi feito:** 5 setores `NR-CBA/CAC/ROO/BAG/SNO` (um por região intermediária do IBGE), cada um com 1 equipe e 2 fiscais fictícios em `demo/usuarios.json` (hash BCrypt); a massa passa a distribuir cada demanda à equipe do núcleo da região do município (fiscal = responsável da equipe); 6 municípios de Barra do Garças entram na massa (sem eles a região ficaria vazia); `docs/DEMO.md` atualizado.
+- **Decisões técnicas:** usuários/equipes antigos preservados (Alfa a Delta ficam sem demandas da massa); sem migration; `MunicipioRef` ganhou `regiao`; reset do banco demo necessário após o merge (sessão principal).
+- **Arquivos principais:** `usuarios.json`, `DemoMassaGerador`, `DemoMassaService`, testes `DemoMassaGeradorTest`, `DemoSeedServiceTest`, `DemoSeedRecursoTest`, `DemoSeedOracleTest`, `docs/DEMO.md`.
+- **Testes:** a confirmar pelo validador (implementador: testes unitários do pacote demo e `DemoSeedOracleTest` com Oracle, 0 falhas).
+- **Pendências:** `demo-reset` após o merge.
+
+## 2026-11-12 · GH-97 · Seed com conclusões recentes e tempos variados por núcleo
+- **PR:** a abrir · **Status:** em validação
+- **Agentes que atuaram:** `implementador-backend`
+- **O que foi feito:** as 30 finalizadas do seed passam a ser distribuídas em rodízio pelos 5 núcleos (6 cada); `concluidaEm` relativo ao dia do reset (cerca de metade entre 1 e 25 dias atrás, o resto de 35 dias em diante); recebimento = conclusão − tempo do núcleo (base 6/9/13/16/20 dias + 0 a 2, médias distintas); fiscalização 1 dia antes da conclusão; prazos mistos (no prazo e atrasadas).
+- **Decisões técnicas:** sem migration; só `DemoMassaGerador` (determinístico por dia); a numeração DEM-AAAA/NNNN pode mudar.
+- **Arquivos principais:** `DemoMassaGerador`, `DemoMassaGeradorTest`, `docs/DEMO.md`.
+- **Testes:** a confirmar pelo validador (implementador: testes do pacote demo, 0 falhas).
+- **Pendências:** `demo-reset` após o merge (sessão principal).

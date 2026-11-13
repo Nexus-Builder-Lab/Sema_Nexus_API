@@ -15,12 +15,14 @@ class DemoMassaGeradorTest {
 
     private static final LocalDate HOJE = LocalDate.of(2026, 11, 11);
 
+    private static final List<String> REGIOES = List.of("Cuiabá", "Cáceres", "Rondonópolis", "Barra do Garças", "Sinop");
+
     private static List<MunicipioRef> municipios() {
         List<MunicipioRef> r = new ArrayList<>();
         for (int i = 0; i < DemoMassaGerador.MUNICIPIOS_IDS.size(); i++) {
             String bioma = i < 11 ? "AMAZONIA" : i < 21 ? "CERRADO" : "PANTANAL";
             r.add(new MunicipioRef(DemoMassaGerador.MUNICIPIOS_IDS.get(i), "Município " + i, bioma, -13.0 - i * 0.1,
-                    -56.0 - i * 0.1));
+                    -56.0 - i * 0.1, REGIOES.get(i % REGIOES.size())));
         }
         return r;
     }
@@ -33,6 +35,48 @@ class DemoMassaGeradorTest {
                 .containsExactlyInAnyOrderElementsOf(DemoMassaGerador.STATUS_ORDEM);
         assertThat(l.stream().map(d -> d.municipio().bioma()).collect(Collectors.toSet())).hasSize(3);
         assertThat(l.stream().map(d -> d.municipio().id()).distinct().count()).isGreaterThanOrEqualTo(25);
+    }
+
+    @Test
+    void todasAsCincoRegioesTemNucleoEDemandasDistribuidas() {
+        List<DemandaSeed> l = DemoMassaGerador.gerar(HOJE, municipios());
+        var porNucleo = l.stream().filter(d -> d.passou("DISTRIBUIDA"))
+                .collect(Collectors.groupingBy(d -> DemoMassaGerador.siglaNucleo(d.municipio().regiao()),
+                        Collectors.counting()));
+        assertThat(porNucleo.keySet()).containsExactlyInAnyOrder("NR-CBA", "NR-CAC", "NR-ROO", "NR-BAG", "NR-SNO");
+        assertThat(porNucleo.values().stream().distinct().count()).isGreaterThan(1);
+    }
+
+    @Test
+    void finalizadasRecentesETemposVariadosPorNucleo() {
+        List<DemandaSeed> fin = DemoMassaGerador.gerar(HOJE, municipios()).stream()
+                .filter(d -> d.status().equals("FINALIZADA")).toList();
+        assertThat(fin).hasSize(30);
+        long recentes = fin.stream().filter(d -> !d.concluidaEm().isBefore(HOJE.minusDays(30))).count();
+        assertThat(recentes).isBetween(12L, 18L);
+        assertThat(fin).allSatisfy(d -> assertThat(d.concluidaEm()).isBefore(HOJE.plusDays(1)));
+        var porNucleo = fin.stream().collect(Collectors.groupingBy(
+                d -> DemoMassaGerador.siglaNucleo(d.municipio().regiao())));
+        assertThat(porNucleo).hasSize(5);
+        assertThat(porNucleo.values()).allSatisfy(v -> assertThat(v.size()).isGreaterThanOrEqualTo(2));
+        var medias = porNucleo.values().stream().map(v -> v.stream().mapToLong(
+                d -> java.time.temporal.ChronoUnit.DAYS.between(d.recebimento(), d.concluidaEm())).average()
+                .orElseThrow()).toList();
+        assertThat(medias.stream().distinct().count()).isEqualTo(5);
+        assertThat(medias).allSatisfy(m -> assertThat(m).isBetween(5.0, 22.0));
+        assertThat(fin.stream().filter(d -> d.concluidaEm().isAfter(d.prazo())).count()).isPositive();
+        assertThat(fin.stream().filter(d -> !d.concluidaEm().isAfter(d.prazo())).count()).isPositive();
+        // continua relativo ao dia do reset
+        List<DemandaSeed> outro = DemoMassaGerador.gerar(HOJE.plusDays(16), municipios()).stream()
+                .filter(d -> d.status().equals("FINALIZADA")).toList();
+        assertThat(outro.stream().filter(d -> !d.concluidaEm().isBefore(HOJE.plusDays(16).minusDays(30))).count())
+                .isBetween(12L, 18L);
+    }
+
+    @Test
+    void regiaoDesconhecidaNaoTemNucleo() {
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> DemoMassaGerador.siglaNucleo("Marte"))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test

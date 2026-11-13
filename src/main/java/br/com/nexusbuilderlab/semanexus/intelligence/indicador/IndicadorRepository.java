@@ -37,6 +37,28 @@ public class IndicadorRepository {
         return em.createQuery(q).getResultList();
     }
 
+    /** Página de demandas para relatórios (mais recentes primeiro), com o município já carregado. */
+    public List<Demanda> demandasPagina(IndicadorFiltro filtro, int offset, int limite) {
+        CriteriaBuilder cb = em.getCriteriaBuilder();
+        CriteriaQuery<Demanda> q = cb.createQuery(Demanda.class);
+        Root<Demanda> d = q.from(Demanda.class);
+        d.fetch("municipio");
+        Join<Demanda, ?> m = d.join("municipio");
+        q.select(d).where(predicados(cb, d, m, filtro).toArray(Predicate[]::new));
+        q.orderBy(cb.desc(d.get("dataRecebimento")), cb.desc(d.get("id")));
+        return em.createQuery(q).setFirstResult(offset).setMaxResults(limite).getResultList();
+    }
+
+    /** Total de demandas que atendem aos filtros. */
+    public long contarDemandas(IndicadorFiltro filtro) {
+        CriteriaBuilder cb = em.getCriteriaBuilder();
+        CriteriaQuery<Long> q = cb.createQuery(Long.class);
+        Root<Demanda> d = q.from(Demanda.class);
+        Join<Demanda, ?> m = d.join("municipio");
+        q.select(cb.count(d)).where(predicados(cb, d, m, filtro).toArray(Predicate[]::new));
+        return em.createQuery(q).getSingleResult();
+    }
+
     /** Fiscalizações registradas nas demandas que atendem aos filtros. */
     public long contarFiscalizacoes(IndicadorFiltro filtro) {
         CriteriaBuilder cb = em.getCriteriaBuilder();
@@ -71,6 +93,9 @@ public class IndicadorRepository {
         }
         if (f.status() != null) {
             p.add(cb.equal(d.get("status"), f.status()));
+        }
+        if (f.setorId() != null) {
+            p.add(cb.equal(d.join("equipe").get("setor").get("id"), f.setorId()));
         }
         return p;
     }
