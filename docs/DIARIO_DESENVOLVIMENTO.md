@@ -389,3 +389,9 @@
 - **O que foi feito:** instruções trocam `localhost` por `127.0.0.1` (no Windows do proprietário `localhost` resolve para IPv6 e cai em outro serviço).
 - **Arquivos principais:** `README.md`.
 - **Testes:** CI do PR.
+
+## 2026-11-12 · GH-102 · Variável ESRI_API_KEY para a visão de satélite
+- **Status:** feito pela sessão principal (pedido do proprietário)
+- **O que foi feito:** `ESRI_API_KEY` repassada ao serviço `web` no compose (vazia por padrão), entrada comentada no `.env.example` e instruções em `docs/DOCKER.md`/`docs/DEMO.md`. A chave é do proprietário (ArcGIS Location Platform) e fica só no `.env`.
+- **Arquivos principais:** `docker-compose.yml`, `.env.example`, `docs/DOCKER.md`, `docs/DEMO.md`.
+- **Testes:** `docker compose config` local; CI do PR.
