@@ -67,6 +67,9 @@ public class AssistenteService {
                 // segue no modo extrativo, que já identifica o próprio modo
             }
         }
+        if (agente != null) {
+            agente.contarModoExtrativo();
+        }
         if (termos(normalizada).isEmpty()) {
             return semInformacao();
         }

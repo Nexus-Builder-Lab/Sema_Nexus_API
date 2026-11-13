@@ -17,6 +17,11 @@ public interface ClienteModelo {
     /** Nome exibido do modelo efetivamente usado para o agente (ex.: "qwen3:4b-instruct"). */
     String modelo(String modeloSugerido);
 
+    /** Informações do provedor para o Painel do sistema (versão, modelos carregados...). Nunca segredos. */
+    default Map<String, Object> diagnostico() {
+        return Map.of();
+    }
+
     /** Envia a requisição e devolve a resposta. Lança exceção em qualquer falha de rede/API. */
     RespostaModelo criar(PedidoModelo pedido);
 

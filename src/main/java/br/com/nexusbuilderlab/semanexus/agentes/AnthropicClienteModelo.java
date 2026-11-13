@@ -40,6 +40,13 @@ public class AnthropicClienteModelo implements ClienteModelo {
         return configuracao.chaveAnthropicValida();
     }
 
+    /** Só se a chave está configurada (nunca o valor) e os modelos escolhidos. */
+    @Override
+    public Map<String, Object> diagnostico() {
+        return Map.of("provedor", "Claude (Anthropic)", "chaveConfigurada", disponivel(),
+                "modeloTriagem", configuracao.modeloTriagem(), "modeloDocia", configuracao.modeloDocia());
+    }
+
     @Override
     public String modelo(String modeloSugerido) {
         return modeloSugerido;

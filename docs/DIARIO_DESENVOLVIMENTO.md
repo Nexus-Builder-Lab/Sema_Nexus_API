@@ -426,3 +426,8 @@
 - **Causa:** `loginDemo` usava o primeiro fiscal demonstrativo (`fiscal1`, equipes Alfa–Delta), que ficou sem demandas desde os núcleos regionais (#91); a regra de visibilidade do fiscal (equipe ou atribuídas) está correta.
 - **O que foi feito:** `AuthService.CONTA_DEMO_PREFERIDA` (FISCAL → `fiscal.cba1@demo.semanexus.local`, Núcleo Cuiabá), com reserva no primeiro usuário demonstrativo do perfil se a conta não existir ou estiver inativa; `docs/DEMO.md` atualizado. Sem mudança de autorização nem de massa (não exige demo-reset).
 - **Testes:** `AuthServiceTest` (novo caso: conta preferida e reserva); conferido no Docker.
+
+## 2026-11-13 · GH-114 · Painel do sistema: verificações ao vivo
+- **Status:** feito pela sessão principal (pedido e aprovado pelo proprietário: aba "Painel do sistema" só para ADMIN)
+- **O que foi feito:** `GET /api/sistema/painel` (`core/sistema`): `PainelSistemaService` com verificações isoladas (API, Oracle, IA dos agentes, INPE, armazenamento) e estado OK/ATENCAO/INDISPONIVEL; `MetricasAgentes` (memória) alimentada pelo `ExecutorAgente` (sucesso, falha, tempo) e pelos modos demonstrativos (triagem por regras, DocIA extrativo); `ClienteModelo.diagnostico()` (Ollama: versão, modelos instalados e carregados com % na GPU; Claude: só chave configurada sim/não).
+- **Testes:** `PainelSistemaServiceTest` (2), `PainelSistemaControllerWebMvcTest` (2: só ADMIN, 401/403); suíte 349/349. Docker: 5 verificações OK, Ollama 0.40.11 com o modelo 100% na GPU, métricas da triagem registradas; gestor → 403.

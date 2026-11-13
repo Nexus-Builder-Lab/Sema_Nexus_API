@@ -79,6 +79,11 @@ public class AgenteDocia {
         return executor.iaDisponivel();
     }
 
+    /** Métrica do Painel do sistema: pergunta respondida pelo modo extrativo (sem IA ou após falha). */
+    public void contarModoExtrativo() {
+        executor.contarDemonstrativo(NOME);
+    }
+
     /** Executa o agente; devolve {@code null} quando ele conclui que os documentos não respondem à pergunta. */
     public RespostaAssistente responder(String pergunta) {
         Set<Long> vistos = new LinkedHashSet<>();
