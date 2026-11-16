@@ -68,7 +68,7 @@ public class AgenteTriagemService {
             informação essencial (aí use categoria e prioridade NENHUMA).
             Duplicatas: só números (DEM-AAAA/NNNN) devolvidos pela ferramenta que pareçam o MESMO fato (mesmo \
             município e mesmo tipo de problema) e não finalizados. Nunca invente números.
-            Justificativa: em português, 2 frases curtas (no máximo 350 caracteres), citando os fatos usados \
+            Justificativa: em português, 1 ou 2 frases curtas (no máximo 220 caracteres), citando os fatos usados \
             (relato, semelhantes, INPE).
             Não dê orientação jurídica nem cite leis ou multas.""";
 
@@ -78,7 +78,7 @@ public class AgenteTriagemService {
                     "decisao", Map.of("type", "string", "enum", List.of("CLASSIFICAR", "SOLICITAR_COMPLEMENTACAO")),
                     "categoria", Map.of("type", "string", "enum", codigos(CategoriaFiscalizacao.values())),
                     "prioridade", Map.of("type", "string", "enum", codigos(Prioridade.values())),
-                    "justificativa", Map.of("type", "string", "maxLength", 700),
+                    "justificativa", Map.of("type", "string", "maxLength", 400),
                     "duplicatas", Map.of("type", "array", "maxItems", 5, "items", Map.of("type", "string"))),
             "required", List.of("decisao", "categoria", "prioridade", "justificativa", "duplicatas"),
             "additionalProperties", false);
@@ -171,7 +171,7 @@ public class AgenteTriagemService {
                         "Consultou o INPE em " + d.municipio().nome() + ": " + inpe[0] + " foco(s) de calor e "
                                 + inpe[1] + " alerta(s) de desmatamento."));
         return new DefinicaoAgente(NOME, configuracao.modeloTriagem(), INSTRUCOES,
-                List.of(obter, semelhantes, alertas), ESQUEMA, "low", 800, 1);
+                List.of(obter, semelhantes, alertas), ESQUEMA, "low", 400, 1);
     }
 
     private SugestaoTriagem deIa(DemandaDetalhe d, Nucleo nucleo, long[] inpe, ResultadoAgente r,

@@ -22,6 +22,14 @@ public interface ClienteModelo {
         return Map.of();
     }
 
+    /**
+     * Carrega o modelo na memória (GPU) antes do primeiro uso, para a primeira pergunta não esperar o carregamento.
+     * Devolve false quando não se aplica ou falhou. Sem custo de tokens.
+     */
+    default boolean aquecer() {
+        return false;
+    }
+
     /** Envia a requisição e devolve a resposta. Lança exceção em qualquer falha de rede/API. */
     RespostaModelo criar(PedidoModelo pedido);
 
@@ -52,9 +60,16 @@ public interface ClienteModelo {
     /**
      * Pedido ao modelo: prompt de sistema, ferramentas disponíveis, histórico, esquema JSON da resposta final,
      * esforço ({@code low}/{@code medium}, quando o provedor suporta) e limite de tokens de saída.
+     * {@code aceitaTexto}: o agente aceita a resposta final em texto livre (o provedor local não precisa reescrevê-la
+     * no esquema JSON — uma geração a menos).
      */
     record PedidoModelo(String modelo, String instrucoes, List<FerramentaAgente> ferramentas, List<Mensagem> mensagens,
-                        Map<String, Object> esquemaResposta, String esforco, long maxTokens) {
+                        Map<String, Object> esquemaResposta, String esforco, long maxTokens, boolean aceitaTexto) {
+
+        public PedidoModelo(String modelo, String instrucoes, List<FerramentaAgente> ferramentas, List<Mensagem> mensagens,
+                            Map<String, Object> esquemaResposta, String esforco, long maxTokens) {
+            this(modelo, instrucoes, ferramentas, mensagens, esquemaResposta, esforco, maxTokens, false);
+        }
     }
 
     /**

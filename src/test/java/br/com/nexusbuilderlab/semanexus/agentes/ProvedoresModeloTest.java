@@ -137,4 +137,61 @@ class ProvedoresModeloTest {
                 .contains("\"json_schema\"").doesNotContain(ExecutorAgenteTest.CHAVE_FICTICIA);
         assertThat(new AnthropicClienteModelo(c).disponivel()).isTrue();
     }
+
+    @Test
+    void ollamaAceitaTextoLivreSemReescreverEmJson() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer servidor = MockRestServiceServer.bindTo(builder).build();
+        servidor.expect(requestTo("http://ollama:11434/api/chat"))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("\"keep_alive\":\"4h\"")))
+                .andRespond(withSuccess("{\"message\":{\"role\":\"assistant\",\"content\":\"O parecer conclui X.\"},"
+                        + "\"prompt_eval_count\":100,\"eval_count\":10}", MediaType.APPLICATION_JSON));
+        PedidoModelo p = pedido(List.of(Mensagem.usuario("Pergunta")));
+        PedidoModelo texto = new PedidoModelo(p.modelo(), p.instrucoes(), p.ferramentas(), p.mensagens(),
+                p.esquemaResposta(), p.esforco(), p.maxTokens(), true);
+
+        ClienteModelo.RespostaModelo r = ollama(builder).criar(texto);
+
+        servidor.verify(); // uma única chamada: sem a reescrita em JSON
+        assertThat(r.texto()).isEqualTo("O parecer conclui X.");
+    }
+
+    @Test
+    void ollamaEtapaFinalSemFerramentasPedeParaNaoChamarFerramentas() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer servidor = MockRestServiceServer.bindTo(builder).build();
+        servidor.expect(requestTo("http://ollama:11434/api/chat"))
+                .andExpect(content().string(org.hamcrest.Matchers.allOf(
+                        org.hamcrest.Matchers.containsString("Não chame mais ferramentas."),
+                        org.hamcrest.Matchers.containsString("\"format\""),
+                        org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("\"tools\"")))))
+                .andRespond(withSuccess("{\"message\":{\"role\":\"assistant\",\"content\":\"{\\\"ok\\\":true}\"},"
+                        + "\"prompt_eval_count\":100,\"eval_count\":5}", MediaType.APPLICATION_JSON));
+        PedidoModelo p = pedido(List.of(Mensagem.usuario("Pergunta")));
+        PedidoModelo semFerramentas = new PedidoModelo(p.modelo(), p.instrucoes(), List.of(), p.mensagens(),
+                p.esquemaResposta(), p.esforco(), p.maxTokens());
+
+        ClienteModelo.RespostaModelo r = ollama(builder).criar(semFerramentas);
+
+        servidor.verify();
+        assertThat(r.texto()).isEqualTo("{\"ok\":true}");
+    }
+
+    @Test
+    void ollamaAqueceOModeloComAPermanenciaConfigurada() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer servidor = MockRestServiceServer.bindTo(builder).build();
+        servidor.expect(requestTo("http://ollama:11434/api/tags")).andRespond(withSuccess(
+                "{\"models\":[{\"name\":\"qwen3:4b\"}]}", MediaType.APPLICATION_JSON));
+        servidor.expect(requestTo("http://ollama:11434/api/generate"))
+                .andExpect(content().string(org.hamcrest.Matchers.allOf(
+                        org.hamcrest.Matchers.containsString("\"keep_alive\":\"4h\""),
+                        org.hamcrest.Matchers.containsString("\"num_ctx\":8192"),
+                        org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("\"prompt\"")))))
+                .andRespond(withSuccess("{\"done\":true}", MediaType.APPLICATION_JSON));
+        OllamaClienteModelo cliente = ollama(builder);
+
+        assertThat(cliente.aquecer()).isTrue();
+        servidor.verify();
+    }
 }

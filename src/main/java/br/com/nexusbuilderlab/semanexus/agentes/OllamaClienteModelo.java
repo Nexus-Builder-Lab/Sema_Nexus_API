@@ -17,13 +17,23 @@ import org.springframework.web.client.RestClient;
  * Provedor local (padrão): modelo aberto servido pelo Ollama na própria máquina (serviço {@code ollama} do compose,
  * com GPU quando disponível). Sem custo e sem enviar dados para fora. Usa {@code POST /api/chat} com ferramentas;
  * quando o modelo termina, uma chamada final com {@code format} = esquema JSON garante a resposta estruturada
- * (modelos pequenos às vezes respondem em prosa).
+ * (modelos pequenos às vezes respondem em prosa). Agentes que aceitam texto livre (DocIA) recebem a prosa direto,
+ * sem a reescrita em JSON. O modelo é aquecido ao iniciar a API e fica na memória pelo tempo configurado
+ * ({@code OLLAMA_MANTER_CARREGADO}).
  */
 public class OllamaClienteModelo implements ClienteModelo {
 
     static final String PEDIDO_JSON = "Responda agora somente com o objeto JSON final, no formato pedido, "
-            + "usando apenas as informações obtidas pelas ferramentas.";
+            + "usando apenas as informações obtidas pelas ferramentas. Não chame mais ferramentas.";
+    /**
+     * Etapa final sem ferramentas: sem este pedido explícito o modelo tenta chamar ferramenta em texto e gera até o
+     * limite de tokens com resposta vazia (medido em 16/11/2026: ~15 s perdidos e queda no modo demonstrativo).
+     */
+    static final String PEDIDO_TEXTO = "Agora escreva a resposta final ao usuário, usando apenas as informações obtidas "
+            + "pelas ferramentas. Não chame mais ferramentas.";
     private static final long CACHE_DISPONIBILIDADE_MS = 20_000;
+    /** Janela de contexto: a mesma no aquecimento e nas chamadas (outra janela faria o Ollama recarregar o modelo). */
+    static final int JANELA_CONTEXTO = 8192;
 
     private final AgentesConfiguracao configuracao;
     private final RestClient http;
@@ -31,6 +41,9 @@ public class OllamaClienteModelo implements ClienteModelo {
     private final AtomicLong sequencia = new AtomicLong();
     private volatile long verificadoEm;
     private volatile boolean ultimoEstado;
+    private volatile String estadoAquecimento = "NAO_INICIADO";
+    private volatile long aquecimentoMs;
+    private volatile String aquecidoEm;
 
     public OllamaClienteModelo(AgentesConfiguracao configuracao, ObjectMapper json) {
         this(configuracao, json, criarHttp(configuracao));
@@ -82,6 +95,12 @@ public class OllamaClienteModelo implements ClienteModelo {
         Map<String, Object> d = new LinkedHashMap<>();
         d.put("provedor", "Ollama (local)");
         d.put("modeloConfigurado", configuracao.modeloLocal());
+        d.put("manterCarregado", configuracao.manterCarregado());
+        Map<String, Object> aquecimento = new LinkedHashMap<>();
+        aquecimento.put("estado", estadoAquecimento);
+        aquecimento.put("duracaoMs", aquecimentoMs);
+        aquecimento.put("em", aquecidoEm);
+        d.put("aquecimento", aquecimento);
         try {
             long t0 = System.currentTimeMillis();
             JsonNode versao = http.get().uri("/api/version").retrieve().body(JsonNode.class);
@@ -116,6 +135,33 @@ public class OllamaClienteModelo implements ClienteModelo {
         return d;
     }
 
+    /** Carrega o modelo na GPU ({@code /api/generate} sem prompt) e o mantém pelo tempo configurado. */
+    @Override
+    public boolean aquecer() {
+        if (!disponivel()) {
+            estadoAquecimento = "INDISPONIVEL";
+            return false;
+        }
+        estadoAquecimento = "AQUECENDO";
+        long t0 = System.currentTimeMillis();
+        try {
+            Map<String, Object> corpo = new LinkedHashMap<>();
+            corpo.put("model", configuracao.modeloLocal());
+            corpo.put("keep_alive", configuracao.manterCarregado());
+            corpo.put("options", Map.of("num_ctx", JANELA_CONTEXTO));
+            http.post().uri("/api/generate").contentType(MediaType.APPLICATION_JSON).body(corpo).retrieve()
+                    .body(JsonNode.class);
+            aquecimentoMs = System.currentTimeMillis() - t0;
+            aquecidoEm = java.time.Instant.now().toString();
+            estadoAquecimento = "PRONTO";
+            return true;
+        } catch (RuntimeException e) {
+            aquecimentoMs = System.currentTimeMillis() - t0;
+            estadoAquecimento = "FALHOU";
+            return false;
+        }
+    }
+
     @Override
     public String modelo(String modeloSugerido) {
         return configuracao.modeloLocal();
@@ -126,8 +172,12 @@ public class OllamaClienteModelo implements ClienteModelo {
         List<Map<String, Object>> mensagens = mensagens(pedido);
         Map<String, Object> corpo = corpo(pedido, mensagens);
         if (pedido.ferramentas().isEmpty()) {
-            // Etapa sem ferramentas: resposta final direto no esquema JSON (uma chamada a menos).
-            corpo.put("format", pedido.esquemaResposta());
+            // Etapa sem ferramentas: resposta final direto (texto livre ou esquema JSON), com pedido explícito para
+            // não chamar mais ferramentas.
+            mensagens.add(Map.of("role", "user", "content", pedido.aceitaTexto() ? PEDIDO_TEXTO : PEDIDO_JSON));
+            if (!pedido.aceitaTexto()) {
+                corpo.put("format", pedido.esquemaResposta());
+            }
             JsonNode r = chat(corpo);
             return new RespostaModelo("stop", List.of(), semRaciocinio(r.path("message").path("content").asText("")),
                     null, r.path("prompt_eval_count").asLong(), r.path("eval_count").asLong(), 0);
@@ -152,7 +202,7 @@ public class OllamaClienteModelo implements ClienteModelo {
         if (!chamadas.isEmpty()) {
             return new RespostaModelo("tool_calls", chamadas, texto, null, entrada, saida, 0);
         }
-        if (respostaCompleta(texto, pedido.esquemaResposta())) {
+        if (respostaCompleta(texto, pedido.esquemaResposta()) || (pedido.aceitaTexto() && !texto.isBlank())) {
             return new RespostaModelo("stop", List.of(), texto, null, entrada, saida, 0);
         }
         // Resposta final estruturada: mesma conversa, sem ferramentas, com o esquema JSON obrigatório.
@@ -174,8 +224,8 @@ public class OllamaClienteModelo implements ClienteModelo {
             // Modelos com modo de raciocínio: raciocínio separado no campo "thinking" (mais lento).
             corpo.put("think", true);
         }
-        corpo.put("keep_alive", "30m");
-        corpo.put("options", Map.of("temperature", 0.2, "num_ctx", 8192, "num_predict", pedido.maxTokens()));
+        corpo.put("keep_alive", configuracao.manterCarregado());
+        corpo.put("options", Map.of("temperature", 0.2, "num_ctx", JANELA_CONTEXTO, "num_predict", pedido.maxTokens()));
         return corpo;
     }
 

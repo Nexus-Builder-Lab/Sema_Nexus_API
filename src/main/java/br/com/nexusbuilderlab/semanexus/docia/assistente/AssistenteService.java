@@ -105,7 +105,15 @@ public class AssistenteService {
     static String melhorTrecho(Documento d, List<String> termos) {
         List<String> candidatos = new ArrayList<>();
         if (d.getTextoExtraido() != null) {
-            candidatos.addAll(List.of(d.getTextoExtraido().split("(?<=[.!?])\\s+|\\R+")));
+            // Frase quebrada no meio da linha ("totalizando 210" / "hectares") volta a ser uma frase só.
+            String texto = d.getTextoExtraido().replaceAll("(?<![.!?:;])\\R(?=\\p{Ll})", " ");
+            // A linha do título já aparece ao lado do trecho: repeti-la esconderia a frase com o conteúdo.
+            String titulo = d.getTitulo() == null ? "" : DocumentoSpecification.normalizar(d.getTitulo().strip());
+            for (String frase : texto.split("(?<=[.!?])\\s+|\\R+")) {
+                if (!DocumentoSpecification.normalizar(frase.strip()).equals(titulo)) {
+                    candidatos.add(frase);
+                }
+            }
         }
         candidatos.add(d.getDescricao());
         candidatos.add(d.getPalavrasChave());

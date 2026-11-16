@@ -72,6 +72,10 @@ public final class DocumentoSpecification {
             + coluna("TITULO") + " OR " + coluna("DESCRICAO") + " OR " + coluna("PALAVRAS_CHAVE") + " OR "
             + coluna("TEXTO_EXTRAIDO") + ")";
 
+    /** Mesma busca restrita ao título (peso maior na busca do assistente). */
+    public static final String SQL_BUSCA_TITULO = "SELECT ID FROM DOCUMENTO WHERE EXCLUIDO_EM IS NULL AND "
+            + coluna("TITULO");
+
     private static String coluna(String nome) {
         return "TRANSLATE(" + nome + ", '" + DE + "', '" + PARA + "') LIKE ? ESCAPE '\\'";
     }

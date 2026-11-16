@@ -103,7 +103,8 @@ class AgenteDociaTest {
         assertThat(r.referencias()).hasSize(1);
         assertThat(r.referencias().get(0).titulo()).isEqualTo("Parecer Técnico nº 014/2026");
         assertThat(r.referencias().get(0).trecho()).startsWith("O parecer conclui pela necessidade");
-        assertThat(r.passos()).containsExactly("Buscou \"parecer 014\": 1 documento(s).",
+        assertThat(r.passos()).containsExactly(
+                "Buscou \"parecer 014\": 1 documento(s); leu \"Parecer Técnico nº 014/2026\".",
                 "Leu \"Parecer Técnico nº 014/2026\".");
     }
 
@@ -145,5 +146,74 @@ class AgenteDociaTest {
         RespostaAssistente r = servico(modelo).perguntar("Qual a multa prevista em lei?");
         assertThat(r.resposta()).isEqualTo(AssistenteService.RECUSA);
         assertThat(modelo.respostas).isEmpty();
+    }
+
+    @Test
+    void respostaEmTextoLivreGanhaCitacaoMontadaPelaApi() throws Exception {
+        Roteiro modelo = new Roteiro();
+        modelo.respostas.add(ferramenta("buscar_documentos", "{\"consulta\":\"queimada\"}"));
+        modelo.respostas.add(ferramenta("ler_documento", "{\"documentoId\":7}"));
+        modelo.respostas.add(fim("A queimada atingiu 12 hectares, segundo o Parecer Técnico nº 014/2026."));
+
+        RespostaAssistente r = servico(modelo).perguntar("Quantos hectares a queimada atingiu?");
+
+        assertThat(r.agente()).isEqualTo("LOCAL");
+        assertThat(r.resposta()).isEqualTo("A queimada atingiu 12 hectares, segundo o Parecer Técnico nº 014/2026.");
+        assertThat(r.referencias()).hasSize(1);
+        assertThat(r.referencias().get(0).documentoId()).isEqualTo(7L);
+        assertThat(r.referencias().get(0).trecho()).isEqualTo("A queimada atingiu 12 hectares.");
+    }
+
+    @Test
+    void naoEncontradoViraSemInformacao() throws Exception {
+        Roteiro modelo = new Roteiro();
+        modelo.respostas.add(ferramenta("buscar_documentos", "{\"consulta\":\"mineração\"}"));
+        modelo.respostas.add(fim("NAO_ENCONTRADO"));
+
+        RespostaAssistente r = servico(modelo).perguntar("Quantas licenças de mineração existem?");
+
+        assertThat(r.resposta()).isEqualTo(AssistenteService.SEM_INFORMACAO);
+        assertThat(r.referencias()).isEmpty();
+    }
+
+    @Test
+    void radicalAproximaFormasDaMesmaPalavra() {
+        assertThat(BuscaDocumentos.radicais("Qual a área desmatada em Colniza?"))
+                .containsExactly("area", "desmat", "colni");
+        assertThat("desmatamento").startsWith(BuscaDocumentos.radical("desmatada"));
+        assertThat(BuscaDocumentos.radical("rio")).isEqualTo("rio");
+    }
+
+    @Test
+    void avisoDeDadoFicticioSaiDaResposta() {
+        assertThat(AgenteDocia.semAvisos("A área é de 210 hectares. Este documento é fictício e sem valor oficial."))
+                .isEqualTo("A área é de 210 hectares.");
+        assertThat(AgenteDocia.semAvisos("Foram 210 hectares simulados.")).isEqualTo("Foram 210 hectares simulados.");
+        assertThat(AgenteDocia.semAvisos("São 210 hectares. Os dados são fictícios e servem para demonstração."))
+                .isEqualTo("São 210 hectares.");
+        assertThat(AgenteDocia.semAvisos("A área é de 210 hectares simulados, dados fictícios."))
+                .isEqualTo("A área é de 210 hectares simulados, dados fictícios.");
+        // Se tudo for aviso, a resposta fica como veio (nunca vazia).
+        assertThat(AgenteDocia.semAvisos("Documento fictício.")).isEqualTo("Documento fictício.");
+    }
+
+    @Test
+    void trechoJuntaFraseQuebradaEntreLinhas() {
+        Documento d = mock(Documento.class);
+        when(d.getTitulo()).thenReturn("Relatório — Colniza");
+        when(d.getTextoExtraido()).thenReturn("Relatório — Colniza\nRelatório (fictício).\nForam detectados 4 alertas em Colniza, totalizando 210\n"
+                + "hectares simulados. Os polígonos serão priorizados.");
+        assertThat(AssistenteService.melhorTrecho(d, BuscaDocumentos.radicais("Colniza")))
+                .isEqualTo("Foram detectados 4 alertas em Colniza, totalizando 210 hectares simulados.");
+    }
+
+    @Test
+    void leituraTiraOSeloDemonstrativoDoTexto() {
+        Documento d = mock(Documento.class);
+        when(d.getId()).thenReturn(3L);
+        when(d.getTitulo()).thenReturn("Relatório");
+        when(d.getTextoExtraido()).thenReturn("AMBIENTE DEMONSTRATIVO — DADOS FICTÍCIOS. Documento simulado.\nConteúdo útil.\n"
+                + "AMBIENTE DEMONSTRATIVO — DADOS FICTÍCIOS.");
+        assertThat(AgenteDocia.leitura(d).get("texto")).isEqualTo("Conteúdo útil.");
     }
 }

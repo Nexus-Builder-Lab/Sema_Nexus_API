@@ -30,6 +30,9 @@ public class AgentesConfiguracao {
     private static final Pattern FORMATO_CHAVE = Pattern.compile("^sk-ant-[A-Za-z0-9_-]{20,}$");
     private static final Pattern FORMATO_MODELO_CLAUDE = Pattern.compile("^claude-[a-z0-9.-]{3,60}$");
     private static final Pattern FORMATO_MODELO_LOCAL = Pattern.compile("^[a-z0-9][a-z0-9._-]{1,60}(:[a-z0-9._-]{1,40})?$");
+    /** Duração aceita pelo Ollama em {@code keep_alive}: "-1" (sempre) ou número + s/m/h (ex.: "4h"). */
+    private static final Pattern FORMATO_PERMANENCIA = Pattern.compile("^(-1|\\d{1,4}[smh])$");
+    public static final String PERMANENCIA_PADRAO = "4h";
     private static final Pattern FORMATO_URL = Pattern.compile("^https?://[A-Za-z0-9.-]+(:\\d{1,5})?/?$");
 
     private final Provedor provedor;
@@ -41,7 +44,17 @@ public class AgentesConfiguracao {
     private final boolean pensar;
     private final Duration timeout;
     private final int maxIteracoes;
+    private final String manterCarregado;
+    private final boolean aquecer;
 
+    /** Construtor usado nos testes: permanência padrão e sem aquecimento ao iniciar. */
+    public AgentesConfiguracao(String provedor, String chave, String modeloTriagem, String modeloDocia, String ollamaUrl,
+                               String modeloLocal, boolean pensar, int timeoutSegundos, int maxIteracoes) {
+        this(provedor, chave, modeloTriagem, modeloDocia, ollamaUrl, modeloLocal, pensar, timeoutSegundos, maxIteracoes,
+                PERMANENCIA_PADRAO, false);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
     public AgentesConfiguracao(@Value("${AGENTES_PROVEDOR:ollama}") String provedor,
                                @Value("${ANTHROPIC_API_KEY:}") String chave,
                                @Value("${AGENTE_TRIAGEM_MODELO:" + MODELO_TRIAGEM_PADRAO + "}") String modeloTriagem,
@@ -50,7 +63,9 @@ public class AgentesConfiguracao {
                                @Value("${OLLAMA_MODELO:" + MODELO_LOCAL_PADRAO + "}") String modeloLocal,
                                @Value("${OLLAMA_PENSAR:false}") boolean pensar,
                                @Value("${AGENTES_TIMEOUT_SEGUNDOS:90}") int timeoutSegundos,
-                               @Value("${AGENTES_MAX_ITERACOES:6}") int maxIteracoes) {
+                               @Value("${AGENTES_MAX_ITERACOES:6}") int maxIteracoes,
+                               @Value("${OLLAMA_MANTER_CARREGADO:" + PERMANENCIA_PADRAO + "}") String manterCarregado,
+                               @Value("${AGENTES_AQUECER:true}") boolean aquecer) {
         this.provedor = provedor(provedor);
         this.chave = chave == null ? "" : chave.strip();
         this.modeloTriagem = valido(modeloTriagem, FORMATO_MODELO_CLAUDE, MODELO_TRIAGEM_PADRAO);
@@ -60,6 +75,8 @@ public class AgentesConfiguracao {
         this.pensar = pensar;
         this.timeout = Duration.ofSeconds(Math.max(5, Math.min(timeoutSegundos, 300)));
         this.maxIteracoes = Math.max(1, Math.min(maxIteracoes, 10));
+        this.manterCarregado = valido(manterCarregado, FORMATO_PERMANENCIA, PERMANENCIA_PADRAO);
+        this.aquecer = aquecer;
     }
 
     public Provedor provedor() {
@@ -105,6 +122,16 @@ public class AgentesConfiguracao {
         return maxIteracoes;
     }
 
+    /** Quanto tempo o Ollama mantém o modelo na memória de vídeo depois do último uso (padrão 4 h). */
+    public String manterCarregado() {
+        return manterCarregado;
+    }
+
+    /** Carregar o modelo em segundo plano ao iniciar a API (primeira pergunta sem espera). */
+    public boolean aquecer() {
+        return aquecer;
+    }
+
     private static Provedor provedor(String valor) {
         String v = valor == null ? "" : valor.strip().toUpperCase(Locale.ROOT);
         for (Provedor p : Provedor.values()) {
@@ -124,6 +151,7 @@ public class AgentesConfiguracao {
     public String toString() {
         return "AgentesConfiguracao[provedor=" + provedor + ", chaveAnthropicValida=" + chaveAnthropicValida()
                 + ", ollamaUrl=" + ollamaUrl + ", modeloLocal=" + modeloLocal + ", modeloTriagem=" + modeloTriagem
-                + ", modeloDocia=" + modeloDocia + ", timeout=" + timeout + ", maxIteracoes=" + maxIteracoes + "]";
+                + ", modeloDocia=" + modeloDocia + ", timeout=" + timeout + ", maxIteracoes=" + maxIteracoes
+                + ", manterCarregado=" + manterCarregado + ", aquecer=" + aquecer + "]";
     }
 }

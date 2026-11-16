@@ -100,7 +100,8 @@ public class ExecutorAgente {
                 List<FerramentaAgente> disponiveis = rodadas < agente.maxRodadasFerramentas()
                         ? agente.ferramentas() : List.of();
                 RespostaModelo resposta = chamar(new PedidoModelo(modelo, agente.instrucoes(), disponiveis,
-                        List.copyOf(mensagens), agente.esquemaResposta(), agente.esforco(), agente.maxTokens()));
+                        List.copyOf(mensagens), agente.esquemaResposta(), agente.esforco(), agente.maxTokens(),
+                        agente.campoTexto() != null));
                 entrada += resposta.tokensEntrada();
                 saida += resposta.tokensSaida();
                 cache += resposta.tokensCache();
@@ -112,7 +113,8 @@ public class ExecutorAgente {
                     }
                     continue;
                 }
-                ResultadoAgente r = new ResultadoAgente(lerJson(resposta.texto()), List.copyOf(passos), modelo,
+                ResultadoAgente r = new ResultadoAgente(lerJson(resposta.texto(), agente.campoTexto()),
+                        List.copyOf(passos), modelo,
                         entrada, saida, cache);
                 auditar(agente, modelo, entidadeId, "AGENTE_EXECUCAO", passos, entrada, saida, cache, null);
                 metricas.sucesso(agente.nome(), modelo, System.currentTimeMillis() - inicio);
@@ -180,8 +182,12 @@ public class ExecutorAgente {
         }
     }
 
-    private JsonNode lerJson(String texto) {
+    private JsonNode lerJson(String texto, String campoTexto) {
         String t = texto == null ? "" : texto.strip();
+        if (campoTexto != null && !t.isEmpty() && !t.startsWith("{") && !t.startsWith("`")) {
+            // Agente que aceita texto livre: a resposta em prosa vai para o campo de texto do JSON.
+            return json.createObjectNode().put(campoTexto, t);
+        }
         // Modelos locais às vezes embrulham o JSON em bloco de código ou texto: usa do primeiro { ao último }.
         int ini = t.indexOf('{');
         int fim = t.lastIndexOf('}');
