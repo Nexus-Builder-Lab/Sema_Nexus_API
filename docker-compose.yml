@@ -53,6 +53,8 @@ services:
       OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
       OLLAMA_MODELO: ${OLLAMA_MODELO:-qwen3:4b-instruct}
       OLLAMA_PENSAR: ${OLLAMA_PENSAR:-false}
+      OLLAMA_MANTER_CARREGADO: ${OLLAMA_MANTER_CARREGADO:-4h}
+      AGENTES_AQUECER: ${AGENTES_AQUECER:-true}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       AGENTE_TRIAGEM_MODELO: ${AGENTE_TRIAGEM_MODELO:-claude-haiku-5-5}
       AGENTE_DOCIA_MODELO: ${AGENTE_DOCIA_MODELO:-claude-sonnet-5-5}
@@ -93,7 +95,7 @@ services:
     volumes:
       - ollama:/root/.ollama
     environment:
-      OLLAMA_KEEP_ALIVE: 30m
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_MANTER_CARREGADO:-4h}
       OLLAMA_NO_CLOUD: "1"  # nunca usar modelos na nuvem: nada sai da máquina
     deploy:
       resources:
@@ -115,7 +117,7 @@ services:
     volumes:
       - ollama:/root/.ollama
     environment:
-      OLLAMA_KEEP_ALIVE: 30m
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_MANTER_CARREGADO:-4h}
       OLLAMA_NO_CLOUD: "1"  # nunca usar modelos na nuvem: nada sai da máquina
     networks:
       default:

@@ -15,6 +15,8 @@ import org.springframework.stereotype.Component;
 /**
  * Busca textual da biblioteca (mesma da listagem, sem acento/caixa): cada termo da consulta pontua os documentos
  * ativos; devolve os melhores com o trecho mais aderente. Usada pelo modo extrativo e pelo Agente DocIA (#108).
+ * Desde a Issue #120 cada termo longo vira radical ("desmatada" encontra "desmatamento") e a ocorrência no título
+ * vale 2 pontos a mais.
  */
 @Component
 public class BuscaDocumentos {
@@ -28,11 +30,42 @@ public class BuscaDocumentos {
     }
 
     /** Documento encontrado e o trecho (frase) com mais termos da consulta. */
-    public record Achado(Documento documento, String trecho) {
+    public record Achado(Documento documento, String trecho, String relevancia) {
+
+        public Achado(Documento documento, String trecho) {
+            this(documento, trecho, "alta");
+        }
+    }
+
+    /**
+     * Documentos com menos de 1/3 da pontuação do melhor ficam de fora: modelos pequenos escolhem pelo trecho, e um
+     * documento pouco relevante com números no trecho os desviava (ex.: Parecer de Cáceres numa pergunta sobre
+     * Colniza). Alta: 70%+ do melhor; média: 40–70%; baixa: o restante.
+     */
+    static String relevancia(int pontos, int maximo) {
+        double p = maximo == 0 ? 0 : (double) pontos / maximo;
+        return p >= 0.7 ? "alta" : p >= 0.4 ? "média" : "baixa";
+    }
+
+    /** Radical simples para a busca: palavras com 7+ letras perdem o final (no mínimo 5 letras ficam). */
+    static String radical(String termo) {
+        return termo.length() >= 7 ? termo.substring(0, Math.max(5, termo.length() - 3)) : termo;
+    }
+
+    /** Termos normalizados da consulta já reduzidos ao radical. */
+    public static List<String> radicais(String texto) {
+        List<String> r = new ArrayList<>();
+        for (String t : AssistenteService.termos(DocumentoSpecification.normalizar(texto == null ? "" : texto.strip()))) {
+            String rad = radical(t);
+            if (!r.contains(rad)) {
+                r.add(rad);
+            }
+        }
+        return r;
     }
 
     public List<Achado> buscar(String consulta, int limite) {
-        List<String> termos = AssistenteService.termos(DocumentoSpecification.normalizar(consulta == null ? "" : consulta.strip()));
+        List<String> termos = radicais(consulta);
         List<Achado> r = new ArrayList<>();
         if (termos.isEmpty()) {
             return r;
@@ -44,14 +77,19 @@ public class BuscaDocumentos {
                     padrao, padrao, padrao, padrao)) {
                 pontos.merge(id, 1, Integer::sum);
             }
+            for (Long id : jdbc.queryForList(DocumentoSpecification.SQL_BUSCA_TITULO, Long.class, padrao)) {
+                pontos.merge(id, 2, Integer::sum);
+            }
         }
+        int maximo = pontos.values().stream().mapToInt(Integer::intValue).max().orElse(0);
         pontos.entrySet().stream()
+                .filter(e -> e.getValue() * 3 >= maximo)
                 .sorted(Map.Entry.<Long, Integer>comparingByValue().reversed().thenComparing(Map.Entry.comparingByKey()))
                 .limit(limite)
                 .forEach(e -> documentos.buscarAtivo(e.getKey()).ifPresent(d -> {
                     String trecho = AssistenteService.melhorTrecho(d, termos);
                     if (trecho != null) {
-                        r.add(new Achado(d, trecho));
+                        r.add(new Achado(d, trecho, relevancia(e.getValue(), maximo)));
                     }
                 }));
         return r;

@@ -36,6 +36,8 @@ Regras: essas contas existem **apenas** nos profiles `demo`/`dev`, são gravadas
 >
 > Rode `demo-reset` **um ou dois dias antes** da apresentação: as datas da massa são relativas ao dia do reset (prazos, atrasadas e finalizadas recentes no Fluxo de atividades).
 
+> **IA dos agentes:** a API carrega o modelo na GPU sozinha ao iniciar e o mantém por 4 h (Issue #120). Antes de apresentar, confira em Administração → Painel do sistema → "Agentes de IA" o aquecimento **Pronto** e o modelo 100% na GPU. Tempos medidos: Assistente DocIA ~3 s por pergunta, sugestão de triagem ~7 s. Evite programas pesados de GPU (jogos, edição de vídeo) durante a apresentação.
+
 1. Subir: `.\scripts\demo-up.ps1` (ou `./scripts/demo-up.sh`); aguarda os healthchecks e imprime as URLs.
 2. `docker compose ps`: `oracle`, `api` e `web` **healthy**.
 3. Restaurar a massa: `.\scripts\demo-reset.ps1` (apaga apenas os volumes do projeto `sema_nexus`, sem afetar outros projetos; exige confirmação `RESETAR` ou `DEMO_RESET_CONFIRM=yes`). Aguardar o seed (120 demandas, 12 documentos).

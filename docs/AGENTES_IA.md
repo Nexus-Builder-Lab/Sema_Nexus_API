@@ -44,7 +44,7 @@ Em qualquer falha (Ollama parado, modelo não baixado, erro, resposta inválida)
 
 1. No `.env`: `COMPOSE_PROFILES=ia` (GPU NVIDIA; sem GPU use `ia-cpu`, mais lento) e `AGENTES_PROVEDOR=ollama`.
 2. `.\scripts\ia-preparar.ps1` (ou `./scripts/ia-preparar.sh`): sobe o serviço `ollama` e baixa `OLLAMA_MODELO` para o volume `ollama` do projeto.
-3. `GET /api/agentes/status` deve indicar `LOCAL`. A primeira resposta demora mais (carrega o modelo na GPU, ~30–50 s); depois, ~3–5 s por etapa. O modelo fica carregado por 30 min (`OLLAMA_KEEP_ALIVE`).
+3. `GET /api/agentes/status` deve indicar `LOCAL`. A API **aquece o modelo ao iniciar** (carrega na GPU em segundo plano, ~10–50 s) e ele fica carregado por **4 h** após o último uso (`OLLAMA_MANTER_CARREGADO`), então a primeira pergunta não espera o carregamento. Estado do aquecimento no Painel do sistema.
 4. Depois de baixado, **funciona sem internet** (bom para a apresentação).
 
 **Rede com inspeção HTTPS (ex.: firewall da SEMA):** o download do modelo pode falhar com `x509: certificate signed by unknown authority`. Não desligue a verificação TLS. Opções: baixar em outra rede, ou (feito em 13/11/2026, com autorização do proprietário) adicionar temporariamente o certificado **público** da CA do firewall — já confiado pelo Windows — só no container do Ollama, baixar o modelo e recriar o container (`docker compose up -d --force-recreate ollama`) para remover a confiança.
@@ -58,19 +58,41 @@ Em qualquer falha (Ollama parado, modelo não baixado, erro, resposta inválida)
 3. A API valida: enums inválidos ou ausentes são completados pelas regras locais (com aviso); duplicatas só se vieram da ferramenta e não estão finalizadas; justificativa limitada a 3 frases completas; o **núcleo regional** vem da região do município (determinístico).
 4. Falha da IA → regras locais (`RegrasTriagem`: palavras-chave → categoria; gravidade e INPE → prioridade), com aviso.
 
-Medido em 13/11/2026 (GTX 1660 SUPER, `qwen3:4b-instruct`): **7–11 s** por sugestão (10 de 10 demandas pendentes com IA, sem cair nas regras); a primeira após subir o Ollama leva ~30–50 s (carga na GPU).
+Medido em 13/11/2026 (GTX 1660 SUPER, `qwen3:4b-instruct`): **7–11 s** por sugestão (10 de 10 demandas pendentes com IA, sem cair nas regras). Em 16/11/2026 (Issue #120), com justificativa de até 220 caracteres e limite de 400 tokens: **média 7,2 s** (antes 9,4 s), mesmas categorias, prioridades e núcleos nas 5 demandas medidas.
 
 Lições com modelo pequeno: ferramentas **sem parâmetros** confundem o modelo (ele fica raciocinando sobre como passar o número) — toda ferramenta tem um parâmetro, e o servidor usa sempre a demanda em triagem; o `qwen3:4b` (com raciocínio) gastava ~1.000 tokens por etapa (15–20 s), por isso o padrão é a versão *instruct*; sem limite de tamanho no esquema o modelo pode se repetir até o limite de tokens.
 
 ## Assistente DocIA agêntico (Issue #108)
 
-Mesmo endpoint `POST /api/docia/perguntas`. Com IA disponível, o agente decide o que buscar (`buscar_documentos`, a mesma busca textual da biblioteca) e o que ler (`ler_documento`, até 4.000 caracteres do texto extraído), em até 2 rodadas de ferramentas, e responde no esquema `{resposta, suficiente, referencias[{documentoId, trecho}]}`.
+Mesmo endpoint `POST /api/docia/perguntas`. Com IA disponível, o agente decide o que buscar (`buscar_documentos`) e se precisa ler outro documento (`ler_documento`, até 4.000 caracteres), em até 3 rodadas de ferramentas, e responde **em texto livre** (ou no esquema curto `{resposta, suficiente}`); sem base nos documentos responde `NAO_ENCONTRADO`.
 
-A API valida: referências só de documentos que as ferramentas devolveram; título vindo do banco; **trecho conferido no texto** do documento (trecho inventado é trocado pelo trecho real mais aderente); sem citação, cita o primeiro documento consultado; `suficiente=false` → "não há informação suficiente". A recusa de perguntas sobre leis, multas e procedimentos oficiais continua antes do agente. Falha → modo extrativo (identificado).
+`buscar_documentos` (desde a Issue #120): busca textual com **radical** das palavras longas ("desmatada" encontra "desmatamento") e +2 pontos quando o termo está no título; documentos com menos de 1/3 da pontuação do melhor ficam de fora; devolve **o texto do mais relevante** (e de um 2º igualmente relevante, ex.: outra versão) e a lista dos demais com relevância alta/média/baixa. As linhas do selo "AMBIENTE DEMONSTRATIVO" saem do texto entregue ao modelo.
+
+A API **monta as citações**: documentos lidos (até 2), título vindo do banco e o trecho do documento mais aderente à pergunta e à resposta (frases quebradas entre linhas são reunidas; a linha do título não vale como trecho). Se o modelo citar, só valem documentos que as ferramentas devolveram e trechos que existem no texto. Frases de aviso sem dado ("Este documento é fictício…") saem da resposta — a tela já mostra o selo. `suficiente=false` ou `NAO_ENCONTRADO` → "não há informação suficiente". A recusa de perguntas sobre leis, multas e procedimentos oficiais continua antes do agente. Falha → modo extrativo (identificado).
 
 Resposta ganhou `agente` (LOCAL/CLAUDE/DEMONSTRATIVO/EXTERNO), `modelo` e `passos` (compatível).
 
-Medido em 13/11/2026 (`qwen3:4b-instruct`, GTX 1660 SUPER): 3–12 s por pergunta; "O que o parecer 014/2026 concluiu?" → resposta correta citando a versão 1 do parecer; pergunta sem base nos documentos → "não há informação suficiente".
+Medido em 13/11/2026 (`qwen3:4b-instruct`, GTX 1660 SUPER): 3–12 s por pergunta.
+
+## Desempenho (Issue #120, 16/11/2026)
+
+Mesmo modelo e mesma placa (GTX 1660 SUPER, 100% na GPU, Flash Attention ligado). Pedido do proprietário: mais rápido mantendo a qualidade.
+
+| Medida | Antes | Depois |
+|---|---|---|
+| DocIA, 5 perguntas de referência (média) | 11,3 s (2 de 5 caíam no modo demonstrativo após ~18 s) | **~3 s**, 5 de 5 com IA |
+| DocIA, 9 perguntas (inclui 1 sem resposta), 2 rodadas | — | **2,9–3,1 s**; 8 corretas citando o documento certo + "não há informação" na sem resposta; resultados iguais nas 2 rodadas |
+| Triagem, 5 demandas (média) | 9,4 s | **7,2 s**, mesmas classificações |
+| Primeira pergunta após subir ou após 30 min parado | +30–50 s (carga do modelo) | sem espera (aquecimento ao iniciar; fica 4 h) |
+
+Causas encontradas e correções:
+1. **Falha na etapa final do DocIA** (reproduzida direto no Ollama): as instruções permitiam buscar + ler 2 documentos (3 rodadas), mas o limite era 2; sem ferramentas, o modelo "chamava ferramenta" em texto, gerava 900 tokens (~15 s) e devolvia resposta vazia → 3 rodadas e, na etapa final, pedido explícito "não chame mais ferramentas".
+2. **Resposta escrita duas vezes** (texto e depois JSON, +4–6 s) → agentes podem aceitar texto livre (`DefinicaoAgente.campoTexto`).
+3. **Trechos longos copiados pelo modelo** para citações que a API reconferia → a API monta as citações.
+4. **Documento errado** ("área desmatada em Colniza" lia o Parecer de Cáceres): radical, peso do título, corte dos pouco relevantes, trecho sem a linha do título e texto do mais relevante já entregue pela busca.
+5. **Modelo descarregado após 30 min** → aquecimento ao iniciar (`AquecimentoModelo`, mesma janela de contexto de 8.192 tokens das chamadas, senão o Ollama recarregaria) e permanência de 4 h.
+
+A GPU chega a ~99% **durante** a geração (alguns segundos) — é o esperado: o modelo usa a placa inteira para responder mais rápido e depois ela volta ao repouso. A memória de vídeo fica ocupada (~3,9 GB) enquanto o modelo está carregado.
 
 ## Configuração (`.env`)
 
@@ -81,6 +103,8 @@ Medido em 13/11/2026 (`qwen3:4b-instruct`, GTX 1660 SUPER): 3–12 s por pergunt
 | `OLLAMA_URL` | `http://ollama:11434` | Endereço interno do Ollama. |
 | `OLLAMA_MODELO` | `qwen3:4b-instruct` | Modelo local (precisa suportar ferramentas). |
 | `OLLAMA_PENSAR` | `false` | `true` só para modelos com modo de raciocínio (ex.: `qwen3:4b`); os demais recusam o campo. |
+| `OLLAMA_MANTER_CARREGADO` | `4h` | Tempo que o modelo fica na memória de vídeo após o último uso (`30m`, `4h`, `-1` = sempre). |
+| `AGENTES_AQUECER` | `true` | Carregar o modelo em segundo plano ao iniciar a API. |
 | `ANTHROPIC_API_KEY` | vazia | Só com `AGENTES_PROVEDOR=anthropic`; criada pelo proprietário, nunca versionada. |
 | `AGENTE_TRIAGEM_MODELO` / `AGENTE_DOCIA_MODELO` | `claude-haiku-5-5` / `claude-sonnet-5-5` | Modelos do Claude, se usado. |
 | `AGENTES_TIMEOUT_SEGUNDOS` | `90` | Tempo máximo por chamada (5–300). |
@@ -98,6 +122,7 @@ Medido em 13/11/2026 (`qwen3:4b-instruct`, GTX 1660 SUPER): 3–12 s por pergunt
 
 ## Limitações e futuro
 
-- Modelo pequeno (4B): respostas mais simples que modelos grandes; por isso sugestões são validadas pela API e revisadas por uma pessoa.
+- Modelo pequeno (4B): respostas mais simples que modelos grandes; por isso sugestões são validadas pela API e revisadas por uma pessoa. Tabelas (ex.: boletim mês × bioma) são lidas com dificuldade: perguntas vagas sobre elas podem ter resposta imprecisa.
+- Sem placa NVIDIA o modelo roda só no processador (perfil `ia-cpu`): estimativa de 30–90 s por triagem e 1–3 min por pergunta, com o processador a 100% — para uso real, a IA deve ficar num servidor com GPU (os usuários só usam o navegador).
 - Uso real por um órgão público: o modelo local é uma boa base (dados não saem da rede); com provedor externo, exige contrato, análise de LGPD e governança de IA.
 - Futuro (P2): Agente de Prazos (agendado), Analista Ambiental (Intelligence) e Assistente SEMA ALERTA (multiagente).
