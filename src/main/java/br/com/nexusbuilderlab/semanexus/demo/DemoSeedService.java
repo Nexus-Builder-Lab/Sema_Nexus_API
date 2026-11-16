@@ -13,6 +13,8 @@ import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Pattern;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
@@ -21,7 +23,8 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Carga inicial demonstrativa (setores, usuários e equipes fictícios), idempotente por chave natural:
  * sigla do setor, e-mail do usuário e (setor, nome) da equipe. Só cria o que falta; nunca altera
- * registros existentes. Senhas vêm do recurso já como hash BCrypt — o texto puro não existe em
+ * registros existentes — exceto a troca do domínio demonstrativo antigo ({@link #DOMINIO_ANTIGO}, do
+ * nome anterior do sistema) pelo atual, feita antes da carga para não duplicar usuários. Senhas vêm do recurso já como hash BCrypt — o texto puro não existe em
  * {@code src/main}.
  *
  * <p>Carregado somente nos profiles {@code demo} e {@code dev}, e nunca com {@code openapi} (que roda sem banco).
@@ -33,7 +36,11 @@ public class DemoSeedService {
     /** Expressão de profile compartilhada com {@link DemoSeedRunner}. */
     static final String PROFILES = "(demo | dev) & !openapi";
     static final String RECURSO = "demo/usuarios.json";
+    /** Domínio dos e-mails demonstrativos quando o sistema se chamava SEMA NEXUS (até 16/11/2026). */
+    static final String DOMINIO_ANTIGO = "@demo.semanexus.local";
+    static final String DOMINIO_ATUAL = "@demo.semaalerta.local";
 
+    private static final Logger log = LoggerFactory.getLogger(DemoSeedService.class);
     private static final Pattern BCRYPT = Pattern.compile("^\\$2[aby]\\$\\d{2}\\$.{53}$");
 
     private final SetorRepository setores;
@@ -52,6 +59,7 @@ public class DemoSeedService {
     @Transactional
     public ResultadoSeed aplicar() {
         DemoSeedDados dados = carregar();
+        migrarDominioAntigo();
 
         int novosSetores = 0;
         Map<String, Setor> setorPorSigla = new HashMap<>();
@@ -101,6 +109,26 @@ public class DemoSeedService {
         }
 
         return new ResultadoSeed(novosSetores, novosUsuarios, novasEquipes, novosMembros);
+    }
+
+    /**
+     * Renomeia os usuários demonstrativos do domínio antigo para o atual, mantendo id, senha, setor,
+     * equipes, demandas e auditoria. Se o e-mail novo já existir, o antigo fica como está.
+     */
+    int migrarDominioAntigo() {
+        int renomeados = 0;
+        for (Usuario u : usuarios.findByDemoTrueAndEmailEndingWith(DOMINIO_ANTIGO)) {
+            String novo = u.getEmail().substring(0, u.getEmail().length() - DOMINIO_ANTIGO.length()) + DOMINIO_ATUAL;
+            if (usuarios.findByEmail(novo).isEmpty()) {
+                u.setEmail(novo);
+                usuarios.save(u);
+                renomeados++;
+            }
+        }
+        if (renomeados > 0) {
+            log.info("Seed demonstrativo: {} e-mail(s) demonstrativo(s) migrado(s) para {}.", renomeados, DOMINIO_ATUAL);
+        }
+        return renomeados;
     }
 
     private DemoSeedDados carregar() {

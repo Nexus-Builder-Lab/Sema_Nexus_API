@@ -137,7 +137,7 @@ class DemoSeedOracleTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.usuario.perfil").value("ADMIN"));
         mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"fiscal1@demo.semanexus.local\",\"senha\":\"Demo@Sema2026\"}"))
+                        .content("{\"email\":\"fiscal1@demo.semaalerta.local\",\"senha\":\"Demo@Sema2026\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.usuario.perfil").value("FISCAL"));
     }

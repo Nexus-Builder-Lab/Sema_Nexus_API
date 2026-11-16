@@ -44,7 +44,7 @@ class SemaNexusApplicationTests {
     void contratoOpenApiEPublico() throws Exception {
         mvc.perform(get("/v3/api-docs"))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("SEMA NEXUS API")))
+                .andExpect(content().string(containsString("SEMA ALERTA API")))
                 .andExpect(content().string(containsString("bearerAuth")));
     }
 

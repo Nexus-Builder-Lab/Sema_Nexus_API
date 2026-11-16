@@ -1,4 +1,4 @@
-# SEMA NEXUS — Execução com Docker
+# SEMA ALERTA — Execução com Docker
 
 > **AMBIENTE DEMONSTRATIVO — DADOS FICTÍCIOS.** Nada aqui toca sistemas institucionais.
 

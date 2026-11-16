@@ -1,4 +1,4 @@
-# SEMA NEXUS — ambiente completo (Oracle Free + API + Web). Issue #8.
+# SEMA ALERTA — ambiente completo (Oracle Free + API + Web). Issue #8.
 # AMBIENTE DEMONSTRATIVO — DADOS FICTÍCIOS.
 #
 # Uso:  cp .env.example .env   (edite as senhas)   →   docker compose up -d --build

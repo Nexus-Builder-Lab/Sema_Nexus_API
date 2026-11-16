@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# SEMA NEXUS API — imagem multi-stage (Issue #2). AMBIENTE DEMONSTRATIVO — DADOS FICTÍCIOS.
+# SEMA ALERTA API — imagem multi-stage (Issue #2). AMBIENTE DEMONSTRATIVO — DADOS FICTÍCIOS.
 # Nenhum segredo nesta imagem: toda configuração sensível chega por variáveis de ambiente
 # em tempo de execução (docker-compose.yml + .env, Issue #8).
 

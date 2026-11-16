@@ -1,4 +1,4 @@
-# SEMA NEXUS — Agentes de IA no sistema
+# SEMA ALERTA — Agentes de IA no sistema
 
 > **Status:** infraestrutura (Issue #106), Agente de Triagem (Issue #107) e Assistente DocIA agêntico (Issue #108) implementados.
 > Aprovado pelo proprietário em 13/11/2026. **AMBIENTE DEMONSTRATIVO — DADOS FICTÍCIOS.**
@@ -100,4 +100,4 @@ Medido em 13/11/2026 (`qwen3:4b-instruct`, GTX 1660 SUPER): 3–12 s por pergunt
 
 - Modelo pequeno (4B): respostas mais simples que modelos grandes; por isso sugestões são validadas pela API e revisadas por uma pessoa.
 - Uso real por um órgão público: o modelo local é uma boa base (dados não saem da rede); com provedor externo, exige contrato, análise de LGPD e governança de IA.
-- Futuro (P2): Agente de Prazos (agendado), Analista Ambiental (Intelligence) e Assistente NEXUS (multiagente).
+- Futuro (P2): Agente de Prazos (agendado), Analista Ambiental (Intelligence) e Assistente SEMA ALERTA (multiagente).

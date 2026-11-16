@@ -1,4 +1,4 @@
-# SEMA NEXUS — Autopilot (desenvolvimento autônomo com Claude Code)
+# SEMA ALERTA — Autopilot (desenvolvimento autônomo com Claude Code)
 
 > **Status:** Implementado em 10/11/2026. Autorizado pelo proprietário: merge automático condicionado, duas sessões em paralelo, auto mode.
 

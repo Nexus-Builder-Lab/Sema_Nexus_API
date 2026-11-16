@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-  SEMA NEXUS — Autopilot. Executa o Claude Code sem supervisão, uma Issue por iteração (/next-issue),
+  SEMA ALERTA — Autopilot. Executa o Claude Code sem supervisão, uma Issue por iteração (/next-issue),
   em um dos repositórios (API ou WEB). Use duas janelas para rodar as duas sessões em paralelo.
 
 .DESCRIPTION

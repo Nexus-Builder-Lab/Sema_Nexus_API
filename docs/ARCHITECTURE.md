@@ -1,4 +1,4 @@
-# SEMA NEXUS — Arquitetura
+# SEMA ALERTA — Arquitetura
 
 > **Status:** Planejado (10/11/2026), com itens já **Implementados** marcados no texto (autenticação, seed e trava do usuário de teste; catálogos e estrutura, Issue #7). Este documento descreve a arquitetura-alvo do MVP; só marque **Implementado** depois de mesclado e testado.
 > AMBIENTE DEMONSTRATIVO — DADOS FICTÍCIOS. Sem integração com sistemas institucionais.

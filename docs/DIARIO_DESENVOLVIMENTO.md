@@ -436,3 +436,8 @@
 - **Status:** feito pela sessão principal (pedido do proprietário)
 - **O que foi feito:** seções "Agentes de IA no sistema" (pacote `agentes`, provedores ollama/anthropic/demo, Triagem e DocIA com suas ferramentas, regras: só consulta, nunca grava nem decide, chaves só no `.env`, aquecer o modelo antes da demonstração) e "Skills do Claude Code" (as 5 skills deste repositório e o aviso de que não autorizam nada além do `CLAUDE.md`); `docs/AGENTES_IA.md` na lista de detalhes.
 - **Testes:** só documentação; nomes de classes, endpoints, ferramentas e scripts conferidos no código.
+
+## 2026-11-16 · GH-118 · O sistema passa a se chamar SEMA ALERTA
+- **Status:** feito pela sessão principal (decisão do proprietário: renomear tudo o que é visível e os e-mails demonstrativos; identificadores técnicos e repositórios ficam como estão)
+- **O que foi feito:** "SEMA NEXUS" → "SEMA ALERTA" no OpenAPI, nas instruções dos agentes de IA, nos scripts, no `pom.xml` (nome/descrição; o `artifactId` continua `sema-nexus-api`), no README, no `CLAUDE.md`, nas skills/agentes do Claude Code e em `docs/`. E-mails demonstrativos `@demo.semanexus.local` → `@demo.semaalerta.local` no seed, no `AuthService` e nos exemplos; `DemoSeedService.migrarDominioAntigo()` renomeia no banco existente os usuários demonstrativos do domínio antigo antes da carga (mantém id, senha, equipes, demandas e auditoria; não duplica). Migrations já mescladas e as entradas anteriores deste diário não foram alteradas (registros históricos).
+- **Testes:** `DemoSeedServiceTest.migraEmailsDoDominioAntigoSemDuplicarUsuarios`; suíte 356/356.

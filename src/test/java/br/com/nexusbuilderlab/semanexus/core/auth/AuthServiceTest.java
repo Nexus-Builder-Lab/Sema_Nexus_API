@@ -164,17 +164,17 @@ class AuthServiceTest {
 
     @Test
     void loginDemoFiscalUsaOFiscalDoNucleoCuiaba() {
-        Usuario cuiaba = new Usuario("Fiscal Cuiabá", "fiscal.cba1@demo.semanexus.local", "hash", Perfil.FISCAL);
+        Usuario cuiaba = new Usuario("Fiscal Cuiabá", "fiscal.cba1@demo.semaalerta.local", "hash", Perfil.FISCAL);
         ReflectionTestUtils.setField(cuiaba, "id", 31L);
         cuiaba.setDemo(true);
-        when(usuarios.findByEmail("fiscal.cba1@demo.semanexus.local")).thenReturn(Optional.of(cuiaba));
+        when(usuarios.findByEmail("fiscal.cba1@demo.semaalerta.local")).thenReturn(Optional.of(cuiaba));
 
         assertThat(servico.loginDemo("FISCAL").usuario().id()).isEqualTo(31L);
         verify(usuarios, never()).findFirstByPerfilAndDemoTrueAndAtivoTrueOrderByIdAsc(Perfil.FISCAL);
 
         // conta preferida inativa: volta para o primeiro fiscal demonstrativo
         cuiaba.setAtivo(false);
-        Usuario primeiro = new Usuario("Fiscal Um", "fiscal1@demo.semanexus.local", "hash", Perfil.FISCAL);
+        Usuario primeiro = new Usuario("Fiscal Um", "fiscal1@demo.semaalerta.local", "hash", Perfil.FISCAL);
         ReflectionTestUtils.setField(primeiro, "id", 3L);
         when(usuarios.findFirstByPerfilAndDemoTrueAndAtivoTrueOrderByIdAsc(Perfil.FISCAL))
                 .thenReturn(Optional.of(primeiro));

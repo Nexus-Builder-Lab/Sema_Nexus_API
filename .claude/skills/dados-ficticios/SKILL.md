@@ -1,6 +1,6 @@
 ---
 name: dados-ficticios
-description: Regras e estrutura do seed demonstrativo do SEMA NEXUS (usuários, setores, núcleos regionais, 120 demandas, 12 documentos, cenários C1–C6, datas relativas ao reset). Use ao criar ou alterar dados de seed, massa de teste, usuários demonstrativos, documentos fictícios, ou quando surgir a dúvida "posso usar este dado?".
+description: Regras e estrutura do seed demonstrativo do SEMA ALERTA (usuários, setores, núcleos regionais, 120 demandas, 12 documentos, cenários C1–C6, datas relativas ao reset). Use ao criar ou alterar dados de seed, massa de teste, usuários demonstrativos, documentos fictícios, ou quando surgir a dúvida "posso usar este dado?".
 ---
 
 # Dados fictícios do seed
@@ -22,7 +22,7 @@ description: Regras e estrutura do seed demonstrativo do SEMA NEXUS (usuários, 
 
 ## Convenções
 
-- E-mails: `<papel>@demo.semanexus.local` (ex.: `fiscal.cba1@demo.semanexus.local`); senha demonstrativa só em `docs/DEMO.md`/`docs/DOCKER.md`/README/testes. O `admin@admin.com` é o único fora do domínio e existe só em `demo`/`dev` (`TestUserProfileGuard`).
+- E-mails: `<papel>@demo.semaalerta.local` (ex.: `fiscal.cba1@demo.semaalerta.local`); senha demonstrativa só em `docs/DEMO.md`/`docs/DOCKER.md`/README/testes. O `admin@admin.com` é o único fora do domínio e existe só em `demo`/`dev` (`TestUserProfileGuard`).
 - Setores `DEMO-GAB`, `DEMO-FISC`, `DEMO-DOC` e núcleos regionais `NR-CBA` (Cuiabá), `NR-CAC` (Cáceres), `NR-ROO` (Rondonópolis), `NR-BAG` (Barra do Garças), `NR-SNO` (Sinop) = regiões intermediárias do IBGE (`MUNICIPIO.REGIAO`). Nos gráficos, rótulo curto "NR X".
 - Demandas: marca `[DEMO-SEED]`; títulos dos cenários terminam com "(cenário de demonstração)"; o roteiro localiza pelo **título** (o número `DEM-AAAA/NNNN` varia com o dia).
 - Contagem por status: 10 Pendente · 10 Em triagem · 12 Aguardando distribuição · 16 Distribuída · 26 Em andamento · 16 Aguardando conclusão · 30 Finalizada (6 por núcleo, tempos médios distintos).

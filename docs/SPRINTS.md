@@ -1,4 +1,4 @@
-# SEMA NEXUS — Sprints e backlog
+# SEMA ALERTA — Sprints e backlog
 
 > Gerado a partir do backlog aprovado em 10/11/2026. Fonte da verdade do andamento: o [GitHub Project](https://github.com/orgs/Nexus-Builder-Lab/projects/1).
 > **Status do documento:** Planejado. Nenhuma funcionalidade está implementada ainda.

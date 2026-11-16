@@ -52,7 +52,7 @@ class AuthDemoControllerWebMvcTest {
         @Test
         void perfilValidoDevolveLoginResponseSemAutenticacao() throws Exception {
             when(authService.loginDemo("GESTOR")).thenReturn(new LoginResponse("jwt.de.teste", 28_800L,
-                    new UsuarioResumo(2L, "Gestor Demonstrativo", "gestor@demo.semanexus.local", Perfil.GESTOR)));
+                    new UsuarioResumo(2L, "Gestor Demonstrativo", "gestor@demo.semaalerta.local", Perfil.GESTOR)));
             mvc.perform(post("/api/auth/demo/GESTOR"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.token").value("jwt.de.teste"))

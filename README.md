@@ -1,6 +1,6 @@
-# SEMA NEXUS — API
+# SEMA ALERTA — API
 
-Backend do **SEMA NEXUS**, plataforma **demonstrativa** de inteligência ambiental, gestão de demandas de fiscalização e gestão documental no contexto de **Mato Grosso**.
+Backend do **SEMA ALERTA**, plataforma **demonstrativa** de inteligência ambiental, gestão de demandas de fiscalização e gestão documental no contexto de **Mato Grosso**.
 
 > ⚠️ **AMBIENTE DEMONSTRATIVO — DADOS FICTÍCIOS.** Sem integração com sistemas da SEMA-MT ou outros sistemas institucionais. Nada aqui tem valor oficial.
 
@@ -22,7 +22,7 @@ Este repositório também concentra a **infraestrutura e a documentação transv
 | Demandas do Flux: cadastro, edição, listagem com filtros, detalhes, histórico e exclusão lógica (Issue #11) | **Implementado** |
 | Triagem, distribuição e fiscalização do Flux (#12, #13), Intelligence, DocIA | **Planejado** — Sprints 2 e 3 |
 
-Acompanhamento: [GitHub Project — SEMA NEXUS — Desenvolvimento](https://github.com/orgs/Nexus-Builder-Lab/projects/1) · [docs/SPRINTS.md](docs/SPRINTS.md)
+Acompanhamento: [GitHub Project — SEMA ALERTA — Desenvolvimento](https://github.com/orgs/Nexus-Builder-Lab/projects/1) · [docs/SPRINTS.md](docs/SPRINTS.md)
 
 ## Tecnologias
 
@@ -53,7 +53,7 @@ Passo a passo completo, requisitos, Windows/WSL2, Apple Silicon, reset e soluç�
 
 ## Executar localmente sem Docker
 
-Requisitos: **JDK 21** e Maven 3.9. O Maven usa o JDK do `JAVA_HOME` (não o do `PATH`); se ele apontar para JDK 8, o build para com a mensagem "SEMA NEXUS exige JDK 21".
+Requisitos: **JDK 21** e Maven 3.9. O Maven usa o JDK do `JAVA_HOME` (não o do `PATH`); se ele apontar para JDK 8, o build para com a mensagem "SEMA ALERTA exige JDK 21".
 
 ```powershell
 # Windows (só na sessão atual)

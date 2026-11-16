@@ -1,4 +1,4 @@
-# SEMA NEXUS — atalhos para os scripts de demonstração (Linux/macOS/WSL/Git Bash).
+# SEMA ALERTA — atalhos para os scripts de demonstração (Linux/macOS/WSL/Git Bash).
 # AMBIENTE DEMONSTRATIVO — DADOS FICTÍCIOS. Ver docs/DOCKER.md.
 .PHONY: up down reset logs ps
 

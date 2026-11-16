@@ -24,12 +24,12 @@ public class OpenApiConfig {
     OpenAPI semaNexusOpenApi() {
         return new OpenAPI()
                 .info(new Info()
-                        .title("SEMA NEXUS API")
+                        .title("SEMA ALERTA API")
                         .version("0.1.0")
                         .description("""
                                 AMBIENTE DEMONSTRATIVO — DADOS FICTÍCIOS.
 
-                                API da plataforma demonstrativa SEMA NEXUS (inteligência ambiental, \
+                                API da plataforma demonstrativa SEMA ALERTA (inteligência ambiental, \
                                 demandas de fiscalização e gestão documental em Mato Grosso). \
                                 Sem integração com sistemas institucionais.
 

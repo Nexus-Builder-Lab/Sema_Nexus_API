@@ -1,4 +1,4 @@
-# SEMA NEXUS — Agentes e fluxo multiagente
+# SEMA ALERTA — Agentes e fluxo multiagente
 
 > **Status:** Implementado. Versão econômica desde 11/11/2026 (Issue #55): mesmos modelos e esforços, muito menos tokens por Issue.
 

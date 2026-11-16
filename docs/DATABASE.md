@@ -1,4 +1,4 @@
-# SEMA NEXUS — Banco de dados (Oracle)
+# SEMA ALERTA — Banco de dados (Oracle)
 
 > **Status:** Core **Implementado** (Issue #3: `V1__core.sql`, `V2__municipios_mt.sql`). Flux **Implementado** (Issue #11: `V3__flux.sql`; triagem, distribuição e fiscalização usam as tabelas nas #12 e #13). DocIA (#15) e Notificações (#25, P1) **Planejados**.
 > **Oracle é obrigatório.** Não usar PostgreSQL, MySQL, H2 ou SQLite em nenhum ambiente, nem em testes.

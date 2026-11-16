@@ -1,4 +1,4 @@
-// SEMA NEXUS — project-health. Gera um resumo em Markdown (stdout) com dados REAIS do GitHub.
+// SEMA ALERTA — project-health. Gera um resumo em Markdown (stdout) com dados REAIS do GitHub.
 // Somente leitura. Não altera Issues, status ou PRs. Sem dependências externas (Node 18+).
 const ORG = 'Nexus-Builder-Lab';
 const REPOS = ['Sema_Nexus_API', 'Sema_Nexus_Web'];
@@ -116,7 +116,7 @@ async function statusDoProject() {
 }
 
 async function main() {
-  p(`# 🩺 SEMA NEXUS — Saúde do projeto em ${br(hoje)}`);
+  p(`# 🩺 SEMA ALERTA — Saúde do projeto em ${br(hoje)}`);
   p(`Meta de implementação **${br(META_IMPLEMENTACAO)}** · limite **${br(FIM_IMPLEMENTACAO)}** · revisão/testes/tag em **${br(ENTREGA)}** · apresentação em **${br(APRESENTACAO)}**.\n`);
 
   if (hoje > APRESENTACAO) {
