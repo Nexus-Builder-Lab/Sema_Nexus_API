@@ -1,4 +1,4 @@
-# CLAUDE.md — SEMA NEXUS · Sema_Nexus_API
+# CLAUDE.md — SEMA ALERTA · Sema_Nexus_API
 
 Regras permanentes. Detalhes: `docs/ARCHITECTURE.md`, `docs/DATABASE.md`, `docs/API.md`, `docs/DEVELOPMENT.md`, `docs/AUTOPILOT.md`, `docs/AGENTES.md`, `docs/AGENTES_IA.md`, `docs/DEFINITION_OF_DONE.md` — leia só o que a tarefa exigir.
 

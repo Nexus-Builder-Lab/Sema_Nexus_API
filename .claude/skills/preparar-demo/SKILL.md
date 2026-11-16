@@ -1,6 +1,6 @@
 ---
 name: preparar-demo
-description: Prepara e confere o ambiente da demonstração do SEMA NEXUS (apresentação de 27/11/2026) — Docker, containers sema-nexus, .env, modo demo, satélite Esri, demo-reset e demo-up. Use quando o proprietário falar em apresentação, ensaio, demonstração, "deixar pronto", demo-reset, demo-up ou subir o ambiente.
+description: Prepara e confere o ambiente da demonstração do SEMA ALERTA (apresentação de 27/11/2026) — Docker, containers sema-nexus, .env, modo demo, satélite Esri, demo-reset e demo-up. Use quando o proprietário falar em apresentação, ensaio, demonstração, "deixar pronto", demo-reset, demo-up ou subir o ambiente.
 ---
 
 # Preparar a demonstração
@@ -39,7 +39,7 @@ Confere: `.env` e profile `demo`; `ESRI_API_KEY` presente e com formato válido 
 - Login `admin@admin.com` (credencial demonstrativa — ver `docs/DEMO.md`).
 - OpenStreetMap e Visão de satélite precisam de internet; o mapa de MT funciona offline.
 - Em rede compartilhada as portas ficam expostas a outras máquinas → `.\scripts\demo-down.ps1` quando não estiver usando.
-- Antes de voltar a usar sigfauna/sigatic, pare o SEMA NEXUS com `demo-down` (Oracle usa ~2 GB).
+- Antes de voltar a usar sigfauna/sigatic, pare o SEMA ALERTA com `demo-down` (Oracle usa ~2 GB).
 
 ## Nunca
 

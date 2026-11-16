@@ -4,7 +4,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 /**
- * SEMA NEXUS — API.
+ * SEMA ALERTA — API.
  *
  * <p>Plataforma demonstrativa de inteligência ambiental, gestão de demandas de fiscalização
  * e gestão documental no contexto de Mato Grosso. Utiliza exclusivamente dados fictícios e

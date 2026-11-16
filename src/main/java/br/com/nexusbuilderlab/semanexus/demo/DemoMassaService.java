@@ -60,8 +60,8 @@ public class DemoMassaService {
     }
 
     ResultadoMassa aplicar(LocalDate hoje) {
-        long analista = usuario("analista@demo.semanexus.local");
-        long gestor = usuario("gestor@demo.semanexus.local");
+        long analista = usuario("analista@demo.semaalerta.local");
+        long gestor = usuario("gestor@demo.semaalerta.local");
 
         int novasDemandas = 0;
         Integer existentes = jdbc.queryForObject(

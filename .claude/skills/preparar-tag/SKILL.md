@@ -1,6 +1,6 @@
 ---
 name: preparar-tag
-description: Prepara uma nova versão (tag vX.Y.Z-demo) do SEMA NEXUS nos dois repositórios — checklist, mudanças desde a última tag, commits e notas. Use quando o proprietário falar em tag, versão, release ou "fechar uma versão". Só prepara; criar e enviar a tag exige autorização explícita do proprietário para aquela tag.
+description: Prepara uma nova versão (tag vX.Y.Z-demo) do SEMA ALERTA nos dois repositórios — checklist, mudanças desde a última tag, commits e notas. Use quando o proprietário falar em tag, versão, release ou "fechar uma versão". Só prepara; criar e enviar a tag exige autorização explícita do proprietário para aquela tag.
 ---
 
 # Preparar tag de versão
@@ -38,7 +38,7 @@ Nenhum commit novo nos dois → não há o que versionar.
 Apresente: versão sugerida (incremento do patch, `v0.1.N-demo`, salvo pedido diferente), commit de cada repo (hash curto) e a mensagem:
 
 ```
-SEMA NEXUS v0.1.N-demo — MVP demonstrativo (dados fictícios)
+SEMA ALERTA v0.1.N-demo — MVP demonstrativo (dados fictícios)
 
 Sobre a v0.1.(N-1)-demo: <mudanças em uma frase cada, com API #n / Web #n>.
 ```

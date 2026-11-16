@@ -25,6 +25,6 @@ class OpenApiProfileTest {
         mvc.perform(get("/v3/api-docs"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.openapi").exists())
-                .andExpect(jsonPath("$.info.title").value("SEMA NEXUS API"));
+                .andExpect(jsonPath("$.info.title").value("SEMA ALERTA API"));
     }
 }

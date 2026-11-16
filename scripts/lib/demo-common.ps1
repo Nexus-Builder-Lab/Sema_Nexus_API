@@ -1,4 +1,4 @@
-﻿# SEMA NEXUS — funções comuns dos scripts demo-up / demo-down / demo-reset (PowerShell).
+﻿# SEMA ALERTA — funções comuns dos scripts demo-up / demo-down / demo-reset (PowerShell).
 # AMBIENTE DEMONSTRATIVO — DADOS FICTÍCIOS. Não execute diretamente: é carregado com ". ".
 #
 # Variáveis opcionais (ambiente ou .env):

@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-# SEMA NEXUS — funções comuns dos scripts demo-up / demo-down / demo-reset (shell POSIX).
+# SEMA ALERTA — funções comuns dos scripts demo-up / demo-down / demo-reset (shell POSIX).
 # AMBIENTE DEMONSTRATIVO — DADOS FICTÍCIOS. Não execute diretamente: é carregado com `.`.
 #
 # Variáveis opcionais (ambiente do shell ou .env):

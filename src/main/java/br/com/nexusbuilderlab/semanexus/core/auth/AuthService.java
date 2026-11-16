@@ -44,7 +44,7 @@ public class AuthService {
      * demandas desde os núcleos regionais (#91); o fiscal do Núcleo Cuiabá tem demandas em vários estágios.
      * Sem a conta preferida (ou inativa), vale o primeiro usuário demonstrativo do perfil.
      */
-    static final Map<Perfil, String> CONTA_DEMO_PREFERIDA = Map.of(Perfil.FISCAL, "fiscal.cba1@demo.semanexus.local");
+    static final Map<Perfil, String> CONTA_DEMO_PREFERIDA = Map.of(Perfil.FISCAL, "fiscal.cba1@demo.semaalerta.local");
 
     private final UsuarioRepository usuarios;
     private final PasswordEncoder encoder;

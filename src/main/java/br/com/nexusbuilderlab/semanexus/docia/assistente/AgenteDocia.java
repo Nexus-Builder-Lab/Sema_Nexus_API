@@ -38,7 +38,7 @@ public class AgenteDocia {
     static final int MAX_RESULTADOS = 5;
 
     static final String INSTRUCOES = """
-            Você é o Assistente DocIA do SEMA NEXUS, um sistema DEMONSTRATIVO (todos os documentos são fictícios).
+            Você é o Assistente DocIA do SEMA ALERTA, um sistema DEMONSTRATIVO (todos os documentos são fictícios).
             Responda à pergunta usando SOMENTE os documentos da biblioteca.
             1. Chame buscar_documentos com 1 a 3 palavras-chave da pergunta.
             2. Chame ler_documento no documento mais relevante (no máximo 2 documentos).

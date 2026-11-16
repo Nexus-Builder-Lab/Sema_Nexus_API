@@ -1,4 +1,4 @@
-# SEMA NEXUS — Guia de desenvolvimento
+# SEMA ALERTA — Guia de desenvolvimento
 
 ## Fluxo de trabalho (trunk-based)
 
@@ -71,7 +71,7 @@ Mudança manual de Status no Project é imediata em todas as views.
 | Docker Desktop / Engine + Compose v2 | 24 / 2.20 |
 | RAM | 8 GB (16 GB recomendado) |
 
-> **JAVA_HOME:** o Maven usa o JDK do `JAVA_HOME`, não o do `PATH`. Com JDK 8 no `JAVA_HOME`, o build falha com "SEMA NEXUS exige JDK 21" (regra do `maven-enforcer`). Aponte para o JDK 21 (ex.: `C:\Program Files\Java\jdk-21`) nas variáveis de ambiente do sistema ou na sessão.
+> **JAVA_HOME:** o Maven usa o JDK do `JAVA_HOME`, não o do `PATH`. Com JDK 8 no `JAVA_HOME`, o build falha com "SEMA ALERTA exige JDK 21" (regra do `maven-enforcer`). Aponte para o JDK 21 (ex.: `C:\Program Files\Java\jdk-21`) nas variáveis de ambiente do sistema ou na sessão.
 
 Clone os dois repositórios lado a lado:
 ```

@@ -50,7 +50,7 @@ class DemoSeedRecursoTest {
             assertThat(emails).containsAll(e.membros());
         }
         assertThat(emails).filteredOn(e -> !e.equals("admin@admin.com"))
-                .allMatch(e -> e.endsWith("@demo.semanexus.local"));
+                .allMatch(e -> e.endsWith("@demo.semaalerta.local"));
     }
 
     @Test

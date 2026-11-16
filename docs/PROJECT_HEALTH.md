@@ -1,4 +1,4 @@
-# SEMA NEXUS — Monitoramento diário (project-health)
+# SEMA ALERTA — Monitoramento diário (project-health)
 
 > **Status:** Implementado (workflow e script versionados em 10/11/2026). A cobertura completa depende do secret `PROJECT_HEALTH_TOKEN` — **pendente de autorização do proprietário**.
 

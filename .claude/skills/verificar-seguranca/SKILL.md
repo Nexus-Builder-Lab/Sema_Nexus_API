@@ -1,6 +1,6 @@
 ---
 name: verificar-seguranca
-description: Checagem de segurança do SEMA NEXUS (backend, compose, scripts e docs) antes de abrir PR, mesclar ou preparar tag. Use ao revisar um diff, antes de qualquer PR/tag, ou quando o assunto for segredo, credencial, chave Esri, .env, usuário de teste admin@admin.com, dados pessoais ou dados reais.
+description: Checagem de segurança do SEMA ALERTA (backend, compose, scripts e docs) antes de abrir PR, mesclar ou preparar tag. Use ao revisar um diff, antes de qualquer PR/tag, ou quando o assunto for segredo, credencial, chave Esri, .env, usuário de teste admin@admin.com, dados pessoais ou dados reais.
 ---
 
 # Verificar segurança — Sema_Nexus_API

@@ -1,4 +1,4 @@
-# SEMA NEXUS API — configuração base (todos os profiles).
+# SEMA ALERTA API — configuração base (todos os profiles).
 # Toda configuração sensível vem de variáveis de ambiente (ver .env.example). Nada de segredos aqui.
 spring:
   application:

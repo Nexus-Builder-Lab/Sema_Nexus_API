@@ -44,105 +44,105 @@
     },
     {
       "nome": "Gestor Demonstrativo",
-      "email": "gestor@demo.semanexus.local",
+      "email": "gestor@demo.semaalerta.local",
       "perfil": "GESTOR",
       "setor": "DEMO-FISC",
       "senhaHash": "$2a$10$ek/ac1zL8VR9e8eDdvgDnucv4z80gXe5/apbLj9A1v759DItBslcK"
     },
     {
       "nome": "Fiscal Demonstrativo 1",
-      "email": "fiscal1@demo.semanexus.local",
+      "email": "fiscal1@demo.semaalerta.local",
       "perfil": "FISCAL",
       "setor": "DEMO-FISC",
       "senhaHash": "$2a$10$ek/ac1zL8VR9e8eDdvgDnucv4z80gXe5/apbLj9A1v759DItBslcK"
     },
     {
       "nome": "Fiscal Demonstrativo 2",
-      "email": "fiscal2@demo.semanexus.local",
+      "email": "fiscal2@demo.semaalerta.local",
       "perfil": "FISCAL",
       "setor": "DEMO-FISC",
       "senhaHash": "$2a$10$ek/ac1zL8VR9e8eDdvgDnucv4z80gXe5/apbLj9A1v759DItBslcK"
     },
     {
       "nome": "Analista Demonstrativo",
-      "email": "analista@demo.semanexus.local",
+      "email": "analista@demo.semaalerta.local",
       "perfil": "ANALISTA",
       "setor": "DEMO-DOC",
       "senhaHash": "$2a$10$ek/ac1zL8VR9e8eDdvgDnucv4z80gXe5/apbLj9A1v759DItBslcK"
     },
     {
       "nome": "Consulta Demonstrativo",
-      "email": "consulta@demo.semanexus.local",
+      "email": "consulta@demo.semaalerta.local",
       "perfil": "CONSULTA",
       "setor": "DEMO-DOC",
       "senhaHash": "$2a$10$ek/ac1zL8VR9e8eDdvgDnucv4z80gXe5/apbLj9A1v759DItBslcK"
     },
     {
       "nome": "Fiscal Cuiabá 1 (fictício)",
-      "email": "fiscal.cba1@demo.semanexus.local",
+      "email": "fiscal.cba1@demo.semaalerta.local",
       "perfil": "FISCAL",
       "setor": "NR-CBA",
       "senhaHash": "$2a$10$ek/ac1zL8VR9e8eDdvgDnucv4z80gXe5/apbLj9A1v759DItBslcK"
     },
     {
       "nome": "Fiscal Cuiabá 2 (fictício)",
-      "email": "fiscal.cba2@demo.semanexus.local",
+      "email": "fiscal.cba2@demo.semaalerta.local",
       "perfil": "FISCAL",
       "setor": "NR-CBA",
       "senhaHash": "$2a$10$ek/ac1zL8VR9e8eDdvgDnucv4z80gXe5/apbLj9A1v759DItBslcK"
     },
     {
       "nome": "Fiscal Cáceres 1 (fictício)",
-      "email": "fiscal.cac1@demo.semanexus.local",
+      "email": "fiscal.cac1@demo.semaalerta.local",
       "perfil": "FISCAL",
       "setor": "NR-CAC",
       "senhaHash": "$2a$10$ek/ac1zL8VR9e8eDdvgDnucv4z80gXe5/apbLj9A1v759DItBslcK"
     },
     {
       "nome": "Fiscal Cáceres 2 (fictício)",
-      "email": "fiscal.cac2@demo.semanexus.local",
+      "email": "fiscal.cac2@demo.semaalerta.local",
       "perfil": "FISCAL",
       "setor": "NR-CAC",
       "senhaHash": "$2a$10$ek/ac1zL8VR9e8eDdvgDnucv4z80gXe5/apbLj9A1v759DItBslcK"
     },
     {
       "nome": "Fiscal Rondonópolis 1 (fictício)",
-      "email": "fiscal.roo1@demo.semanexus.local",
+      "email": "fiscal.roo1@demo.semaalerta.local",
       "perfil": "FISCAL",
       "setor": "NR-ROO",
       "senhaHash": "$2a$10$ek/ac1zL8VR9e8eDdvgDnucv4z80gXe5/apbLj9A1v759DItBslcK"
     },
     {
       "nome": "Fiscal Rondonópolis 2 (fictício)",
-      "email": "fiscal.roo2@demo.semanexus.local",
+      "email": "fiscal.roo2@demo.semaalerta.local",
       "perfil": "FISCAL",
       "setor": "NR-ROO",
       "senhaHash": "$2a$10$ek/ac1zL8VR9e8eDdvgDnucv4z80gXe5/apbLj9A1v759DItBslcK"
     },
     {
       "nome": "Fiscal Barra do Garças 1 (fictício)",
-      "email": "fiscal.bag1@demo.semanexus.local",
+      "email": "fiscal.bag1@demo.semaalerta.local",
       "perfil": "FISCAL",
       "setor": "NR-BAG",
       "senhaHash": "$2a$10$ek/ac1zL8VR9e8eDdvgDnucv4z80gXe5/apbLj9A1v759DItBslcK"
     },
     {
       "nome": "Fiscal Barra do Garças 2 (fictício)",
-      "email": "fiscal.bag2@demo.semanexus.local",
+      "email": "fiscal.bag2@demo.semaalerta.local",
       "perfil": "FISCAL",
       "setor": "NR-BAG",
       "senhaHash": "$2a$10$ek/ac1zL8VR9e8eDdvgDnucv4z80gXe5/apbLj9A1v759DItBslcK"
     },
     {
       "nome": "Fiscal Sinop 1 (fictício)",
-      "email": "fiscal.sno1@demo.semanexus.local",
+      "email": "fiscal.sno1@demo.semaalerta.local",
       "perfil": "FISCAL",
       "setor": "NR-SNO",
       "senhaHash": "$2a$10$ek/ac1zL8VR9e8eDdvgDnucv4z80gXe5/apbLj9A1v759DItBslcK"
     },
     {
       "nome": "Fiscal Sinop 2 (fictício)",
-      "email": "fiscal.sno2@demo.semanexus.local",
+      "email": "fiscal.sno2@demo.semaalerta.local",
       "perfil": "FISCAL",
       "setor": "NR-SNO",
       "senhaHash": "$2a$10$ek/ac1zL8VR9e8eDdvgDnucv4z80gXe5/apbLj9A1v759DItBslcK"
@@ -152,80 +152,80 @@
     {
       "nome": "Equipe Alfa (demonstrativa)",
       "setor": "DEMO-FISC",
-      "responsavel": "fiscal1@demo.semanexus.local",
+      "responsavel": "fiscal1@demo.semaalerta.local",
       "membros": [
-        "fiscal1@demo.semanexus.local"
+        "fiscal1@demo.semaalerta.local"
       ]
     },
     {
       "nome": "Equipe Bravo (demonstrativa)",
       "setor": "DEMO-FISC",
-      "responsavel": "fiscal2@demo.semanexus.local",
+      "responsavel": "fiscal2@demo.semaalerta.local",
       "membros": [
-        "fiscal2@demo.semanexus.local"
+        "fiscal2@demo.semaalerta.local"
       ]
     },
     {
       "nome": "Equipe Charlie (demonstrativa)",
       "setor": "DEMO-FISC",
-      "responsavel": "fiscal1@demo.semanexus.local",
+      "responsavel": "fiscal1@demo.semaalerta.local",
       "membros": [
-        "fiscal1@demo.semanexus.local",
-        "fiscal2@demo.semanexus.local"
+        "fiscal1@demo.semaalerta.local",
+        "fiscal2@demo.semaalerta.local"
       ]
     },
     {
       "nome": "Equipe Delta (demonstrativa)",
       "setor": "DEMO-FISC",
-      "responsavel": "gestor@demo.semanexus.local",
+      "responsavel": "gestor@demo.semaalerta.local",
       "membros": [
-        "fiscal2@demo.semanexus.local",
-        "analista@demo.semanexus.local"
+        "fiscal2@demo.semaalerta.local",
+        "analista@demo.semaalerta.local"
       ]
     },
     {
       "nome": "Equipe Cuiabá (demonstrativa)",
       "setor": "NR-CBA",
-      "responsavel": "fiscal.cba1@demo.semanexus.local",
+      "responsavel": "fiscal.cba1@demo.semaalerta.local",
       "membros": [
-        "fiscal.cba1@demo.semanexus.local",
-        "fiscal.cba2@demo.semanexus.local"
+        "fiscal.cba1@demo.semaalerta.local",
+        "fiscal.cba2@demo.semaalerta.local"
       ]
     },
     {
       "nome": "Equipe Cáceres (demonstrativa)",
       "setor": "NR-CAC",
-      "responsavel": "fiscal.cac1@demo.semanexus.local",
+      "responsavel": "fiscal.cac1@demo.semaalerta.local",
       "membros": [
-        "fiscal.cac1@demo.semanexus.local",
-        "fiscal.cac2@demo.semanexus.local"
+        "fiscal.cac1@demo.semaalerta.local",
+        "fiscal.cac2@demo.semaalerta.local"
       ]
     },
     {
       "nome": "Equipe Rondonópolis (demonstrativa)",
       "setor": "NR-ROO",
-      "responsavel": "fiscal.roo1@demo.semanexus.local",
+      "responsavel": "fiscal.roo1@demo.semaalerta.local",
       "membros": [
-        "fiscal.roo1@demo.semanexus.local",
-        "fiscal.roo2@demo.semanexus.local"
+        "fiscal.roo1@demo.semaalerta.local",
+        "fiscal.roo2@demo.semaalerta.local"
       ]
     },
     {
       "nome": "Equipe Barra do Garças (demonstrativa)",
       "setor": "NR-BAG",
-      "responsavel": "fiscal.bag1@demo.semanexus.local",
+      "responsavel": "fiscal.bag1@demo.semaalerta.local",
       "membros": [
-        "fiscal.bag1@demo.semanexus.local",
-        "fiscal.bag2@demo.semanexus.local"
+        "fiscal.bag1@demo.semaalerta.local",
+        "fiscal.bag2@demo.semaalerta.local"
       ]
     },
     {
       "nome": "Equipe Sinop (demonstrativa)",
       "setor": "NR-SNO",
-      "responsavel": "fiscal.sno1@demo.semanexus.local",
+      "responsavel": "fiscal.sno1@demo.semaalerta.local",
       "membros": [
-        "fiscal.sno1@demo.semanexus.local",
-        "fiscal.sno2@demo.semanexus.local"
+        "fiscal.sno1@demo.semaalerta.local",
+        "fiscal.sno2@demo.semaalerta.local"
       ]
     }
   ]

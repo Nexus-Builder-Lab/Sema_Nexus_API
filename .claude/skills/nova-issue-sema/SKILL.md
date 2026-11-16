@@ -1,9 +1,9 @@
 ---
 name: nova-issue-sema
-description: Cria Issues do SEMA NEXUS no padrão do projeto (título, seções, labels, campos do GitHub Project #1) usando os scripts de C:\SEMANEXUS\planejamento. Use quando o proprietário pedir uma correção, ajuste ou funcionalidade nova, ou quando for preciso registrar um bug, dependência ou mudança de Status no Project.
+description: Cria Issues do SEMA ALERTA no padrão do projeto (título, seções, labels, campos do GitHub Project #1) usando os scripts de C:\SEMANEXUS\planejamento. Use quando o proprietário pedir uma correção, ajuste ou funcionalidade nova, ou quando for preciso registrar um bug, dependência ou mudança de Status no Project.
 ---
 
-# Nova Issue no padrão SEMA NEXUS
+# Nova Issue no padrão SEMA ALERTA
 
 Todo trabalho começa por uma Issue (uma por repositório; nunca misturar API e Web). Escopo novo que o proprietário **não pediu** é proposta, não Issue para implementar direto.
 

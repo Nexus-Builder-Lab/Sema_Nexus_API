@@ -11,6 +11,9 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long>, JpaSpec
     /** Recebe o e-mail já normalizado ({@link Usuario#normalizarEmail(String)}). */
     Optional<Usuario> findByEmail(String email);
 
+    /** Usuários demonstrativos cujo e-mail termina com o sufixo (renomeação do domínio demonstrativo). */
+    List<Usuario> findByDemoTrueAndEmailEndingWith(String sufixo);
+
     /** Primeiro usuário ativo e demonstrativo (DEMO=1) do perfil, para o login do Modo demonstração. */
     Optional<Usuario> findFirstByPerfilAndDemoTrueAndAtivoTrueOrderByIdAsc(Perfil perfil);
 

@@ -1,4 +1,4 @@
-# SEMA NEXUS — Definition of Done
+# SEMA ALERTA — Definition of Done
 
 Uma Issue somente pode ir para **Finalizado** quando os critérios aplicáveis forem atendidos:
 

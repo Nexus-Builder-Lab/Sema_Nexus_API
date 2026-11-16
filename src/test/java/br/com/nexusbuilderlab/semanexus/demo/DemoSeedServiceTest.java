@@ -52,9 +52,12 @@ class DemoSeedServiceTest {
         when(usuarioRepo.findByEmail(anyString())).thenAnswer(i -> Optional.ofNullable(usuarios.get(i.<String>getArgument(0))));
         when(usuarioRepo.save(any(Usuario.class))).thenAnswer(i -> {
             Usuario u = i.getArgument(0);
+            usuarios.values().remove(u);
             usuarios.put(u.getEmail(), u);
             return u;
         });
+        when(usuarioRepo.findByDemoTrueAndEmailEndingWith(anyString())).thenAnswer(i -> usuarios.values().stream()
+                .filter(u -> u.isDemo() && u.getEmail().endsWith(i.<String>getArgument(0))).toList());
         when(equipeRepo.findBySetorIdAndNome(any(), anyString()))
                 .thenAnswer(i -> Optional.ofNullable(equipes.get(i.<String>getArgument(1))));
         when(equipeRepo.save(any(Equipe.class))).thenAnswer(i -> {
@@ -93,7 +96,7 @@ class DemoSeedServiceTest {
                         Perfil.ANALISTA, Perfil.CONSULTA, Perfil.FISCAL, Perfil.FISCAL, Perfil.FISCAL, Perfil.FISCAL,
                         Perfil.FISCAL, Perfil.FISCAL, Perfil.FISCAL, Perfil.FISCAL, Perfil.FISCAL, Perfil.FISCAL);
         assertThat(usuarios.keySet().stream().filter(e -> !e.equals("admin@admin.com")))
-                .allMatch(e -> e.endsWith("@demo.semanexus.local"));
+                .allMatch(e -> e.endsWith("@demo.semaalerta.local"));
     }
 
     @Test
@@ -140,5 +143,22 @@ class DemoSeedServiceTest {
 
         verify(setorRepo, never()).save(any());
         verify(usuarioRepo, never()).save(any());
+    }
+
+    @Test
+    void migraEmailsDoDominioAntigoSemDuplicarUsuarios() {
+        Usuario antigo = new Usuario("Gestor antigo", "gestor" + DemoSeedService.DOMINIO_ANTIGO, "hash", Perfil.GESTOR);
+        antigo.setDemo(true);
+        usuarios.put(antigo.getEmail(), antigo);
+        Usuario real = new Usuario("Externo", "pessoa@demo.semanexus.local.br", "hash", Perfil.CONSULTA);
+        usuarios.put(real.getEmail(), real);
+
+        ResultadoSeed r = seed.aplicar();
+
+        assertThat(antigo.getEmail()).isEqualTo("gestor" + DemoSeedService.DOMINIO_ATUAL);
+        assertThat(usuarios).doesNotContainKey("gestor" + DemoSeedService.DOMINIO_ANTIGO);
+        assertThat(r.usuarios()).isEqualTo(15);
+        assertThat(real.getEmail()).isEqualTo("pessoa@demo.semanexus.local.br");
+        assertThat(seed.migrarDominioAntigo()).isZero();
     }
 }

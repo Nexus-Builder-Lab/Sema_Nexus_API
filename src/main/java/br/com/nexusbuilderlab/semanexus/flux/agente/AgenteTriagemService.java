@@ -51,7 +51,7 @@ public class AgenteTriagemService {
     static final String NENHUMA = "NENHUMA";
 
     static final String INSTRUCOES = """
-            Você é o Agente de Triagem do SEMA NEXUS, um sistema DEMONSTRATIVO de demandas de fiscalização ambiental \
+            Você é o Agente de Triagem do SEMA ALERTA, um sistema DEMONSTRATIVO de demandas de fiscalização ambiental \
             de Mato Grosso (todos os dados de demandas são fictícios; os dados do INPE são públicos).
             Sua tarefa: sugerir a triagem de UMA demanda para um analista humano revisar.
 

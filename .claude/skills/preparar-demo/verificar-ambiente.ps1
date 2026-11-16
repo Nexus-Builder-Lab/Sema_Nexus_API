@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-  SEMA NEXUS — verificação SOMENTE LEITURA do ambiente demonstrativo (não sobe, não para, não apaga nada).
+  SEMA ALERTA — verificação SOMENTE LEITURA do ambiente demonstrativo (não sobe, não para, não apaga nada).
 .DESCRIPTION
   Confere Docker, containers do projeto, .env (sem exibir segredos), aplicação web, API, modo demo
   e a visão de satélite Esri. Saída 0 = pronto; 1 = há falhas. AMBIENTE DEMONSTRATIVO — DADOS FICTÍCIOS.

@@ -1,4 +1,4 @@
-// SEMA NEXUS — seleção da próxima tarefa do autopilot SEM gastar tokens (Node 18+ e gh autenticado).
+// SEMA ALERTA — seleção da próxima tarefa do autopilot SEM gastar tokens (Node 18+ e gh autenticado).
 // Uso: node proxima.mjs --repo API|WEB [--raiz C:\SEMANEXUS]
 // Saída (uma linha JSON):
 //   {"acao":"retomar","issue":11,"motivo":"..."}        trabalho em andamento no diretório da sessão

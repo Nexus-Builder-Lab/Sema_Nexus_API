@@ -1,4 +1,4 @@
-# SEMA NEXUS — Requisitos
+# SEMA ALERTA — Requisitos
 
 > **Legenda de status:** Implementado · Em desenvolvimento · Planejado · Futuro.
 > Em 10/11/2026 **nenhuma funcionalidade está implementada**: todo o MVP está **Planejado**. Atualize a coluna Status ao mesclar cada Issue.
