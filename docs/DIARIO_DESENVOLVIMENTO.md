@@ -455,3 +455,9 @@
 - **Problema:** `demo-reset` usava `docker compose down -v`, que remove todos os volumes do compose — desde a #106 inclusive `ollama` (modelo de IA, ~2,5 GB), cujo novo download esbarra na inspeção TLS da rede da SEMA.
 - **O que foi feito:** `demo-reset.ps1`/`.sh` fazem `docker compose down` e removem só `sema-nexus_oradata` e `sema-nexus_uploads`; teste com docker falso exige `down` sem `-v`, remoção só desses volumes e nenhuma menção a `ollama`; `docs/DOCKER.md` atualizado.
 - **Testes:** `demo-scripts.test.sh` 43/43 (bash). Reset real: modelo mantido (`ollama list`), seed recriado (120 demandas, 12 documentos, 16 usuários), modelo reaquecido em 25 s.
+
+## 2026-11-17 · GH-124 · Aquecimento com geração: primeira resposta de IA sem espera longa
+- **Status:** feito pela sessão principal (problema observado na gravação do vídeo de demonstração; correção autorizada pelo proprietário)
+- **Causa (medida no Ollama):** custo único de inicialização da GPU na 1ª leitura de texto grande após carregar o modelo (1.203 tokens: 21,3 s na 1ª chamada, 5,0 s na 2ª). Flash Attention testado desligado: não é a causa (mantido no padrão).
+- **O que foi feito:** `OllamaClienteModelo.aquecer()` faz, depois de carregar, uma geração curta (`num_predict` 8) com ~1.000 tokens de entrada fictícios e a mesma janela de contexto; docs atualizados.
+- **Testes:** `ProvedoresModeloTest` (aquecimento espera a geração); suíte 367/367. Docker: modelo descarregado + reinício da API → aquecimento ~60 s em segundo plano; 1ª triagem 12,2 s (antes 28–36 s), 2ª 8,5 s, 1º DocIA 4,9 s com resposta correta.
