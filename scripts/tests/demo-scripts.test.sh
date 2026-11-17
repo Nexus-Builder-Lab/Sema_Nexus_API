@@ -130,8 +130,10 @@ check "confirmação 'sim' → nada é apagado" sh -c "! grep -q 'compose down' 
 novo_root r6
 rodar demo-reset.sh DEMO_RESET_CONFIRM=yes; rc=$?
 check "confirmado + profile padrão (demo) → conclui (exit 0)" test "$rc" -eq 0
-check "executa 'compose down -v'" log_tem "compose down -v"
-check "'down -v' acontece antes do 'up'" sh -c "[ \$(grep -n 'compose down -v' '$DOCKER_LOG' | head -1 | cut -d: -f1) -lt \$(grep -n 'compose up' '$DOCKER_LOG' | head -1 | cut -d: -f1) ]"
+check "executa 'compose down' sem -v" sh -c "grep -q 'compose down' '$DOCKER_LOG' && ! grep -q 'down -v' '$DOCKER_LOG'"
+check "remove só os volumes do banco e dos uploads" log_tem "volume rm -f sema-nexus_oradata sema-nexus_uploads"
+check "preserva o volume do modelo de IA (ollama)" sh -c "! grep -q 'ollama' '$DOCKER_LOG'"
+check "remoção dos volumes acontece antes do 'up'" sh -c "[ \$(grep -n 'volume rm' '$DOCKER_LOG' | head -1 | cut -d: -f1) -lt \$(grep -n 'compose up' '$DOCKER_LOG' | head -1 | cut -d: -f1) ]"
 check "aguarda healthchecks e imprime URLs após o reset" saida_tem "http://localhost:3000"
 
 novo_root r7

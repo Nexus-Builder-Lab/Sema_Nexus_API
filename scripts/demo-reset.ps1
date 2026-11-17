@@ -38,8 +38,12 @@ else {
 Test-Docker
 Push-Location $script:RootDir
 try {
-    Write-Host 'Removendo containers e volumes do ambiente demonstrativo...'
-    if ((Invoke-Nativo 'docker' @('compose', 'down', '-v')) -ne 0) { Stop-Demo "falha em 'docker compose down -v'." }
+    # Só o banco e os uploads: nunca 'down -v', que apagaria também o volume do modelo de IA (ollama) — Issue #122.
+    Write-Host 'Removendo containers e os volumes do banco e dos uploads (o modelo de IA é preservado)...'
+    if ((Invoke-Nativo 'docker' @('compose', 'down')) -ne 0) { Stop-Demo "falha em 'docker compose down'." }
+    if ((Invoke-Nativo 'docker' @('volume', 'rm', '-f', 'sema-nexus_oradata', 'sema-nexus_uploads')) -ne 0) {
+        Stop-Demo 'falha ao remover os volumes do banco e dos uploads.'
+    }
 }
 finally { Pop-Location }
 Write-Host 'Subindo novamente (o seed demonstrativo é recarregado pela API)...'
