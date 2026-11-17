@@ -145,11 +145,11 @@ O seed demonstrativo é **idempotente**: subir de novo não duplica usuários, s
 |---|---|
 | `demo-up` | Valida que o Docker (e o Compose v2) estão ativos; cria o `.env` a partir do `.env.example` **somente se não existir**; `docker compose up -d --build`; aguarda `oracle`, `api` e `web` ficarem `healthy` (falha em `unhealthy` ou no timeout); imprime as URLs (usando `WEB_PORT`/`API_PORT` do `.env`) e o e-mail do login de teste — a senha demonstrativa fica em [DEMO.md](DEMO.md), nunca nos scripts. |
 | `demo-down` | `docker compose down` — **preserva** os volumes (`oradata`, `uploads`). Nunca usa `-v`. |
-| `demo-reset` | **Destrutivo.** Recusa se `SPRING_PROFILES_ACTIVE` (ambiente ou `.env`; padrão `demo`) contiver algo além de `demo`/`dev`; exige `DEMO_RESET_CONFIRM=yes` (ambiente ou `.env`) **ou** digitar `RESETAR` em terminal interativo (sem terminal e sem a variável → recusa); então `docker compose down -v`, sobe de novo via `demo-up` e aguarda o seed (feito pela API na subida). Qualquer recusa termina com código ≠ 0 sem apagar nada. |
+| `demo-reset` | **Destrutivo.** Recusa se `SPRING_PROFILES_ACTIVE` (ambiente ou `.env`; padrão `demo`) contiver algo além de `demo`/`dev`; exige `DEMO_RESET_CONFIRM=yes` (ambiente ou `.env`) **ou** digitar `RESETAR` em terminal interativo (sem terminal e sem a variável → recusa); então `docker compose down` e remove **só** os volumes `sema-nexus_oradata` e `sema-nexus_uploads` (o volume `ollama`, com o modelo de IA, é preservado — Issue #122), sobe de novo via `demo-up` e aguarda o seed (feito pela API na subida). Qualquer recusa termina com código ≠ 0 sem apagar nada. |
 
 Variáveis opcionais: `DEMO_UP_TIMEOUT` (segundos de espera pelos healthchecks, padrão 600) e `DEMO_POLL_SECONDS` (intervalo, padrão 5).
 
-**Testes:** `sh scripts/tests/demo-scripts.test.sh` (também roda no CI, job `scripts-demo`) usa um `docker` **falso** no PATH e verifica criação do `.env`, preservação do `.env` existente, healthchecks (ok/unhealthy/timeout), Docker inativo, `down` sem `-v` e todas as recusas do `demo-reset` (sem confirmação, profile `prod`, lista `demo,prod`, valor ≠ `yes`) além do caminho confirmado (`down -v` antes do `up`).
+**Testes:** `sh scripts/tests/demo-scripts.test.sh` (também roda no CI, job `scripts-demo`) usa um `docker` **falso** no PATH e verifica criação do `.env`, preservação do `.env` existente, healthchecks (ok/unhealthy/timeout), Docker inativo, `down` sem `-v` e todas as recusas do `demo-reset` (sem confirmação, profile `prod`, lista `demo,prod`, valor ≠ `yes`) além do caminho confirmado (`down` sem `-v`, remoção só dos volumes do banco e dos uploads antes do `up`, volume do modelo preservado).
 
 > No Windows com Docker Desktop, se `localhost` não responder no host (resolução para IPv6), use `127.0.0.1` nas URLs.
 
@@ -166,7 +166,7 @@ DEMO_RESET_CONFIRM=yes ./scripts/demo-reset.sh   # sem pergunta (automação)
 Equivalente manual (somente em ambiente de demonstração):
 
 ```bash
-docker compose down -v      # destrutivo: remove os volumes do Oracle e dos uploads
+docker compose down -v      # destrutivo: remove TODOS os volumes, inclusive o modelo de IA (ollama) — prefira o demo-reset
 docker compose up -d --build
 ```
 

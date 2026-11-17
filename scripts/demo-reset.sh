@@ -40,7 +40,9 @@ fi
 # 3. Reset.
 require_docker
 cd "$ROOT_DIR"
-say "Removendo containers e volumes do ambiente demonstrativo..."
-docker compose down -v || die "falha em 'docker compose down -v'."
+# Só o banco e os uploads: nunca 'down -v', que apagaria também o volume do modelo de IA (ollama) — Issue #122.
+say "Removendo containers e os volumes do banco e dos uploads (o modelo de IA é preservado)..."
+docker compose down || die "falha em 'docker compose down'."
+docker volume rm -f sema-nexus_oradata sema-nexus_uploads || die "falha ao remover os volumes do banco e dos uploads."
 say "Subindo novamente (o seed demonstrativo é recarregado pela API)..."
 demo_up

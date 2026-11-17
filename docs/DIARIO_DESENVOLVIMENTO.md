@@ -449,3 +449,9 @@
 - **O que foi feito:** `DefinicaoAgente.campoTexto`/`PedidoModelo.aceitaTexto` (resposta em texto livre sem reescrita); pedido explícito "não chame mais ferramentas" na etapa final do Ollama; DocIA com 3 rodadas, resposta `{resposta, suficiente}`, citações montadas pela API, `buscar_documentos` com radical, peso do título, corte dos pouco relevantes e texto do mais relevante já incluído; frases de aviso sem dado removidas da resposta; Triagem com justificativa de até 220 caracteres e 400 tokens; `AquecimentoModelo` + `OLLAMA_MANTER_CARREGADO` (4 h) + estado do aquecimento no diagnóstico do Painel.
 - **Resultado (Docker, GTX 1660 SUPER):** DocIA ~3 s (9 perguntas, 2 rodadas iguais: 8 corretas com o documento certo + "não há informação" na sem resposta); Triagem 7,2 s com as mesmas classificações; modelo aquecido 10–50 s após subir a API.
 - **Testes:** novos `BuscaDocumentosTest` (2), casos em `AgenteDociaTest` (6) e `ProvedoresModeloTest` (3); suíte 367/367.
+
+## 2026-11-17 · GH-122 · demo-reset preserva o modelo de IA
+- **Status:** feito pela sessão principal (encontrado antes do reset pedido pelo proprietário para a gravação do vídeo)
+- **Problema:** `demo-reset` usava `docker compose down -v`, que remove todos os volumes do compose — desde a #106 inclusive `ollama` (modelo de IA, ~2,5 GB), cujo novo download esbarra na inspeção TLS da rede da SEMA.
+- **O que foi feito:** `demo-reset.ps1`/`.sh` fazem `docker compose down` e removem só `sema-nexus_oradata` e `sema-nexus_uploads`; teste com docker falso exige `down` sem `-v`, remoção só desses volumes e nenhuma menção a `ollama`; `docs/DOCKER.md` atualizado.
+- **Testes:** `demo-scripts.test.sh` 43/43 (bash). Reset real: modelo mantido (`ollama list`), seed recriado (120 demandas, 12 documentos, 16 usuários), modelo reaquecido em 25 s.
