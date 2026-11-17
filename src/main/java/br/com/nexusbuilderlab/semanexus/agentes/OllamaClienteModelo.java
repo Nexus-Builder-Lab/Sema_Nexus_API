@@ -34,6 +34,10 @@ public class OllamaClienteModelo implements ClienteModelo {
     private static final long CACHE_DISPONIBILIDADE_MS = 20_000;
     /** Janela de contexto: a mesma no aquecimento e nas chamadas (outra janela faria o Ollama recarregar o modelo). */
     static final int JANELA_CONTEXTO = 8192;
+    /** Entrada do aquecimento (~1.000 tokens, como as dos agentes); conteúdo neutro e fictício. */
+    static final String TEXTO_AQUECIMENTO = ("Relato fictício de demanda ambiental em Mato Grosso: descarte de resíduos "
+            + "às margens de um rio, com pedido de vistoria e análise de documentos técnicos. ").repeat(40)
+            + "Responda apenas: ok.";
 
     private final AgentesConfiguracao configuracao;
     private final RestClient http;
@@ -151,6 +155,16 @@ public class OllamaClienteModelo implements ClienteModelo {
             corpo.put("options", Map.of("num_ctx", JANELA_CONTEXTO));
             http.post().uri("/api/generate").contentType(MediaType.APPLICATION_JSON).body(corpo).retrieve()
                     .body(JsonNode.class);
+            // Só carregar não basta: a 1ª leitura de um texto grande paga um custo único de inicialização na GPU
+            // (medido em 17/11/2026: 1.203 tokens em 21 s na 1ª chamada e 5 s na 2ª — Issue #124). Uma geração
+            // curta com entrada do tamanho usado pelos agentes paga esse custo antes da primeira pergunta real.
+            Map<String, Object> geracao = new LinkedHashMap<>();
+            geracao.put("model", configuracao.modeloLocal());
+            geracao.put("messages", List.of(Map.of("role", "user", "content", TEXTO_AQUECIMENTO)));
+            geracao.put("stream", false);
+            geracao.put("keep_alive", configuracao.manterCarregado());
+            geracao.put("options", Map.of("temperature", 0, "num_ctx", JANELA_CONTEXTO, "num_predict", 8));
+            chat(geracao);
             aquecimentoMs = System.currentTimeMillis() - t0;
             aquecidoEm = java.time.Instant.now().toString();
             estadoAquecimento = "PRONTO";

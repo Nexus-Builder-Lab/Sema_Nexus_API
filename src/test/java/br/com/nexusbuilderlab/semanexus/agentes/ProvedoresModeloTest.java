@@ -189,9 +189,19 @@ class ProvedoresModeloTest {
                         org.hamcrest.Matchers.containsString("\"num_ctx\":8192"),
                         org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("\"prompt\"")))))
                 .andRespond(withSuccess("{\"done\":true}", MediaType.APPLICATION_JSON));
+        // Depois de carregar, uma geração curta com entrada grande paga o custo da 1ª leitura (#124).
+        servidor.expect(requestTo("http://ollama:11434/api/chat"))
+                .andExpect(content().string(org.hamcrest.Matchers.allOf(
+                        org.hamcrest.Matchers.containsString("\"num_predict\":8"),
+                        org.hamcrest.Matchers.containsString("\"num_ctx\":8192"),
+                        org.hamcrest.Matchers.containsString("Responda apenas: ok."),
+                        org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("\"tools\"")))))
+                .andRespond(withSuccess("{\"message\":{\"role\":\"assistant\",\"content\":\"ok\"}}",
+                        MediaType.APPLICATION_JSON));
         OllamaClienteModelo cliente = ollama(builder);
 
         assertThat(cliente.aquecer()).isTrue();
         servidor.verify();
+        assertThat(OllamaClienteModelo.TEXTO_AQUECIMENTO.length()).isGreaterThan(3000);
     }
 }

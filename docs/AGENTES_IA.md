@@ -44,7 +44,7 @@ Em qualquer falha (Ollama parado, modelo não baixado, erro, resposta inválida)
 
 1. No `.env`: `COMPOSE_PROFILES=ia` (GPU NVIDIA; sem GPU use `ia-cpu`, mais lento) e `AGENTES_PROVEDOR=ollama`.
 2. `.\scripts\ia-preparar.ps1` (ou `./scripts/ia-preparar.sh`): sobe o serviço `ollama` e baixa `OLLAMA_MODELO` para o volume `ollama` do projeto.
-3. `GET /api/agentes/status` deve indicar `LOCAL`. A API **aquece o modelo ao iniciar** (carrega na GPU em segundo plano, ~10–50 s) e ele fica carregado por **4 h** após o último uso (`OLLAMA_MANTER_CARREGADO`), então a primeira pergunta não espera o carregamento. Estado do aquecimento no Painel do sistema.
+3. `GET /api/agentes/status` deve indicar `LOCAL`. A API **aquece o modelo ao iniciar** (em segundo plano, ~1 min: carrega na GPU e faz uma geração curta — Issue #124) e ele fica carregado por **4 h** após o último uso (`OLLAMA_MANTER_CARREGADO`), então a primeira pergunta não espera o carregamento. Estado do aquecimento no Painel do sistema.
 4. Depois de baixado, **funciona sem internet** (bom para a apresentação).
 
 **Rede com inspeção HTTPS (ex.: firewall da SEMA):** o download do modelo pode falhar com `x509: certificate signed by unknown authority`. Não desligue a verificação TLS. Opções: baixar em outra rede, ou (feito em 13/11/2026, com autorização do proprietário) adicionar temporariamente o certificado **público** da CA do firewall — já confiado pelo Windows — só no container do Ollama, baixar o modelo e recriar o container (`docker compose up -d --force-recreate ollama`) para remover a confiança.
@@ -91,6 +91,8 @@ Causas encontradas e correções:
 3. **Trechos longos copiados pelo modelo** para citações que a API reconferia → a API monta as citações.
 4. **Documento errado** ("área desmatada em Colniza" lia o Parecer de Cáceres): radical, peso do título, corte dos pouco relevantes, trecho sem a linha do título e texto do mais relevante já entregue pela busca.
 5. **Modelo descarregado após 30 min** → aquecimento ao iniciar (`AquecimentoModelo`, mesma janela de contexto de 8.192 tokens das chamadas, senão o Ollama recarregaria) e permanência de 4 h.
+
+**Primeira resposta após ligar (Issue #124, 17/11/2026):** só carregar o modelo não bastava — a 1ª leitura de um texto grande paga um custo único de inicialização na GPU (1.203 tokens: 21,3 s na 1ª chamada, 5,0 s na 2ª), e a 1ª triagem após subir levava 28–36 s. O aquecimento passou a fazer também uma geração curta com ~1.000 tokens de entrada: 1ª triagem **12,2 s**, 1º DocIA **4,9 s**. Flash Attention foi testado desligado e **não** é a causa (1ª leitura 15,7 s; respostas normais mais lentas, 9,4 s contra 7,9 s) — continua no padrão do Ollama.
 
 A GPU chega a ~99% **durante** a geração (alguns segundos) — é o esperado: o modelo usa a placa inteira para responder mais rápido e depois ela volta ao repouso. A memória de vídeo fica ocupada (~3,9 GB) enquanto o modelo está carregado.
 
