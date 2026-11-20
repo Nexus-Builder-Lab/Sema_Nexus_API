@@ -101,7 +101,9 @@ class ExecutorAgenteTest {
         assertThat(r.modelo()).isEqualTo("modelo-local");
         assertThat(chamadas).containsExactly("oi");
         assertThat(r.passos()).extracting(ResultadoAgente.PassoAgente::ferramenta).containsExactly("eco", "falha");
-        assertThat(r.passos().get(1).resumo()).contains("demanda não encontrada");
+        // Catálogo de erros públicos: código e mensagem pública, nunca o e.getMessage() da ferramenta.
+        assertThat(r.passos().get(1).resumo()).contains("PARAMETRO_INVALIDO").contains("ref. ERR-")
+                .doesNotContain("demanda não encontrada");
         assertThat(r.tokensEntrada()).isEqualTo(350);
         // tarefa + (assistente, resultado) x 2 = 5 mensagens no último pedido; erro da ferramenta marcado
         assertThat(cliente.pedidos).hasSize(3);

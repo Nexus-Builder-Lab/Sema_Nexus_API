@@ -29,8 +29,10 @@ public class BuscaDocumentos {
         this.documentos = documentos;
     }
 
-    /** Documento encontrado e o trecho (frase) com mais termos da consulta. */
-    public record Achado(Documento documento, String trecho, String relevancia) {
+    /**
+     * Documento encontrado, o trecho (frase) com mais termos da consulta e a aderência textual (alta/média/baixa).
+     */
+    public record Achado(Documento documento, String trecho, String aderencia) {
 
         public Achado(Documento documento, String trecho) {
             this(documento, trecho, "alta");
@@ -38,11 +40,16 @@ public class BuscaDocumentos {
     }
 
     /**
+     * Aderência textual <b>relativa</b>: pontos do documento (termos da consulta encontrados; título vale mais) divididos
+     * pelos pontos do documento mais aderente da mesma busca. Alta: 70%+ do melhor; média: 40–70%; baixa: o restante.
+     * Não é confiança factual nem probabilidade de a resposta estar correta: o melhor documento de uma busca fraca
+     * também sai "alta". Por isso o rótulo se chama aderência textual (relatório técnico, P2).
+     * <p>
      * Documentos com menos de 1/3 da pontuação do melhor ficam de fora: modelos pequenos escolhem pelo trecho, e um
      * documento pouco relevante com números no trecho os desviava (ex.: Parecer de Cáceres numa pergunta sobre
-     * Colniza). Alta: 70%+ do melhor; média: 40–70%; baixa: o restante.
+     * Colniza).
      */
-    static String relevancia(int pontos, int maximo) {
+    static String aderenciaTextual(int pontos, int maximo) {
         double p = maximo == 0 ? 0 : (double) pontos / maximo;
         return p >= 0.7 ? "alta" : p >= 0.4 ? "média" : "baixa";
     }
@@ -89,7 +96,7 @@ public class BuscaDocumentos {
                 .forEach(e -> documentos.buscarAtivo(e.getKey()).ifPresent(d -> {
                     String trecho = AssistenteService.melhorTrecho(d, termos);
                     if (trecho != null) {
-                        r.add(new Achado(d, trecho, relevancia(e.getValue(), maximo)));
+                        r.add(new Achado(d, trecho, aderenciaTextual(e.getValue(), maximo)));
                     }
                 }));
         return r;

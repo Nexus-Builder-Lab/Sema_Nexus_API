@@ -83,6 +83,8 @@ public class ExecutorAgente {
         long saida = 0;
         long cache = 0;
         long inicio = System.currentTimeMillis();
+        long prazo = inicio + configuracao.orcamento().toMillis();
+        int[] chamadasFerramenta = {0};
         boolean tentou = false;
         try {
             if (!cliente.disponivel()) {
@@ -96,6 +98,7 @@ public class ExecutorAgente {
             mensagens.add(Mensagem.usuario(tarefa));
             int rodadas = 0;
             for (int iteracao = 0; iteracao < configuracao.maxIteracoes(); iteracao++) {
+                verificarOrcamento(prazo);
                 // Esgotadas as rodadas de ferramentas, o pedido vai sem ferramentas: resposta final no esquema.
                 List<FerramentaAgente> disponiveis = rodadas < agente.maxRodadasFerramentas()
                         ? agente.ferramentas() : List.of();
@@ -109,6 +112,10 @@ public class ExecutorAgente {
                     rodadas++;
                     mensagens.add(Mensagem.assistente(resposta));
                     for (ChamadaFerramenta chamada : resposta.chamadas()) {
+                        if (++chamadasFerramenta[0] > configuracao.maxChamadasFerramenta()) {
+                            throw new AgenteIndisponivelException("Orçamento de "
+                                    + configuracao.maxChamadasFerramenta() + " chamadas de ferramenta esgotado.");
+                        }
                         mensagens.add(executarFerramenta(ferramentas, chamada, passos));
                     }
                     continue;
@@ -116,16 +123,20 @@ public class ExecutorAgente {
                 ResultadoAgente r = new ResultadoAgente(lerJson(resposta.texto(), agente.campoTexto()),
                         List.copyOf(passos), modelo,
                         entrada, saida, cache);
-                auditar(agente, modelo, entidadeId, "AGENTE_EXECUCAO", passos, entrada, saida, cache, null);
-                metricas.sucesso(agente.nome(), modelo, System.currentTimeMillis() - inicio);
-                LOG.info("Agente {} concluiu: provedor={}, modelo={}, ferramentas={}, tokens entrada={} saída={}",
-                        agente.nome(), configuracao.provedor(), modelo, passos.size(), entrada, saida);
+                long duracao = System.currentTimeMillis() - inicio;
+                auditar(agente, modelo, entidadeId, "AGENTE_EXECUCAO", passos, entrada, saida, cache, duracao,
+                        null);
+                metricas.sucesso(agente.nome(), modelo, duracao);
+                LOG.info("Agente {} concluiu: provedor={}, modelo={}, ferramentas={}, tokens entrada={} saída={}, "
+                        + "latência={} ms", agente.nome(), configuracao.provedor(), modelo, passos.size(), entrada,
+                        saida, duracao);
                 return r;
             }
             throw new AgenteIndisponivelException("Limite de " + configuracao.maxIteracoes()
                     + " iterações atingido sem resposta final.");
         } catch (AgenteIndisponivelException e) {
-            auditar(agente, modelo, entidadeId, "AGENTE_FALHA", passos, entrada, saida, cache, e.getMessage());
+            auditar(agente, modelo, entidadeId, "AGENTE_FALHA", passos, entrada, saida, cache,
+                    System.currentTimeMillis() - inicio, e.getMessage());
             if (tentou) {
                 metricas.falha(agente.nome(), modelo, System.currentTimeMillis() - inicio, e.getMessage());
             }
@@ -146,6 +157,17 @@ public class ExecutorAgente {
         metricas.demonstrativo(agente);
     }
 
+    /**
+     * Interrompe a execução quando o orçamento total de tempo acabou. Uma chamada já em andamento ainda respeita o
+     * timeout por chamada, então o pior caso é orçamento + timeout.
+     */
+    private void verificarOrcamento(long prazo) {
+        if (System.currentTimeMillis() > prazo) {
+            throw new AgenteIndisponivelException("Orçamento de " + configuracao.orcamento().toSeconds()
+                    + " s da execução esgotado.");
+        }
+    }
+
     private RespostaModelo chamar(PedidoModelo pedido) {
         try {
             return cliente.criar(pedido);
@@ -162,8 +184,11 @@ public class ExecutorAgente {
                                         List<PassoAgente> passos) {
         FerramentaAgente f = ferramentas.get(chamada.nome());
         if (f == null) {
-            passos.add(new PassoAgente(chamada.nome(), "Ferramenta inexistente (ignorada)."));
-            return Mensagem.ferramenta(chamada, "Ferramenta inexistente: " + chamada.nome(), true);
+            // O nome vem do modelo: ecoado só com caracteres seguros, e a ferramenta não é executada.
+            String nome = ErroFerramenta.nomeSeguro(chamada.nome());
+            passos.add(new PassoAgente(nome, "Ferramenta inexistente (ignorada)."));
+            return Mensagem.ferramenta(chamada, ErroFerramenta.FERRAMENTA_INEXISTENTE.name() + ": "
+                    + ErroFerramenta.FERRAMENTA_INEXISTENTE.mensagemPublica(), true);
         }
         try {
             JsonNode entrada = chamada.entrada() == null ? json.createObjectNode() : chamada.entrada();
@@ -175,10 +200,14 @@ public class ExecutorAgente {
             }
             return Mensagem.ferramenta(chamada, texto, false);
         } catch (RuntimeException | JsonProcessingException e) {
-            // Erro de negócio (ex.: 403/404 do Service) volta ao modelo como erro da ferramenta, sem detalhes internos.
-            String motivo = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
-            passos.add(new PassoAgente(f.nome(), "Erro: " + motivo));
-            return Mensagem.ferramenta(chamada, "Erro ao executar a ferramenta: " + motivo, true);
+            // Catálogo de erros públicos: o modelo, os passos e a auditoria recebem só código + mensagem pública +
+            // referência. O detalhe técnico (e.getMessage) fica só no log, ligado pela mesma referência.
+            ErroFerramenta erro = ErroFerramenta.de(e);
+            String referencia = ErroFerramenta.novaReferencia();
+            LOG.warn("Ferramenta {} falhou [{}] {}: {} - {}", f.nome(), referencia, erro, e.getClass().getName(),
+                    e.getMessage());
+            passos.add(new PassoAgente(f.nome(), "Erro " + erro.publico(referencia)));
+            return Mensagem.ferramenta(chamada, erro.publico(referencia), true);
         }
     }
 
@@ -206,11 +235,13 @@ public class ExecutorAgente {
     }
 
     private void auditar(DefinicaoAgente agente, String modelo, String entidadeId, String acao,
-                         List<PassoAgente> passos, long entrada, long saida, long cache, String falha) {
+                         List<PassoAgente> passos, long entrada, long saida, long cache, long duracaoMs,
+                         String falha) {
         String ferramentasUsadas = passos.stream().map(PassoAgente::ferramenta).collect(Collectors.joining(", "));
         auditoria.registrar(acao, "AGENTE", agente.nome() + ":" + entidadeId,
                 "Provedor " + configuracao.provedor() + "; modelo " + modelo + "; ferramentas [" + ferramentasUsadas
-                        + "]; tokens entrada " + entrada + ", saída " + saida + ", cache " + cache
+                        + "]; chamadas de ferramenta " + passos.size() + "; latência " + duracaoMs + " ms"
+                        + "; tokens entrada " + entrada + ", saída " + saida + ", cache " + cache
                         + (falha == null ? "" : "; falha: " + falha));
     }
 }

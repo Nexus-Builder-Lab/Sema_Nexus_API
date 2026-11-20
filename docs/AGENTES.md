@@ -70,5 +70,21 @@ Skills do Claude Code ficam em `.claude/skills/<nome>/SKILL.md` e são **carrega
 | `revisao-visual-mapa` | Web | mudanças no mapa do SEMA Intelligence | roteiro no Chrome + regra dos panes |
 | `paridade-prototipo` | Web | comparar telas com o protótipo publicado | `docs/PARIDADE_PROTOTIPO.md` |
 | `integrar-camada-externa` | Web | nova camada/serviço externo (padrão Esri/INPE) | — |
+| `validar-integracao-sema` | API (valida API + Web) | antes de ensaio/tag/apresentação; após mudar contrato, autorização ou agentes | `validar-integracao.mjs` (leitura por padrão; `--fluxo` grava dados fictícios só com autorização) |
 
 As skills de um repositório só ficam disponíveis em sessões abertas nele. Ao mudar um procedimento (scripts, portas, regras), atualize a skill no mesmo PR.
+
+## Fronteira: agentes de desenvolvimento × agentes da aplicação
+
+Recomendação do relatório técnico (20/11/2026), registrada aqui para não se perder:
+
+| | Agentes de desenvolvimento (Claude Code) | Agentes da aplicação (rodam na API) |
+|---|---|---|
+| Quais | subagentes de `.claude/agents/` e skills de `.claude/skills/` | Agente de Triagem e Assistente DocIA (`docs/AGENTES_IA.md`) |
+| Papel | planejar, implementar, revisar, testar, validar | **consultar e sugerir** a quem está usando o sistema |
+| Dados | só código, documentação e o ambiente de teste com dados fictícios | só os dados que o perfil do usuário logado pode ver |
+| Limites | não decidem sobre dados operacionais; reset, tag, merge e publicação exigem aprovação humana | ferramentas só de leitura; nunca gravam nem decidem; aplicar sugestão é ação da pessoa |
+
+Hooks (proteger volumes, `.env` e migrations, com prova de bloqueio e caso permitido) e um servidor MCP próprio
+(consultas autenticadas reutilizando a autorização da API) estão **planejados**, não implementados: hoje a proteção vem
+das permissões allow/deny/ask dos `settings.json` e das regras do `CLAUDE.md`.

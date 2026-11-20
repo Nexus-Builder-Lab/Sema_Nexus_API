@@ -20,7 +20,7 @@ Card "Sugestão de IA"  ──►  endpoint do módulo (ex.: /triagem/sugestao)
 1. O usuário pede uma sugestão numa tela.
 2. O `ExecutorAgente` envia a tarefa ao modelo com as instruções do agente e as ferramentas declaradas.
 3. O modelo pede ferramentas (ex.: "buscar demandas semelhantes"); a API executa o Service correspondente **na thread da requisição**, portanto com o perfil e o escopo do usuário logado, e devolve o resultado.
-4. O laço repete até a resposta final em JSON (ou até `AGENTES_MAX_ITERACOES`, padrão 6).
+4. O laço repete até a resposta final em JSON, até `AGENTES_MAX_ITERACOES` (padrão 6) ou até estourar o **orçamento total** da execução (`AGENTES_ORCAMENTO_SEGUNDOS`, padrão 150 s, e `AGENTES_MAX_CHAMADAS_FERRAMENTA`, padrão 8). Estourado o limite, a execução vira `AGENTE_FALHA` e a tela usa o modo demonstrativo identificado.
 5. A tela mostra a sugestão, o modelo e as ferramentas usadas. **Nada é gravado pelo agente**: aplicar a sugestão usa o endpoint normal do módulo, com confirmação humana.
 
 ## Provedores
@@ -111,6 +111,8 @@ A GPU chega a ~99% **durante** a geração (alguns segundos) — é o esperado: 
 | `AGENTE_TRIAGEM_MODELO` / `AGENTE_DOCIA_MODELO` | `claude-haiku-5-5` / `claude-sonnet-5-5` | Modelos do Claude, se usado. |
 | `AGENTES_TIMEOUT_SEGUNDOS` | `90` | Tempo máximo por chamada (5–300). |
 | `AGENTES_MAX_ITERACOES` | `6` | Máximo de idas e voltas com ferramentas (1–10). |
+| `AGENTES_ORCAMENTO_SEGUNDOS` | `150` | Orçamento total de tempo de uma execução (1–600). Conferido antes de cada chamada ao modelo; pior caso = orçamento + 1 timeout. |
+| `AGENTES_MAX_CHAMADAS_FERRAMENTA` | `8` | Máximo de chamadas de ferramenta somadas na execução (1–30). |
 
 `GET /api/agentes/status` informa o modo efetivo (`LOCAL`, `CLAUDE` ou `DEMONSTRATIVO`) e o modelo de cada agente — nunca chaves.
 
@@ -120,7 +122,22 @@ A GPU chega a ~99% **durante** a geração (alguns segundos) — é o esperado: 
 - Conteúdo de documentos pode tentar instruir o modelo (*prompt injection*): por isso o agente não tem ferramentas de escrita e suas respostas são sempre sugestões revisadas.
 - Ollama sem porta publicada no host (só a API o acessa) e com modelos em nuvem desligados.
 - Chave da Anthropic (se usada) só no `.env`; `AgentesConfiguracao.toString()` não a inclui; erros registram só o tipo da exceção.
-- Auditoria: `AGENTE_EXECUCAO`, `AGENTE_FALHA` e `AGENTE_DEMONSTRATIVO` (entidade `AGENTE`) com provedor, modelo, ferramentas e tokens.
+- Auditoria: `AGENTE_EXECUCAO`, `AGENTE_FALHA` e `AGENTE_DEMONSTRATIVO` (entidade `AGENTE`) com provedor, modelo, ferramentas, **quantidade de chamadas de ferramenta, latência (ms)** e tokens.
+- **Catálogo de erros públicos das ferramentas** (`ErroFerramenta`, relatório técnico P2): quando uma ferramenta falha, o modelo, os passos exibidos na tela e a auditoria recebem só `CÓDIGO: mensagem pública (ref. ERR-xxxxxxxx)`. O detalhe técnico (`e.getMessage()`, que numa ferramenta futura poderia trazer caminho, SQL ou credencial) vai **só para o log da API**, com a mesma referência. Classificação pelo **tipo** da exceção:
+
+  | Código | Exceção | Mensagem pública |
+  |---|---|---|
+  | `ACESSO_NEGADO` | `AccessDeniedException` (403 do Service) | O perfil do usuário não tem acesso a este registro. |
+  | `NAO_ENCONTRADO` | `RecursoNaoEncontradoException` | Registro não encontrado ou inativo. |
+  | `PARAMETRO_INVALIDO` | `IllegalArgumentException`, `DadosInvalidosException` | Parâmetro inválido para a ferramenta. |
+  | `FERRAMENTA_INEXISTENTE` | o modelo pediu uma ferramenta que o agente não tem | A ferramenta pedida não existe para este agente. |
+  | `ERRO_INTERNO` | qualquer outra | Falha interna ao executar a ferramenta. |
+
+- **Avaliação adversarial** (`AvaliacaoAgentesTest`, modelo simulado, sem rede): erro sintético com caminho e credencial marcados (não aparece no modelo, nos passos nem na auditoria), *prompt injection* dentro de documento pedindo ferramentas de gravação (não existem; nada é executado; as ferramentas oferecidas nunca mudam), modelo indisponível (nenhuma chamada; `AGENTE_FALHA`; modo demonstrativo), orçamento de chamadas e orçamento de tempo (interrompem a execução).
+
+### Aderência textual (DocIA) não é confiança factual
+
+A busca da biblioteca é **textual** (sem embeddings). Cada documento recebe pontos pelos termos da pergunta que contém (título vale mais) e é classificado em **aderência textual** alta (70%+ dos pontos do melhor documento da mesma busca), média (40–70%) ou baixa. A escala é **relativa**: o melhor documento de uma busca fraca também sai "alta". Ela **não é probabilidade de a resposta estar correta**. A API a devolve em cada citação (`referencias[].aderenciaTextual`) e a tela do Assistente explica o rótulo. Quando os documentos não têm a resposta, o agente responde `NAO_ENCONTRADO` e a tela mostra "não encontrei" (abstenção); citações só apontam documentos que as ferramentas devolveram ou leram, com o trecho conferido no texto do documento. Busca semântica ou híbrida fica **planejada**, só depois de comparar a qualidade com a recuperação textual atual.
 
 ## Limitações e futuro
 

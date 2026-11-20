@@ -74,7 +74,8 @@ public class AssistenteService {
             return semInformacao();
         }
         List<ReferenciaDocumento> contexto = busca.buscar(pergunta, MAX_DOCUMENTOS).stream()
-                .map(a -> new ReferenciaDocumento(a.documento().getId(), a.documento().getTitulo(), a.trecho()))
+                .map(a -> new ReferenciaDocumento(a.documento().getId(), a.documento().getTitulo(), a.trecho(),
+                        a.aderencia()))
                 .toList();
         if (contexto.isEmpty()) {
             return semInformacao();
