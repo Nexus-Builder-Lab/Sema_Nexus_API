@@ -58,13 +58,13 @@ class BuscaDocumentosTest {
 
         // Colniza: 6 pontos; Parecer e Guia: 1 ponto (< 1/3) — fora da lista.
         assertThat(r).extracting(a -> a.documento().getId()).containsExactly(4L);
-        assertThat(r.get(0).relevancia()).isEqualTo("alta");
+        assertThat(r.get(0).aderencia()).isEqualTo("alta");
     }
 
     @Test
-    void relevanciaRelativaAoMelhor() {
-        assertThat(BuscaDocumentos.relevancia(6, 6)).isEqualTo("alta");
-        assertThat(BuscaDocumentos.relevancia(3, 6)).isEqualTo("média");
-        assertThat(BuscaDocumentos.relevancia(2, 6)).isEqualTo("baixa");
+    void aderenciaTextualRelativaAoMelhor() {
+        assertThat(BuscaDocumentos.aderenciaTextual(6, 6)).isEqualTo("alta");
+        assertThat(BuscaDocumentos.aderenciaTextual(3, 6)).isEqualTo("média");
+        assertThat(BuscaDocumentos.aderenciaTextual(2, 6)).isEqualTo("baixa");
     }
 }

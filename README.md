@@ -8,19 +8,26 @@ Este repositório também concentra a **infraestrutura e a documentação transv
 
 ## Situação
 
-| Item | Status |
+Matriz conferida contra o código e **validada em execução** no par API `caa0da6` + Web `03494762` (mais o diff local
+das melhorias do relatório técnico, ainda sem commit) em 20/11/2026 — evidências em
+[docs/VALIDACAO_INTEGRADA.md](docs/VALIDACAO_INTEGRADA.md). **Implementado** = no código e exercitado contra a API real;
+**Parcial** = no código, sem validação completa; **Planejado** = ainda não existe.
+
+| Capacidade | Status |
 |---|---|
-| Planejamento, backlog (3 sprints), Project, CI, templates, documentação | **Implementado** (10/11/2026) |
-| Esqueleto Spring Boot: profiles, erros RFC 9457, paginação, OpenAPI/Swagger, health (Issue #1) | **Implementado** |
-| Imagem Docker da API: Dockerfile multi-stage, usuário não-root, healthcheck (Issue #2) | **Implementado** |
-| Conexão Oracle, Flyway e schema do Core com os 142 municípios de MT (Issue #3) | **Implementado** |
-| Seed demonstrativo base: usuário de teste, usuários, setores e equipes fictícios, só em `demo`/`dev` (Issue #5) | **Implementado** |
-| Trava de inicialização do usuário de teste fora de `demo`/`dev` (Issue #6) | **Implementado** |
-| `docker-compose.yml` (Oracle Free + API + Web), `.env.example`, healthchecks e volumes (Issue #8) | **Implementado** |
-| `docs/DOCKER.md` completo (requisitos, Windows/WSL2, Apple Silicon, problemas comuns) e seção de execução do README (Issue #10) | **Implementado** |
-| Scripts `demo-up`/`demo-down`/`demo-reset` (`.sh` e `.ps1`) e `Makefile` (Issue #9) | **Implementado** |
-| Demandas do Flux: cadastro, edição, listagem com filtros, detalhes, histórico e exclusão lógica (Issue #11) | **Implementado** |
-| Triagem, distribuição e fiscalização do Flux (#12, #13), Intelligence, DocIA | **Planejado** — Sprints 2 e 3 |
+| Infra: Dockerfile não-root, `docker-compose.yml` (Oracle 23ai Free + API + Web + Ollama no profile `ia`), scripts `demo-up`/`demo-down`/`demo-reset`, CI (`ci`, `compose-smoke`, `oracle-it`) | **Implementado** |
+| Core: JWT/BCrypt, 5 perfis com autorização por método na API, cartões de demonstração (`/api/auth/demo/{perfil}`, só com `demo=true`), usuários, setores, equipes, auditoria, notificações | **Implementado** — 401/403 por perfil validados em execução |
+| Oracle + Flyway (schema só por migration), seed demonstrativo só em `demo`/`dev`, trava do usuário de teste | **Implementado** |
+| Flux: cadastro, listagem, detalhes e histórico; triagem, distribuição, execução, atividades, fiscalização, conclusão e devolução; prazos, produtividade e relatórios (CSV) | **Implementado** — fluxo login → demanda → triagem validado em execução |
+| Intelligence: resumo, série mensal, por município/bioma/categoria/situação, mapa; camada de referência com dados públicos do INPE (identificados) | **Implementado** |
+| DocIA: biblioteca com busca **textual**, upload (pdf, txt, md, csv, docx), vínculo à demanda, download, comparação de documentos (regras, sem IA) | **Implementado** — upload + vínculo validados em execução |
+| Agente de Triagem (sugestão; aplicação só por uma pessoa) e Assistente DocIA (citações conferidas pela API, abstenção, aderência textual) com IA local (Ollama) e modo demonstrativo identificado | **Implementado** — validados em execução, inclusive com o modelo parado |
+| Agentes: catálogo de erros públicos das ferramentas, orçamento total (tempo e chamadas), auditoria com latência e chamadas, avaliação adversarial (modelo simulado) | **Implementado** (20/11/2026) |
+| Painel do sistema (`/api/sistema/painel`, só ADMIN): saúde, agentes, perfis e integrações | **Implementado** |
+| Provedor Anthropic (Claude) para os agentes | **Parcial** — no código e em testes unitários; não validado com chave real (decisão de não ter custo) |
+| Validação integrada automatizada (skill `validar-integracao-sema`) | **Parcial** — roteiro manual/local; não roda no CI |
+| Busca semântica ou híbrida na DocIA | **Planejado** — só depois de comparar a qualidade com a busca textual atual |
+| Hooks do Claude Code (proteger volumes, `.env` e migrations) e servidor MCP próprio (consultas autenticadas) | **Planejado** — hoje há permissões allow/deny/ask, não hooks; sem MCP próprio |
 
 Acompanhamento: [GitHub Project — SEMA ALERTA — Desenvolvimento](https://github.com/orgs/Nexus-Builder-Lab/projects/1) · [docs/SPRINTS.md](docs/SPRINTS.md)
 
@@ -102,6 +109,8 @@ O seed demonstrativo cria `admin@admin.com` / `12345678` (Administrador) **somen
 | [DEMO.md](docs/DEMO.md) | Credenciais demonstrativas e roteiro de 10 minutos |
 | [DEFINITION_OF_DONE.md](docs/DEFINITION_OF_DONE.md) | Critérios de conclusão |
 | [PROJECT_HEALTH.md](docs/PROJECT_HEALTH.md) | Monitoramento diário |
+| [AGENTES_IA.md](docs/AGENTES_IA.md) | Agentes de IA no sistema (Triagem, DocIA): provedores, orçamento, catálogo de erros, aderência textual |
+| [VALIDACAO_INTEGRADA.md](docs/VALIDACAO_INTEGRADA.md) | Validação integrada API + Web no mesmo par de commits (relatório técnico): fluxo, perfis, falha, avaliação |
 | [AGENTES.md](docs/AGENTES.md) | Subagentes especializados e fluxo multiagente |
 | [AUTOPILOT.md](docs/AUTOPILOT.md) | Desenvolvimento autônomo: como iniciar, acompanhar e parar |
 | [DIARIO_DESENVOLVIMENTO.md](docs/DIARIO_DESENVOLVIMENTO.md) | Histórico de tudo o que foi feito, decidido e testado |

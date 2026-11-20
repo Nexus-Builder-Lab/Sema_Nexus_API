@@ -46,12 +46,27 @@ public class AgentesConfiguracao {
     private final int maxIteracoes;
     private final String manterCarregado;
     private final boolean aquecer;
+    private final Duration orcamento;
+    private final int maxChamadasFerramenta;
+
+    /** Orçamento total padrão de uma execução do agente (chamadas ao modelo e às ferramentas somadas). */
+    public static final int ORCAMENTO_PADRAO_SEGUNDOS = 150;
+    /** Máximo padrão de chamadas de ferramenta somadas em uma execução. */
+    public static final int MAX_CHAMADAS_PADRAO = 8;
 
     /** Construtor usado nos testes: permanência padrão e sem aquecimento ao iniciar. */
     public AgentesConfiguracao(String provedor, String chave, String modeloTriagem, String modeloDocia, String ollamaUrl,
                                String modeloLocal, boolean pensar, int timeoutSegundos, int maxIteracoes) {
         this(provedor, chave, modeloTriagem, modeloDocia, ollamaUrl, modeloLocal, pensar, timeoutSegundos, maxIteracoes,
-                PERMANENCIA_PADRAO, false);
+                PERMANENCIA_PADRAO, false, ORCAMENTO_PADRAO_SEGUNDOS, MAX_CHAMADAS_PADRAO);
+    }
+
+    /** Construtor usado na avaliação adversarial dos agentes (orçamento e chamadas configuráveis). */
+    public AgentesConfiguracao(String provedor, int timeoutSegundos, int maxIteracoes, int orcamentoSegundos,
+                               int maxChamadasFerramenta) {
+        this(provedor, "", MODELO_TRIAGEM_PADRAO, MODELO_DOCIA_PADRAO, "http://ollama:11434", MODELO_LOCAL_PADRAO,
+                false, timeoutSegundos, maxIteracoes, PERMANENCIA_PADRAO, false, orcamentoSegundos,
+                maxChamadasFerramenta);
     }
 
     @org.springframework.beans.factory.annotation.Autowired
@@ -65,7 +80,11 @@ public class AgentesConfiguracao {
                                @Value("${AGENTES_TIMEOUT_SEGUNDOS:90}") int timeoutSegundos,
                                @Value("${AGENTES_MAX_ITERACOES:6}") int maxIteracoes,
                                @Value("${OLLAMA_MANTER_CARREGADO:" + PERMANENCIA_PADRAO + "}") String manterCarregado,
-                               @Value("${AGENTES_AQUECER:true}") boolean aquecer) {
+                               @Value("${AGENTES_AQUECER:true}") boolean aquecer,
+                               @Value("${AGENTES_ORCAMENTO_SEGUNDOS:" + ORCAMENTO_PADRAO_SEGUNDOS + "}")
+                               int orcamentoSegundos,
+                               @Value("${AGENTES_MAX_CHAMADAS_FERRAMENTA:" + MAX_CHAMADAS_PADRAO + "}")
+                               int maxChamadasFerramenta) {
         this.provedor = provedor(provedor);
         this.chave = chave == null ? "" : chave.strip();
         this.modeloTriagem = valido(modeloTriagem, FORMATO_MODELO_CLAUDE, MODELO_TRIAGEM_PADRAO);
@@ -77,6 +96,22 @@ public class AgentesConfiguracao {
         this.maxIteracoes = Math.max(1, Math.min(maxIteracoes, 10));
         this.manterCarregado = valido(manterCarregado, FORMATO_PERMANENCIA, PERMANENCIA_PADRAO);
         this.aquecer = aquecer;
+        this.orcamento = Duration.ofSeconds(Math.max(1, Math.min(orcamentoSegundos, 600)));
+        this.maxChamadasFerramenta = Math.max(1, Math.min(maxChamadasFerramenta, 30));
+    }
+
+    /**
+     * Orçamento total de uma execução. O limite de iterações evita laço sem fim, mas não limita o tempo: com timeout de
+     * 90 s por chamada, 6 iterações podiam passar de 9 minutos. Estourado, o agente para e o chamador usa o modo
+     * demonstrativo (identificado).
+     */
+    public Duration orcamento() {
+        return orcamento;
+    }
+
+    /** Máximo de chamadas de ferramenta somadas na execução (o modelo pode pedir várias por iteração). */
+    public int maxChamadasFerramenta() {
+        return maxChamadasFerramenta;
     }
 
     public Provedor provedor() {
@@ -152,6 +187,7 @@ public class AgentesConfiguracao {
         return "AgentesConfiguracao[provedor=" + provedor + ", chaveAnthropicValida=" + chaveAnthropicValida()
                 + ", ollamaUrl=" + ollamaUrl + ", modeloLocal=" + modeloLocal + ", modeloTriagem=" + modeloTriagem
                 + ", modeloDocia=" + modeloDocia + ", timeout=" + timeout + ", maxIteracoes=" + maxIteracoes
-                + ", manterCarregado=" + manterCarregado + ", aquecer=" + aquecer + "]";
+                + ", manterCarregado=" + manterCarregado + ", aquecer=" + aquecer + ", orcamento=" + orcamento
+                + ", maxChamadasFerramenta=" + maxChamadasFerramenta + "]";
     }
 }

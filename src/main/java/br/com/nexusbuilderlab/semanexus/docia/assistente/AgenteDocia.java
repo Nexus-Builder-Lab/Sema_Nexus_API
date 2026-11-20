@@ -1,6 +1,7 @@
 package br.com.nexusbuilderlab.semanexus.docia.assistente;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -14,6 +15,7 @@ import br.com.nexusbuilderlab.semanexus.agentes.DefinicaoAgente;
 import br.com.nexusbuilderlab.semanexus.agentes.ExecutorAgente;
 import br.com.nexusbuilderlab.semanexus.agentes.FerramentaAgente;
 import br.com.nexusbuilderlab.semanexus.agentes.ResultadoAgente;
+import br.com.nexusbuilderlab.semanexus.common.exception.RecursoNaoEncontradoException;
 import br.com.nexusbuilderlab.semanexus.docia.assistente.dto.ReferenciaDocumento;
 import br.com.nexusbuilderlab.semanexus.docia.assistente.dto.RespostaAssistente;
 import br.com.nexusbuilderlab.semanexus.docia.documento.Documento;
@@ -85,7 +87,9 @@ public class AgenteDocia {
     public RespostaAssistente responder(String pergunta) {
         Set<Long> vistos = new LinkedHashSet<>();
         Set<Long> lidos = new LinkedHashSet<>();
-        ResultadoAgente r = executor.executar(definicao(vistos, lidos), "Pergunta: " + pergunta, "pergunta");
+        Map<Long, String> aderencias = new HashMap<>();
+        ResultadoAgente r = executor.executar(definicao(vistos, lidos, aderencias), "Pergunta: " + pergunta,
+                "pergunta");
         JsonNode j = r.resposta();
         // Ids internos não interessam ao usuário: o modelo às vezes os escreve no texto.
         String resposta = j.path("resposta").asText("").replaceAll("\\s*\\(?\\b[Dd]ocumento[Ii]d\\b:?\\s*\\d+\\)?", "").strip();
@@ -109,17 +113,21 @@ public class AgenteDocia {
             }
             documentos.buscarAtivo(id).ifPresent(d ->
                     referencias.add(new ReferenciaDocumento(d.getId(), d.getTitulo(),
-                            trechoConferido(d, ref.path("trecho").asText(""), termos))));
+                            trechoConferido(d, ref.path("trecho").asText(""), termos), aderencias.get(d.getId()))));
         }
         if (referencias.isEmpty()) {
-            // Citações montadas pela API: documentos lidos (ou, sem leitura, o primeiro encontrado), com o trecho do
-            // documento mais aderente à pergunta e à resposta.
-            List<Long> base = lidos.isEmpty() ? vistos.stream().limit(1).toList()
-                    : lidos.stream().limit(MAX_REFERENCIAS).toList();
+            // Citações montadas pela API: os documentos devolvidos pelas ferramentas que sustentam a resposta (números
+            // e termos da resposta presentes no texto), com o trecho mais aderente. Sem suporte mensurável, cai na
+            // regra anterior: documentos lidos (ou, sem leitura, o primeiro encontrado).
+            List<Long> base = citacoesPorSuporte(pergunta, resposta, vistos, lidos);
+            if (base.isEmpty()) {
+                base = lidos.isEmpty() ? vistos.stream().limit(1).toList()
+                        : lidos.stream().limit(MAX_REFERENCIAS).toList();
+            }
             for (Long id : base) {
                 documentos.buscarAtivo(id).ifPresent(d ->
                         referencias.add(new ReferenciaDocumento(d.getId(), d.getTitulo(),
-                                trechoConferido(d, "", termos))));
+                                trechoConferido(d, "", termos), aderencias.get(d.getId()))));
             }
         }
         if (referencias.isEmpty()) {
@@ -128,12 +136,79 @@ public class AgenteDocia {
         return new RespostaAssistente(resposta, modo, referencias, agente, r.modelo(), passos);
     }
 
-    private DefinicaoAgente definicao(Set<Long> vistos, Set<Long> lidos) {
+    private static final java.util.regex.Pattern NUMERO = java.util.regex.Pattern.compile("\\d+(?:[.,]\\d+)?");
+
+    /**
+     * Escolhe as citações pelo suporte à resposta (avaliação de 20/11/2026: a citação apontava o 1º documento lido
+     * — ex.: a Instrução Normativa — quando a resposta tinha vindo do trecho de outro, e uma nota adversarial lida
+     * aparecia como fonte). Regras, determinísticas:
+     * <ol>
+     *   <li>Números da resposta que não estão na pergunta são a evidência mais forte: havendo documento com algum
+     *   deles, só esses documentos são candidatos.</li>
+     *   <li>Pontuação = 3 × números encontrados + radicais da resposta encontrados no texto do documento.</li>
+     *   <li>Fica o documento de maior pontuação (empate favorece o lido) e, até {@link #MAX_REFERENCIAS}, os que têm
+     *   pelo menos 80% dela ou que trazem um número da resposta ainda não coberto pelos escolhidos (comparação de
+     *   versões: o "120" da versão 1 e o "95" da versão 2).</li>
+     * </ol>
+     * Só documentos que as ferramentas devolveram ao modelo ({@code vistos}) podem ser citados.
+     */
+    List<Long> citacoesPorSuporte(String pergunta, String resposta, Set<Long> vistos, Set<Long> lidos) {
+        Set<String> numeros = numeros(resposta);
+        numeros.removeAll(numeros(pergunta));
+        List<String> termos = BuscaDocumentos.radicais(resposta);
+        Map<Long, Integer> pontos = new java.util.LinkedHashMap<>();
+        Map<Long, Set<String>> numerosAchados = new java.util.LinkedHashMap<>();
+        for (Long id : vistos) {
+            documentos.buscarAtivo(id).ifPresent(d -> {
+                String texto = String.join(" ", nulo(d.getTitulo()), nulo(d.getDescricao()),
+                        nulo(d.getPalavrasChave()), nulo(d.getTextoExtraido()));
+                Set<String> achados = new LinkedHashSet<>(numeros);
+                achados.retainAll(numeros(texto));
+                String normal = DocumentoSpecification.normalizar(texto);
+                int t = (int) termos.stream().filter(normal::contains).count();
+                pontos.put(id, 3 * achados.size() + t);
+                numerosAchados.put(id, achados);
+            });
+        }
+        boolean algumComNumero = numerosAchados.values().stream().anyMatch(n -> !n.isEmpty());
+        List<Long> candidatos = pontos.keySet().stream()
+                .filter(id -> !algumComNumero || !numerosAchados.get(id).isEmpty())
+                .filter(id -> pontos.get(id) > 0)
+                .sorted(java.util.Comparator.<Long>comparingInt(pontos::get).reversed()
+                        .thenComparing(id -> lidos.contains(id) ? 0 : 1))
+                .toList();
+        List<Long> escolhidos = new ArrayList<>();
+        Set<String> cobertos = new java.util.HashSet<>();
+        int maximo = candidatos.isEmpty() ? 0 : pontos.get(candidatos.get(0));
+        for (Long id : candidatos) {
+            boolean novoNumero = !cobertos.containsAll(numerosAchados.get(id));
+            if (escolhidos.isEmpty() || pontos.get(id) * 5 >= maximo * 4 || novoNumero) {
+                escolhidos.add(id);
+                cobertos.addAll(numerosAchados.get(id));
+            }
+            if (escolhidos.size() == MAX_REFERENCIAS) {
+                break;
+            }
+        }
+        return escolhidos;
+    }
+
+    private static Set<String> numeros(String texto) {
+        Set<String> r = new LinkedHashSet<>();
+        java.util.regex.Matcher m = NUMERO.matcher(texto == null ? "" : texto);
+        while (m.find()) {
+            r.add(m.group().replace(',', '.'));
+        }
+        return r;
+    }
+
+    private DefinicaoAgente definicao(Set<Long> vistos, Set<Long> lidos, Map<Long, String> aderencias) {
         FerramentaAgente buscar = new FerramentaAgente("buscar_documentos",
                 "Busca textual na biblioteca de documentos (sem acento/caixa). Devolve o texto dos documentos mais "
-                        + "relevantes (lidos: o 1º e um 2º igualmente relevante) e os outros, do mais ao menos "
-                        + "relevante, com id, título, "
-                        + "relevância (alta/média/baixa) e o trecho mais aderente.",
+                        + "aderentes (lidos: o 1º e um 2º igualmente aderente) e os outros, do mais ao menos "
+                        + "aderente, com id, título, aderenciaTextual (alta/média/baixa, relativa ao documento com "
+                        + "mais termos da consulta; NÃO indica que o documento responde à pergunta) e o trecho mais "
+                        + "aderente. Confira no texto se a resposta está lá.",
                 Map.of("consulta", Map.of("type", "string", "description", "Palavras-chave da pergunta")),
                 List.of("consulta"), e -> {
                     String consulta = e.path("consulta").asText("");
@@ -144,9 +219,10 @@ public class AgenteDocia {
                     List<String> titulosLidos = new ArrayList<>();
                     for (BuscaDocumentos.Achado a : achados) {
                         vistos.add(a.documento().getId());
-                        // O mais relevante (e um 2º de relevância alta, ex.: outra versão) já vem lido: o modelo
+                        aderencias.putIfAbsent(a.documento().getId(), a.aderencia());
+                        // O mais aderente (e um 2º de aderência alta, ex.: outra versão) já vem lido: o modelo
                         // pequeno às vezes respondia só pelo trecho ou não lia a outra versão.
-                        if (textos.isEmpty() || (textos.size() < MAX_REFERENCIAS && "alta".equals(a.relevancia()))) {
+                        if (textos.isEmpty() || (textos.size() < MAX_REFERENCIAS && "alta".equals(a.aderencia()))) {
                             lidos.add(a.documento().getId());
                             textos.add(leitura(a.documento(), textos.isEmpty() ? LIMITE_LEITURA : LIMITE_LEITURA / 2));
                             titulosLidos.add("\"" + a.documento().getTitulo() + "\"");
@@ -156,7 +232,7 @@ public class AgenteDocia {
                         m.put("documentoId", a.documento().getId());
                         m.put("titulo", a.documento().getTitulo());
                         m.put("trecho", a.trecho());
-                        m.put("relevancia", a.relevancia());
+                        m.put("aderenciaTextual", a.aderencia());
                         outros.add(m);
                     }
                     r.put("lidos", textos);
@@ -171,7 +247,7 @@ public class AgenteDocia {
                 List.of("documentoId"), e -> {
                     long id = e.path("documentoId").asLong(-1);
                     Documento d = documentos.buscarAtivo(id)
-                            .orElseThrow(() -> new IllegalArgumentException("documento " + id + " não encontrado"));
+                            .orElseThrow(() -> new RecursoNaoEncontradoException("Documento não encontrado."));
                     vistos.add(d.getId());
                     lidos.add(d.getId());
                     return new FerramentaAgente.Resultado(leitura(d), "Leu \"" + d.getTitulo() + "\".");
