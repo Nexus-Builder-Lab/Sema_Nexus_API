@@ -36,8 +36,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.oracle.OracleContainer;
 
 /**
- * Consultas JPQL do Agente de Distribuição (Issue #130) contra Oracle real (Testcontainers): equipes candidatas e
- * ampliação, cargas agregadas, vistorias na região (ordem e limite no banco) e tempo médio. Fora do build padrão:
+ * Consultas JPQL do Agente de DistribuiÃ§Ã£o (Issue #130) contra Oracle real (Testcontainers): equipes candidatas e
+ * ampliaÃ§Ã£o, cargas agregadas, vistorias na regiÃ£o (ordem e limite no banco) e tempo mÃ©dio. Fora do build padrÃ£o:
  * {@code mvn -B -ntp verify -Poracle}. Exige Docker.
  */
 @Tag("oracle")
@@ -50,7 +50,6 @@ class ConsultasDistribuicaoOracleTest {
     static final OracleContainer ORACLE = new OracleContainer("gvenzl/oracle-free:23-slim-faststart");
 
     static final int CUIABA = 5103403;
-    static final int SINOP = 5107909;
     private static final AtomicInteger SEQ = new AtomicInteger(9000);
 
     @Autowired
@@ -73,8 +72,8 @@ class ConsultasDistribuicaoOracleTest {
     private Demanda demanda(Usuario autor, int municipio, StatusDemanda status, Equipe equipe, Usuario fiscal,
                             LocalDate prazo, CategoriaFiscalizacao cat, LocalDate recebida, LocalDate concluida) {
         Demanda d = new Demanda("DEM-2026/" + SEQ.incrementAndGet(), autor);
-        d.setTitulo("Demanda fictícia " + d.getNumero());
-        d.setDescricao("Descrição fictícia");
+        d.setTitulo("Demanda fictÃ­cia " + d.getNumero());
+        d.setDescricao("DescriÃ§Ã£o fictÃ­cia");
         d.setOrigem(Origem.DENUNCIA);
         d.setCategoria(cat);
         d.setMunicipio(municipios.findById(municipio).orElseThrow());
@@ -92,68 +91,81 @@ class ConsultasDistribuicaoOracleTest {
     @Test
     void consultasAgregamOrdenamELimitamNoBanco() {
         LocalDate hoje = LocalDate.now(ZoneId.of("America/Cuiaba"));
-        Setor sno = setores.save(new Setor("NR-SNO", "Núcleo Regional de Sinop (teste)"));
-        Setor cba = setores.save(new Setor("NR-CBA", "Núcleo Regional de Cuiabá (teste)"));
+        // Siglas Ãºnicas: o banco jÃ¡ pode ter os nÃºcleos NR-* e dados do seed; o teste nÃ£o depende deles.
+        String sufixo = UUID.randomUUID().toString().substring(0, 6).toUpperCase();
+        Setor sno = setores.save(new Setor("TST-A-" + sufixo, "NÃºcleo de teste A"));
+        Setor cba = setores.save(new Setor("TST-B-" + sufixo, "NÃºcleo de teste B"));
         Usuario autor = usuario("Autor", Perfil.GESTOR);
-        Usuario ana = usuario("Ana Fiscal", Perfil.FISCAL);
-        Usuario bia = usuario("Bia Fiscal", Perfil.FISCAL);
-        Usuario inativo = usuario("Inativo Fiscal", Perfil.FISCAL);
+        Usuario ana = usuario("Ana Fiscal " + sufixo, Perfil.FISCAL);
+        Usuario bia = usuario("Bia Fiscal " + sufixo, Perfil.FISCAL);
+        Usuario inativo = usuario("Inativo Fiscal " + sufixo, Perfil.FISCAL);
         inativo.setAtivo(false);
         usuarios.save(inativo);
 
-        Equipe a = new Equipe("Equipe A Sinop", sno);
+        Equipe a = new Equipe("Equipe A " + sufixo, sno);
         a.getMembros().add(ana);
         a.getMembros().add(inativo);
         a = equipes.save(a);
-        Equipe b = new Equipe("Equipe B Cuiabá", cba);
+        Equipe b = new Equipe("Equipe B " + sufixo, cba);
         b.getMembros().add(bia);
         b = equipes.save(b);
-        Equipe vazia = new Equipe("Equipe Vazia Sinop", sno);
+        Equipe vazia = new Equipe("Equipe Vazia " + sufixo, sno);
         vazia.getMembros().add(inativo);
         equipes.save(vazia);
 
-        // Cargas: Ana com 1 atrasada, 1 vencendo em 3 dias e 1 sem prazo; uma finalizada não conta.
-        demanda(autor, SINOP, StatusDemanda.EM_ANDAMENTO, a, ana, hoje.minusDays(2), null, hoje.minusDays(20), null);
-        demanda(autor, SINOP, StatusDemanda.DISTRIBUIDA, a, ana, hoje.plusDays(3), null, hoje.minusDays(5), null);
+        // MunicÃ­pio sem vistoria em campo antes do teste (o seed pode ter demandas em outros).
+        int mun = municipios.findAllByOrderByNomeAsc().stream().map(m -> m.getId())
+                .filter(id -> consultas.ativasNaRegiao(-1L, id, null, true).isEmpty())
+                .findFirst().orElseThrow();
+        String regiao = municipios.findById(mun).orElseThrow().getRegiao();
+        TempoMedio pescaAntes = consultas.tempoMedio(CategoriaFiscalizacao.PESCA_IRREGULAR);
+
+        // Cargas: Ana com 1 atrasada, 1 vencendo em 3 dias e 1 sem prazo; uma finalizada nÃ£o conta.
+        demanda(autor, mun, StatusDemanda.EM_ANDAMENTO, a, ana, hoje.minusDays(2), null, hoje.minusDays(20), null);
+        demanda(autor, mun, StatusDemanda.DISTRIBUIDA, a, ana, hoje.plusDays(3), null, hoje.minusDays(5), null);
         demanda(autor, CUIABA, StatusDemanda.AGUARDANDO_CONCLUSAO, a, ana, null, null, hoje.minusDays(9), null);
-        demanda(autor, SINOP, StatusDemanda.FINALIZADA, a, ana, hoje.minusDays(30), CategoriaFiscalizacao.PESCA_IRREGULAR,
+        demanda(autor, mun, StatusDemanda.FINALIZADA, a, ana, hoje.minusDays(30), CategoriaFiscalizacao.PESCA_IRREGULAR,
                 hoje.minusDays(40), hoje.minusDays(30));
-        demanda(autor, SINOP, StatusDemanda.FINALIZADA, b, bia, hoje.minusDays(30), CategoriaFiscalizacao.PESCA_IRREGULAR,
+        demanda(autor, mun, StatusDemanda.FINALIZADA, b, bia, hoje.minusDays(30), CategoriaFiscalizacao.PESCA_IRREGULAR,
                 hoje.minusDays(25), hoje.minusDays(20));
-        Demanda atual = demanda(autor, SINOP, StatusDemanda.AGUARDANDO_DISTRIBUICAO, null, null, null,
+        Demanda atual = demanda(autor, mun, StatusDemanda.AGUARDANDO_DISTRIBUICAO, null, null, null,
                 CategoriaFiscalizacao.PESCA_IRREGULAR, hoje, null);
 
-        Candidatas doSno = consultas.equipesCandidatas("NR-SNO");
-        assertThat(doSno.ampliada()).isFalse();
-        assertThat(doSno.equipes()).singleElement().satisfies(e -> {
-            assertThat(e.nome()).isEqualTo("Equipe A Sinop");
-            assertThat(e.membros()).extracting(m -> m.nome()).containsExactly("Ana Fiscal");
+        Candidatas doNucleo = consultas.equipesCandidatas(sno.getSigla());
+        assertThat(doNucleo.ampliada()).isFalse();
+        assertThat(doNucleo.equipes()).singleElement().satisfies(e -> {
+            assertThat(e.nome()).isEqualTo("Equipe A " + sufixo);
+            assertThat(e.membros()).extracting(m -> m.nome()).containsExactly("Ana Fiscal " + sufixo);
         });
-        Candidatas semNucleo = consultas.equipesCandidatas("NR-BAG");
-        assertThat(semNucleo.ampliada()).isTrue();
-        assertThat(semNucleo.equipes()).extracting(e -> e.nome()).containsExactly("Equipe A Sinop", "Equipe B Cuiabá");
+        Candidatas semEquipe = consultas.equipesCandidatas("TST-X-" + sufixo);
+        assertThat(semEquipe.ampliada()).isTrue();
+        assertThat(semEquipe.equipes()).extracting(e -> e.nome())
+                .contains("Equipe A " + sufixo, "Equipe B " + sufixo)
+                .doesNotContain("Equipe Vazia " + sufixo);
 
         Cargas cargas = consultas.cargas(List.of(a.getId(), b.getId()), hoje);
         assertThat(cargas.fiscal(ana.getId())).isEqualTo(new ConsultasDistribuicao.Carga(3, 1, 1));
         assertThat(cargas.equipe(a.getId()).ativas()).isEqualTo(3);
         assertThat(cargas.equipe(b.getId()).ativas()).isZero();
 
-        List<DemandaAtiva> municipio = consultas.ativasNaRegiao(atual.getId(), SINOP, "Sinop", true);
+        List<DemandaAtiva> municipio = consultas.ativasNaRegiao(atual.getId(), mun, regiao, true);
         assertThat(municipio).hasSize(2).allMatch(DemandaAtiva::mesmoMunicipio);
         assertThat(municipio.get(0).prazo()).isEqualTo(hoje.minusDays(2));
-        assertThat(municipio.get(0).equipe()).isEqualTo("Equipe A Sinop");
-        assertThat(municipio.get(0).fiscal()).isEqualTo("Ana Fiscal");
+        assertThat(municipio.get(0).equipe()).isEqualTo("Equipe A " + sufixo);
+        assertThat(municipio.get(0).fiscal()).isEqualTo("Ana Fiscal " + sufixo);
 
         for (int i = 0; i < ConsultasDistribuicao.MAX_ATIVAS_REGIAO + 2; i++) {
-            demanda(autor, SINOP, StatusDemanda.DISTRIBUIDA, b, bia, hoje.plusDays(10 + i), null, hoje, null);
+            demanda(autor, mun, StatusDemanda.DISTRIBUIDA, b, bia, hoje.plusDays(10 + i), null, hoje, null);
         }
-        assertThat(consultas.ativasNaRegiao(atual.getId(), SINOP, "Sinop", false))
+        assertThat(consultas.ativasNaRegiao(atual.getId(), mun, regiao, false))
                 .hasSize(ConsultasDistribuicao.MAX_ATIVAS_REGIAO)
+                .allMatch(DemandaAtiva::mesmoMunicipio)
                 .noneMatch(x -> x.numero().equals(atual.getNumero()));
 
         TempoMedio pesca = consultas.tempoMedio(CategoriaFiscalizacao.PESCA_IRREGULAR);
-        assertThat(pesca.amostra()).isEqualTo(2);
-        assertThat(pesca.mediaDias()).isEqualTo(7.5);
-        assertThat(consultas.tempoMedio(CategoriaFiscalizacao.FAUNA_SILVESTRE).mediaDias()).isNull();
+        assertThat(pesca.amostra()).isEqualTo(pescaAntes.amostra() + 2);
+        if (pescaAntes.amostra() == 0) {
+            assertThat(pesca.mediaDias()).isEqualTo(7.5);
+        }
     }
 }
