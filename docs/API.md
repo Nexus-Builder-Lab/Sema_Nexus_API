@@ -72,6 +72,7 @@ Cada operação do contrato publicado traz no OpenAPI `x-implementado: false` e 
 | GET · PATCH | `/api/notificacoes[/{id}/lida]` | #25 |
 | POST | `/api/documentos/comparacao` | #26 |
 | POST | `/api/docia/comparacao/explicar` | #142 |
+| POST | `/api/demandas/{id}/minuta-vistoria` | #137 |
 
 ## Catálogos e estrutura (Implementado — Issue #7)
 
@@ -154,7 +155,7 @@ Janela fixa em memória (uma instância da API), configurável por variáveis de
 | Categoria | Endpoints (só `POST`) | Conta por | Padrão |
 |---|---|---|---|
 | `LOGIN` | `/api/auth/login`, `/api/auth/demo/{perfil}` | IP do cliente | `LIMITE_LOGIN_POR_JANELA=20` |
-| `IA` | `/api/demandas/{id}/triagem/sugestao`, `/api/docia/perguntas`, `/api/docia/comparacao/explicar` | usuário autenticado | `LIMITE_IA_POR_JANELA=10` |
+| `IA` | `/api/demandas/{id}/triagem/sugestao`, `/api/docia/perguntas`, `/api/docia/comparacao/explicar`, `/api/demandas/{id}/minuta-vistoria` | usuário autenticado | `LIMITE_IA_POR_JANELA=10` |
 | `UPLOAD` | `/api/documentos` (multipart) | usuário autenticado | `LIMITE_UPLOAD_POR_JANELA=20` |
 
 Janela: `LIMITE_JANELA_SEGUNDOS=60`; `LIMITE_REQUISICOES_ATIVO=false` desliga. Acima do limite: `429` com `Retry-After` (segundos até a próxima janela). O IP vem do último endereço de `X-Forwarded-For` **só** quando a conexão chega de um proxy configurado em `LIMITE_PROXY_CONFIAVEL` (IPs, CIDR ou nomes de host; no compose, `web` — o Nginx do Web, resolvido pela rede interna a cada 30 s) ou do loopback; vazio = só loopback. De qualquer outra origem o cabeçalho é ignorado e vale o IP da conexão. No compose a porta da API é publicada só em `127.0.0.1`. Memória limitada: no máximo `LIMITE_MAX_CHAVES` (10.000) contadores vivos — as janelas vencidas saem em custo amortizado e, acima do teto, a mais antiga é descartada. Os contadores zeram a cada reinício da API. O `429` aparece no OpenAPI dessas operações.
@@ -222,6 +223,8 @@ Um fiscal cadastrado e associado a uma equipe passa a constar em `GET /api/equip
 `GET /api/agentes/status` (qualquer perfil autenticado) → `{modo, descricao, agentes[{id, nome, modulo, modelo, descricao}]}`. `modo` = `LOCAL` (modelo aberto no Ollama do próprio servidor, padrão, sem custo), `CLAUDE` (Anthropic, opcional, exige chave) ou `DEMONSTRATIVO` (regras locais, quando não há IA disponível; `modelo` = "Regras locais (sem IA generativa)"). Nunca expõe chaves. Funcionamento, configuração e segurança em `docs/AGENTES_IA.md`.
 
 **Agente de Triagem (Implementado — Issue #107)** — `POST /api/demandas/{id}/triagem/sugestao` (ADMIN, GESTOR, ANALISTA; demanda em PENDENTE ou EM_TRIAGEM, senão 409; 404/403 conforme o escopo) → `{modo, modelo, decisao, categoria, prioridade, nucleo{sigla, nome}, justificativa, duplicatas[{id, numero, titulo, status, dataRecebimento}], evidencias[], avisos[]}`. Não grava nada: para aceitar, `POST /api/demandas/{id}/triagem`. `modo` LOCAL/CLAUDE (IA) ou DEMONSTRATIVO (regras locais, inclusive quando a IA falha — com aviso). Detalhes em `docs/AGENTES_IA.md`.
+
+**Agente Copiloto de Minuta (Implementado — Issue #137)** — `POST /api/demandas/{id}/minuta-vistoria` (ADMIN, GESTOR, ANALISTA e o FISCAL designado para a demanda; outro fiscal ou CONSULTA → 403; 404 inexistente; limite da categoria IA → 429) → `{aviso, modo, modelo, demandaId, numero, nomeArquivoSugerido, markdown, evidencias[], avisos[]}`. `markdown` sempre começa com **MINUTA GERADA PARA REVISÃO HUMANA — AMBIENTE DEMONSTRATIVO** e tem as seções: 1. Identificação, 2. Histórico, 3. Constatações da fiscalização, 4. Documentos considerados, 5. Contexto INPE (dados públicos), 6. Conclusões e recomendações preliminares. Os fatos (identificação, eventos, registro de fiscalização, documentos, contagens do INPE) são montados pela API; o modelo escreve só sínteses e conclusões, e todo número dele precisa constar nos dados das ferramentas consultadas — senão, ou sem IA, a minuta vem do template determinístico (`modo` DEMONSTRATIVO, com aviso). **Nada é gravado**: a Web envia o texto revisado como documento pelo `POST /api/documentos` (vínculo à demanda). Detalhes em `docs/AGENTES_IA.md`.
 
 **Assistente DocIA agêntico (Implementado — Issue #108)** — `POST /api/docia/perguntas` (mesmo contrato, campos novos compatíveis): com IA disponível, o Agente DocIA busca e lê os documentos e responde com citações conferidas; a resposta traz também `agente` (LOCAL, CLAUDE, DEMONSTRATIVO ou EXTERNO), `modelo` (nulo sem IA) e `passos` (o que o agente fez). Sem IA ou em falha, o comportamento extrativo anterior (#27). Detalhes em `docs/AGENTES_IA.md`.
 

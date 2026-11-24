@@ -40,6 +40,7 @@ Em qualquer falha (Ollama parado, modelo não baixado, erro, resposta inválida)
 |---|---|---|---|
 | Agente de Triagem | SEMA Flux | `obter_demanda`, `buscar_demandas_semelhantes`, `alertas_inpe_municipio` | #107 (implementado) |
 | Assistente DocIA | SEMA DocIA | `buscar_documentos`, `ler_documento` | #108 (implementado) |
+| Agente Copiloto de Minuta | SEMA Flux | `obter_dossie_demanda`, `ler_registro_fiscalizacao`, `resumo_documentos_vinculados`, `alertas_inpe_area` | #137 (implementado) |
 
 ## Preparar a IA local (uma vez)
 
@@ -80,6 +81,15 @@ Medido em 13/11/2026 (`qwen3:4b-instruct`, GTX 1660 SUPER): 3–12 s por pergunt
 ## Resumo das diferenças da comparação (Issue #142)
 
 `POST /api/docia/comparacao/explicar`: agente `comparacao` sem ferramentas; a tabela de grandezas (extração determinística, `GrandezasExtrator`) vai na mensagem como dado e o modelo escreve só o `resumo` (até 3 frases). Sem IA ou após falha, resumo por regras com `modo` DEMONSTRATIVO e auditoria `AGENTE_DEMONSTRATIVO`. Os números da tabela nunca vêm do modelo; nada é gravado.
+
+## Agente Copiloto de Minuta de vistoria (Issue #137)
+
+`POST /api/demandas/{id}/minuta-vistoria` (ADMIN, GESTOR, ANALISTA e FISCAL designado; CONSULTA e fiscal não designado → 403). `AgenteMinutaService` lê antes da IA, com o perfil e o escopo do usuário (`DemandaService.detalhar/historico`, `DocumentoService.listarDaDemanda/detalhar`, `ReferenciaSateliteService.porMunicipio`), e oferece ao agente `minuta` (modelo do DocIA) quatro ferramentas **somente leitura e com parâmetro explícito** (`numero` da demanda; `resumo_documentos_vinculados` também `max_documentos` 1–5). Número de outra demanda → `PARAMETRO_INVALIDO` pelo catálogo `ErroFerramenta`.
+- **Fatos pela API, texto pela IA:** identificação, eventos do histórico, registro de fiscalização, documentos e contagens do INPE são montados de forma determinística; o modelo devolve só `historico`, `constatacoes`, `contextoInpe` e `conclusoes` (JSON com esquema).
+- **Conferência de números:** todo número do texto do modelo (formatos pt-BR ou com ponto; marcadores de lista ignorados) precisa existir nos dados das ferramentas que ele chamou. Se não existir, ou se o texto trouxer sanção, valor em dinheiro, juízo de culpa ou eco de instrução (`multa`, `R$`, `culpado`, `auto de infração`, `ignore`…), a minuta inteira vem do **template** (`modo` DEMONSTRATIVO, aviso e auditoria `AGENTE_DEMONSTRATIVO`). Sem IA ou após falha, o mesmo template.
+- **Injeção:** relato, histórico, fiscalização e trechos de documentos vão ao modelo entre `[INICIO_DADO]`/`[FIM_DADO]` (marcadores internos removidos) e as instruções mandam ignorar ordens neles; na minuta esses textos aparecem em uma linha, sem `#`, HTML ou crases.
+- **Aviso fixo** na primeira linha: **MINUTA GERADA PARA REVISÃO HUMANA — AMBIENTE DEMONSTRATIVO**. Nada é gravado; a Web (#141) envia o texto revisado como documento.
+- INPE: contagem por município (a análise espacial por raio/polígono do #132 ainda não estava na `main`).
 
 ## Desempenho (Issue #120, 16/11/2026)
 

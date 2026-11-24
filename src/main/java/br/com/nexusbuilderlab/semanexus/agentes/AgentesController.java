@@ -53,7 +53,10 @@ public class AgentesController {
                         "Sugere categoria, prioridade e núcleo regional e aponta possíveis duplicatas."),
                 new AgenteInfo("docia", "Assistente DocIA", "SEMA DocIA",
                         ia ? executor.modelo(configuracao.modeloDocia()) : SEM_IA,
-                        "Busca e lê documentos e responde com citações.")));
+                        "Busca e lê documentos e responde com citações."),
+                new AgenteInfo("minuta", "Agente Copiloto de Minuta", "SEMA Flux",
+                        ia ? executor.modelo(configuracao.modeloDocia()) : SEM_IA,
+                        "Redige a minuta do relatório de vistoria a partir dos dados da demanda, para revisão humana.")));
     }
 
     private String modo() {
