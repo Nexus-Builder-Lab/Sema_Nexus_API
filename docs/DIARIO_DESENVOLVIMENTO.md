@@ -480,3 +480,8 @@
 - **Docker:** validado — `demo-up` sem `demo-reset`: V7 aplicada, snapshots substituídos sem duplicar; `validar-integracao.mjs` 15/15 (contrato da Web idêntico ao da API); polígono DETER, painel do foco e área fictícia conferidos no navegador, com a visão de satélite Esri.
 - **Revisão independente (antes do merge):** sem bloqueios; corrigidos 3 achados — área do Cerrado vinha de `areatotalkm` (8 de 279 alertas não batiam com o polígono; agora `areamunkm` + `V8__area_deter_recorte.sql` para bancos já carregados), schemas das geometrias saíam como `string` no OpenAPI (agora `object`), e snapshot vazio ou malformado apagaria o anterior (agora é recusado e o anterior fica).
 - **Pendências / observações:** seleção do mapa não é limpa ao desligar a camada/trocar filtros e o painel não aparece em tela cheia (melhorias futuras); licenças do TerraBrasilis seguem com a ressalva "confirmar os termos vigentes" em `docs/DATABASE.md`.
+
+## 2026-11-24 · GH-149 · Hooks PreToolUse de proteção (volumes, .env, migrations)
+- **Status:** PR aberto (subagente Claude Code, a pedido do proprietário).
+- **O que foi feito:** `.claude/hooks/proteger.mjs` + registro em `.claude/settings.json`; bloqueia `down -v/--volumes`, `docker volume rm/prune`, `docker system prune`, leitura do `.env` (não `.env.example`) e edição de migration já existente na `origin/main` (nova continua permitida); `docs/AGENTES.md` atualizado.
+- **Testes:** `node .claude/hooks/testar-hooks.mjs` → 22/22 (bloqueio e caso permitido por regra, Bash e PowerShell).
