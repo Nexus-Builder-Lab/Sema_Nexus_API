@@ -166,7 +166,49 @@ class AgenteMinutaServiceTest {
     @Test
     void parentesesDoHistoricoNaoSaoEscapados() {
         assertThat(AgenteMinutaService.texto("Distribuída (3) [x](http://y)", 200))
-                .isEqualTo("Distribuída (3) \\[x\\]( link removido");
+                .isEqualTo("Distribuída (3) \\[x\\](link removido");
+        assertThat(AgenteMinutaService.texto("Distribuída à equipe ( **3** )", 200)).isEqualTo("Distribuída à equipe (3)");
+        assertThat(AgenteMinutaService.limpar("Foram ( 3 ) eventos.")).isEqualTo("Foram (3) eventos.");
+    }
+
+    @Test
+    void marcadoresDeDataSaoSubstituidosPelasDatasRegistradas() throws Exception {
+        concluidaEm = LocalDateTime.of(2026, 11, 19, 15, 0);
+        ModeloRoteiro modelo = roteiro("{\"historico\":\"Recebida em {data_recebimento} e finalizada pelo gestor em "
+                + "{data_conclusao}.\",\"constatacoes\":\"A vistoria de {data_fiscalizacao} está registrada.\","
+                + "\"contextoInpe\":\"Há 37 focos no município.\",\"conclusoes\":\"Concluir até {prazo}. {inventado}\"}");
+
+        MinutaVistoria m = service(modelo, true).gerar(analista, 4L);
+
+        assertThat(m.modo()).isEqualTo("LOCAL");
+        assertThat(m.markdown()).contains("Recebida em 30/10/2026 e finalizada pelo gestor em 19/11/2026.",
+                "A vistoria de 12/11/2026 está registrada.", "Concluir até 10/12/2026. não consta")
+                .doesNotContain("{data_");
+    }
+
+    @Test
+    void fraseComMedidaAdministrativaERemovidaSemDescartarAMinuta() throws Exception {
+        ModeloRoteiro modelo = roteiro("{\"historico\":\"Demanda recebida em {data_recebimento} e distribuída à "
+                + "Equipe Alfa, com vistoria em campo.\",\"constatacoes\":\"A equipe registrou a vistoria com drone e "
+                + "fotos georreferenciadas. Recomenda-se o embargo da área.\",\"contextoInpe\":\"Há 37 focos no "
+                + "município.\",\"conclusoes\":\"- Conferir as fotos.\\n- Lavrar auto de infração.\"}");
+
+        MinutaVistoria m = service(modelo, true).gerar(analista, 4L);
+
+        assertThat(m.modo()).isEqualTo("LOCAL");
+        assertThat(m.markdown()).contains("fotos georreferenciadas.", "- Conferir as fotos.")
+                .doesNotContain("Recomenda-se o embargo").doesNotContain("Lavrar auto");
+        assertThat(m.avisos()).anyMatch(a -> a.contains("medidas administrativas"));
+    }
+
+    @Test
+    void sobraCurtaAposRemoverMedidasCaiNoTemplate() throws Exception {
+        ModeloRoteiro modelo = roteiro("{\"historico\":\"Aplicar embargo.\",\"constatacoes\":\"Houve autuação.\","
+                + "\"contextoInpe\":\"Ok.\",\"conclusoes\":\"Lavrar auto de infração.\"}");
+
+        MinutaVistoria m = service(modelo, true).gerar(analista, 4L);
+
+        assertThat(m.modo()).isEqualTo("DEMONSTRATIVO");
     }
 
     private ClienteModelo.RespostaModelo ferramenta(String nome) throws Exception {
