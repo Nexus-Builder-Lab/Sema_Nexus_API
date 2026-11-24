@@ -23,6 +23,7 @@ import br.com.nexusbuilderlab.semanexus.common.exception.ConflitoException;
 import br.com.nexusbuilderlab.semanexus.core.catalogo.CategoriaFiscalizacao;
 import br.com.nexusbuilderlab.semanexus.core.municipio.Municipio;
 import br.com.nexusbuilderlab.semanexus.core.municipio.MunicipioRepository;
+import br.com.nexusbuilderlab.semanexus.flux.agente.ConsultasDistribuicao.Candidatas;
 import br.com.nexusbuilderlab.semanexus.flux.agente.ConsultasDistribuicao.Carga;
 import br.com.nexusbuilderlab.semanexus.flux.agente.ConsultasDistribuicao.Cargas;
 import br.com.nexusbuilderlab.semanexus.flux.agente.ConsultasDistribuicao.DemandaAtiva;
@@ -38,6 +39,8 @@ import br.com.nexusbuilderlab.semanexus.security.UsuarioAutenticado;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 /**
@@ -50,6 +53,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class AgenteDistribuicaoService {
 
+    private static final Logger LOG = LoggerFactory.getLogger(AgenteDistribuicaoService.class);
     static final String NOME = "distribuicao";
     static final String TODOS = "TODOS";
     static final ZoneId FUSO = ZoneId.of("America/Cuiaba");
@@ -130,6 +134,11 @@ public class AgenteDistribuicaoService {
                 }
             } catch (AgenteIndisponivelException e) {
                 avisos.add("A IA não respondeu a tempo; sugestão feita pelas regras locais.");
+            } catch (RuntimeException e) {
+                // Falha inesperada fora do executor (ex.: validação da resposta): nunca 500 — regras locais com aviso.
+                LOG.warn("Agente {} falhou ao montar a sugestão da demanda {}; usando as regras locais ({})", NOME, id,
+                        e.getClass().getSimpleName());
+                avisos.add("Falha ao processar a sugestão da IA; sugestão feita pelas regras locais.");
             }
         }
         return porRegras(ctx, avisos);
@@ -161,11 +170,17 @@ public class AgenteDistribuicaoService {
                     if (!nucleos.contains(nucleo)) {
                         throw new IllegalArgumentException("Núcleo desconhecido.");
                     }
-                    List<EquipeCandidata> equipes = consultas.equipesCandidatas(TODOS.equals(nucleo) ? null : nucleo);
-                    Cargas cargas = consultas.cargas(ids(equipes), c.hoje());
-                    List<Map<String, Object>> dados = equipes.stream().map(eq -> equipe(eq, cargas)).toList();
-                    return new FerramentaAgente.Resultado(dados, "Consultou a carga de trabalho de " + equipes.size()
-                            + " equipe(s) " + (TODOS.equals(nucleo) ? "de todos os núcleos" : "do " + nucleo) + ".");
+                    Candidatas cand = consultas.equipesCandidatas(TODOS.equals(nucleo) ? null : nucleo);
+                    Cargas cargas = consultas.cargas(ids(cand.equipes()), c.hoje());
+                    Map<String, Object> dados = new LinkedHashMap<>();
+                    if (cand.ampliada()) {
+                        dados.put("aviso", "O " + nucleo + " não tem equipe ativa com membros: listadas as equipes "
+                                + "de todos os núcleos.");
+                    }
+                    dados.put("equipes", cand.equipes().stream().map(eq -> equipe(eq, cargas)).toList());
+                    return new FerramentaAgente.Resultado(dados, "Consultou a carga de trabalho de "
+                            + cand.equipes().size() + " equipe(s) " + abrangencia(TODOS.equals(nucleo) ? null : nucleo,
+                            cand) + ".");
                 });
         FerramentaAgente ativas = new FerramentaAgente("demandas_ativas_na_regiao",
                 "Lista vistorias em campo (Distribuída/Em andamento) no município da demanda ou na sua região, com a "
@@ -213,16 +228,17 @@ public class AgenteDistribuicaoService {
     private SugestaoDistribuicao deIa(Contexto c, ResultadoAgente r, List<String> avisos) {
         JsonNode j = r.resposta();
         String motivo = null;
-        EquipeCandidata equipe = consultas.equipeAtiva(j.path("equipeId").asLong(0) == 0 ? null
-                : j.path("equipeId").asLong()).orElse(null);
+        // Mesmas candidatas das regras: equipe ativa, com membro ativo, do núcleo da demanda (ou de todos, se ampliado).
+        EquipeCandidata equipe = consultas.equipesCandidatas(c.nucleo()).equipe(j.path("equipeId").asLong(0))
+                .orElse(null);
         Membro fiscal = null;
         LocalDate prazo = null;
         if (equipe == null) {
-            motivo = "a equipe sugerida não existe ou está inativa";
+            motivo = "a equipe sugerida não existe, está inativa ou não pertence ao núcleo da demanda";
         } else {
-            fiscal = equipe.membro(j.path("fiscalId").asLong(0)).orElse(null);
+            fiscal = equipe.fiscal(j.path("fiscalId").asLong(0)).orElse(null);
             if (fiscal == null) {
-                motivo = "o fiscal sugerido não é membro ativo da equipe";
+                motivo = "o fiscal sugerido não é membro ativo (com perfil de fiscal) da equipe";
             } else {
                 prazo = data(j.path("prazo").asText(""));
                 if (prazo == null) {
@@ -244,7 +260,7 @@ public class AgenteDistribuicaoService {
             justificativa = "Fiscal " + fiscal.nome() + " (" + equipe.nome() + ") sugerido pela carga de trabalho.";
             avisos.add("Justificativa completada pelas regras locais.");
         }
-        justificativa = AgenteTriagemService.frasesCompletas(justificativa, 700);
+        justificativa = AgenteTriagemService.frasesCompletas(justificativa, 400);
         String modo = configuracao.provedor() == AgentesConfiguracao.Provedor.ANTHROPIC
                 ? AgentesController.MODO_CLAUDE : AgentesController.MODO_LOCAL;
         return new SugestaoDistribuicao(modo, r.modelo(), equipeSugerida(equipe), fiscalSugerido(fiscal, carga), prazo,
@@ -264,10 +280,11 @@ public class AgenteDistribuicaoService {
     private SugestaoDistribuicao porRegras(Contexto c, List<String> avisos) {
         DemandaDetalhe d = c.demanda();
         List<String> passos = new ArrayList<>();
-        List<EquipeCandidata> equipes = consultas.equipesCandidatas(c.nucleo());
+        Candidatas cand = consultas.equipesCandidatas(c.nucleo());
+        List<EquipeCandidata> equipes = cand.equipes();
         Cargas cargas = consultas.cargas(ids(equipes), c.hoje());
-        passos.add("Consultou a carga de trabalho de " + equipes.size() + " equipe(s) "
-                + (c.nucleo() == null ? "de todos os núcleos" : "do " + c.nucleo()) + ".");
+        passos.add("Consultou a carga de trabalho de " + equipes.size() + " equipe(s) " + abrangencia(c.nucleo(), cand)
+                + ".");
         List<DemandaAtiva> noMunicipio = consultas.ativasNaRegiao(d.id(), d.municipio().id(), c.regiao(), true);
         passos.add("Consultou vistorias em campo em " + d.municipio().nome() + ": " + noMunicipio.size()
                 + " encontrada(s).");
@@ -291,7 +308,9 @@ public class AgenteDistribuicaoService {
         }
         Carga carga = e.cargaFiscal();
         String justificativa = "Fiscal " + e.fiscal().nome() + " (" + e.equipe().nome() + ") tem a menor carga "
-                + (c.nucleo() == null ? "entre as equipes ativas" : "no " + c.nucleo()) + ": " + carga.ativas()
+                + (cand.ampliada() ? "entre as equipes ativas de todos os núcleos (o " + c.nucleo()
+                + " não tem equipe ativa com membros)" : c.nucleo() == null ? "entre as equipes ativas"
+                : "no " + c.nucleo()) + ": " + carga.ativas()
                 + " ativa(s), " + carga.atrasadas() + " atrasada(s) e " + carga.proximasDoVencimento()
                 + " com prazo nos próximos 7 dias" + (e.mesmoMunicipio()
                 ? "; a equipe já tem vistoria em campo em " + d.municipio().nome() : "") + ". " + textoPrazo;
@@ -302,6 +321,14 @@ public class AgenteDistribuicaoService {
     }
 
     // ------------------------------------------------------------------------------------------------ apoio
+
+    /** "do NR-X", "de todos os núcleos" ou o aviso de ampliação quando o núcleo não tem equipe utilizável. */
+    private static String abrangencia(String nucleo, Candidatas cand) {
+        if (cand.ampliada()) {
+            return "de todos os núcleos (o " + nucleo + " não tem equipe ativa com membros)";
+        }
+        return nucleo == null ? "de todos os núcleos" : "do " + nucleo;
+    }
 
     private static List<Long> ids(List<EquipeCandidata> equipes) {
         return equipes.stream().map(EquipeCandidata::id).toList();

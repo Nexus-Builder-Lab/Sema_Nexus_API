@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyCollection;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -36,6 +35,7 @@ import br.com.nexusbuilderlab.semanexus.core.municipio.Municipio;
 import br.com.nexusbuilderlab.semanexus.core.municipio.MunicipioRepository;
 import br.com.nexusbuilderlab.semanexus.core.usuario.Perfil;
 import br.com.nexusbuilderlab.semanexus.flux.agente.AgenteTriagemServiceTest.ModeloRoteiro;
+import br.com.nexusbuilderlab.semanexus.flux.agente.ConsultasDistribuicao.Candidatas;
 import br.com.nexusbuilderlab.semanexus.flux.agente.ConsultasDistribuicao.Carga;
 import br.com.nexusbuilderlab.semanexus.flux.agente.ConsultasDistribuicao.Cargas;
 import br.com.nexusbuilderlab.semanexus.flux.agente.ConsultasDistribuicao.DemandaAtiva;
@@ -68,7 +68,8 @@ class AgenteDistribuicaoServiceTest {
             "claude-sonnet-5-5", "http://ollama:11434", "qwen3:4b", false, 30, 6);
 
     private static final EquipeCandidata EQ_A = new EquipeCandidata(1L, "Equipe A NR Sinop", "NR-SNO", "NR Sinop",
-            List.of(new Membro(10L, "Ana Fiscal", Perfil.FISCAL), new Membro(11L, "Bruno Fiscal", Perfil.FISCAL)));
+            List.of(new Membro(10L, "Ana Fiscal", Perfil.FISCAL), new Membro(11L, "Bruno Fiscal", Perfil.FISCAL),
+            new Membro(12L, "Gil Gestor", Perfil.GESTOR)));
     private static final EquipeCandidata EQ_B = new EquipeCandidata(2L, "Equipe B NR Sinop", "NR-SNO", "NR Sinop",
             List.of(new Membro(20L, "Carla Fiscal", Perfil.FISCAL)));
 
@@ -86,10 +87,7 @@ class AgenteDistribuicaoServiceTest {
         Municipio m = mock(Municipio.class);
         when(m.getRegiao()).thenReturn("Sinop");
         when(municipios.findById(SINOP)).thenReturn(Optional.of(m));
-        when(consultas.equipesCandidatas("NR-SNO")).thenReturn(List.of(EQ_A, EQ_B));
-        when(consultas.equipeAtiva(1L)).thenReturn(Optional.of(EQ_A));
-        when(consultas.equipeAtiva(2L)).thenReturn(Optional.of(EQ_B));
-        when(consultas.equipeAtiva(999L)).thenReturn(Optional.empty());
+        when(consultas.equipesCandidatas("NR-SNO")).thenReturn(new Candidatas(List.of(EQ_A, EQ_B), false));
         // Ana: 3 ativas e 1 atrasada; Bruno: 1 ativa; Carla: 1 ativa (equipe B já está em campo em Sinop).
         when(consultas.cargas(anyCollection(), eq(HOJE))).thenReturn(new Cargas(
                 Map.of(1L, new Carga(4, 1, 0), 2L, new Carga(1, 0, 0)),
@@ -155,7 +153,7 @@ class AgenteDistribuicaoServiceTest {
                 + "\"justificativa\":\"x.\"}"), StatusDemanda.AGUARDANDO_DISTRIBUICAO).sugerir(ator, 4L);
 
         assertThat(s.modo()).isEqualTo("DEMONSTRATIVO");
-        assertThat(s.avisos()).singleElement().asString().contains("não é membro ativo da equipe");
+        assertThat(s.avisos()).singleElement().asString().contains("não é membro ativo");
         verify(auditoria).registrar(eq("AGENTE_EXECUCAO"), eq("AGENTE"), eq("distribuicao:4"), anyString());
         verify(auditoria).registrar(eq("AGENTE_DEMONSTRATIVO"), eq("AGENTE"), eq("distribuicao:4"), anyString());
     }
@@ -166,7 +164,7 @@ class AgenteDistribuicaoServiceTest {
                 + "\"justificativa\":\"x.\"}"), StatusDemanda.AGUARDANDO_DISTRIBUICAO).sugerir(ator, 4L);
 
         assertThat(s.modo()).isEqualTo("DEMONSTRATIVO");
-        assertThat(s.avisos()).singleElement().asString().contains("não existe ou está inativa");
+        assertThat(s.avisos()).singleElement().asString().contains("não existe, está inativa");
     }
 
     @Test
@@ -258,7 +256,7 @@ class AgenteDistribuicaoServiceTest {
         ModeloRoteiro modelo = new ModeloRoteiro();
         modelo.disponivel = false;
         AgenteDistribuicaoService svc = service(modelo, StatusDemanda.AGUARDANDO_DISTRIBUICAO);
-        when(consultas.equipesCandidatas("NR-SNO")).thenReturn(List.of());
+        when(consultas.equipesCandidatas("NR-SNO")).thenReturn(new Candidatas(List.of(), true));
 
         SugestaoDistribuicao s = svc.sugerir(ator, 4L);
 
@@ -276,6 +274,68 @@ class AgenteDistribuicaoServiceTest {
         // Só consultas: o agente não chama nenhum método de escrita do DemandaService.
         verify(demandas).detalhar(ator, 4L);
         org.mockito.Mockito.verifyNoMoreInteractions(demandas);
-        verify(consultas, never()).equipeAtiva(anyLong());
+    }
+
+    @Test
+    void membroSemPerfilFiscalNaEquipeComFiscaisCaiNasRegras() throws Exception {
+        // Gil (GESTOR) é membro ativo da equipe A, mas a equipe tem fiscais: mesma preferência das regras.
+        SugestaoDistribuicao s = service(roteiro("{\"equipeId\":1,\"fiscalId\":12,\"prazo\":\"2026-12-06\","
+                + "\"justificativa\":\"x.\"}"), StatusDemanda.AGUARDANDO_DISTRIBUICAO).sugerir(ator, 4L);
+
+        assertThat(s.modo()).isEqualTo("DEMONSTRATIVO");
+        assertThat(s.avisos()).singleElement().asString().contains("perfil de fiscal");
+        assertThat(s.fiscal().id()).isNotEqualTo(12L);
+    }
+
+    @Test
+    void equipeForaDasCandidatasDoNucleoCaiNasRegras() throws Exception {
+        AgenteDistribuicaoService svc = service(roteiro("{\"equipeId\":7,\"fiscalId\":70,\"prazo\":\"2026-12-06\","
+                + "\"justificativa\":\"x.\"}"), StatusDemanda.AGUARDANDO_DISTRIBUICAO);
+        // A equipe 7 existe e está ativa, mas é de outro núcleo (o NR-SNO tem equipes utilizáveis).
+        when(consultas.equipesCandidatas(null)).thenReturn(new Candidatas(List.of(EQ_A, EQ_B,
+                new EquipeCandidata(7L, "Equipe NR Cuiabá", "NR-CBA", "NR Cuiabá",
+                        List.of(new Membro(70L, "Davi Fiscal", Perfil.FISCAL)))), false));
+
+        SugestaoDistribuicao s = svc.sugerir(ator, 4L);
+
+        assertThat(s.modo()).isEqualTo("DEMONSTRATIVO");
+        assertThat(s.avisos()).singleElement().asString().contains("não pertence ao núcleo");
+        assertThat(s.equipe().setorSigla()).isEqualTo("NR-SNO");
+    }
+
+    @Test
+    void falhaInesperadaNaValidacaoCaiNasRegrasSemErro500() throws Exception {
+        AgenteDistribuicaoService svc = service(roteiro("{\"equipeId\":2,\"fiscalId\":20,\"prazo\":\"2026-12-06\","
+                + "\"justificativa\":\"x.\"}"), StatusDemanda.AGUARDANDO_DISTRIBUICAO);
+        when(consultas.cargas(eq(List.of(2L)), eq(HOJE))).thenThrow(new IllegalStateException("falha no banco"));
+
+        SugestaoDistribuicao s = svc.sugerir(ator, 4L);
+
+        assertThat(s.modo()).isEqualTo("DEMONSTRATIVO");
+        assertThat(s.avisos()).singleElement().asString().contains("Falha ao processar").doesNotContain("banco");
+        assertThat(s.equipe()).isNotNull();
+    }
+
+    @Test
+    void nucleoSemEquipeAmpliaParaTodosEDizIsso() throws Exception {
+        ModeloRoteiro modelo = new ModeloRoteiro();
+        modelo.respostas.add(ferramenta("carga_trabalho_fiscais", "{\"nucleo\":\"NR-SNO\"}"));
+        modelo.respostas.add(finalJson("{\"equipeId\":1,\"fiscalId\":11,\"prazo\":\"2026-12-06\","
+                + "\"justificativa\":\"Bruno tem menor carga.\"}"));
+        AgenteDistribuicaoService svc = service(modelo, StatusDemanda.AGUARDANDO_DISTRIBUICAO);
+        when(consultas.equipesCandidatas("NR-SNO")).thenReturn(new Candidatas(List.of(EQ_A, EQ_B), true));
+
+        SugestaoDistribuicao ia = svc.sugerir(ator, 4L);
+        assertThat(ia.modo()).isEqualTo("LOCAL");
+        assertThat(ia.passos()).singleElement().asString().contains("todos os núcleos")
+                .contains("NR-SNO não tem equipe ativa");
+
+        ModeloRoteiro semIa = new ModeloRoteiro();
+        semIa.disponivel = false;
+        AgenteDistribuicaoService regras = service(semIa, StatusDemanda.AGUARDANDO_DISTRIBUICAO);
+        when(consultas.equipesCandidatas("NR-SNO")).thenReturn(new Candidatas(List.of(EQ_A, EQ_B), true));
+        SugestaoDistribuicao s = regras.sugerir(ator, 4L);
+        assertThat(s.passos().get(0)).contains("todos os núcleos");
+        assertThat(s.justificativa()).contains("de todos os núcleos (o NR-SNO não tem equipe ativa com membros)");
     }
 }
