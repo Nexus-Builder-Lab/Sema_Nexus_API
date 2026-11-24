@@ -127,7 +127,7 @@ public class DocumentoService {
     }
 
     /** Sugere metadados a partir do arquivo sem gravar nada (nem arquivo, nem banco). */
-    @Transactional(readOnly = true)
+    /** Sem transação: o OCR pode demorar e não deve segurar conexão; só a consulta de municípios é curta. */
     public PreAnaliseDocumento preAnalisar(MultipartFile arquivo) {
         if (arquivo == null || arquivo.getSize() > LIMITE_BYTES) {
             throw new ArquivoMuitoGrandeException("O arquivo excede o limite de 10 MB.");

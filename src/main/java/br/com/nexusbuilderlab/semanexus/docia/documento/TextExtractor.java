@@ -10,14 +10,18 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import javax.imageio.ImageIO;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.rendering.PDFRenderer;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.apache.pdfbox.text.TextPosition;
+import org.apache.poi.openxml4j.util.ZipSecureFile;
+import org.apache.poi.util.IOUtils;
 import org.apache.poi.xwpf.usermodel.IBodyElement;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
@@ -38,6 +42,20 @@ import org.springframework.stereotype.Component;
 public class TextExtractor {
 
     private static final Logger log = LoggerFactory.getLogger(TextExtractor.class);
+    private static final long OCR_MAX_PIXELS = 25_000_000L;
+    private static final int PDF_MAX_PAGINAS_TEXTO = 300;
+    private static final long REDETECTAR_APOS_MS = 30_000;
+
+    static {
+        // Protecao contra zip bomb em DOCX (limites globais do POI, definidos uma vez).
+        ZipSecureFile.setMinInflateRatio(0.01);
+        ZipSecureFile.setMaxEntrySize(50L * 1024 * 1024);
+        ZipSecureFile.setMaxTextSize(20L * 1024 * 1024);
+        IOUtils.setByteArrayMaxOverride(120_000_000);
+    }
+
+    private final Semaphore ocrVagas = new Semaphore(Math.max(1, Integer.parseInt(env("OCR_MAX_CONCORRENTE", "1"))));
+    private volatile long ultimaFalhaDeteccao;
     private static final int OCR_MAX_PAGINAS = 10;
     private static final int OCR_DPI = 200;
     private static final long OCR_TIMEOUT_S = 60;
@@ -106,6 +124,7 @@ public class TextExtractor {
             }
             return limpar(sb.toString());
         } catch (IOException | RuntimeException e) {
+            log.warn("DOCX ilegível: {}", e.toString());
             avisos.add("Não foi possível ler o DOCX para extração de texto.");
             return null;
         }
@@ -144,6 +163,7 @@ public class TextExtractor {
                 return null;
             }
             ColunasStripper stripper = new ColunasStripper();
+            stripper.setEndPage(PDF_MAX_PAGINAS_TEXTO);
             String texto = limpar(stripper.getText(doc).replace(String.valueOf(SEP), " "));
             if (texto == null) {
                 return ocr(doc, avisos);
@@ -226,14 +246,22 @@ public class TextExtractor {
 
     // ------------------------------------------------------------------ OCR (opcional)
 
-    /** {@code true} se o binário do Tesseract responde a {@code --version}; detectado no primeiro uso. */
+    /** {@code true} se o binário do Tesseract responde a {@code --version}. Só o sucesso é guardado; falha é reavaliada após 30 s. */
     public boolean ocrDisponivel() {
-        Boolean d = tesseractDisponivel;
-        if (d == null) {
-            d = executar(List.of(tesseractCmd, "--version"), 10) != null;
-            tesseractDisponivel = d;
+        if (Boolean.TRUE.equals(tesseractDisponivel)) {
+            return true;
         }
-        return d;
+        long agora = System.currentTimeMillis();
+        if (ultimaFalhaDeteccao != 0 && agora - ultimaFalhaDeteccao < REDETECTAR_APOS_MS) {
+            return false;
+        }
+        boolean ok = executar(List.of(tesseractCmd, "--version"), 10) != null;
+        if (ok) {
+            tesseractDisponivel = true;
+        } else {
+            ultimaFalhaDeteccao = agora;
+        }
+        return ok;
     }
 
     private String ocr(PDDocument doc, List<String> avisos) {
@@ -242,13 +270,30 @@ public class TextExtractor {
                     + "Preencha os metadados manualmente.");
             return null;
         }
+        boolean vaga = false;
+        try {
+            vaga = ocrVagas.tryAcquire(5, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        if (!vaga) {
+            avisos.add("OCR ocupado, texto extraído sem OCR. Tente novamente em instantes.");
+            return null;
+        }
         StringBuilder sb = new StringBuilder();
         Path tmp = null;
         try {
             tmp = Files.createTempDirectory("ocr-");
             PDFRenderer renderer = new PDFRenderer(doc);
             int paginas = Math.min(doc.getNumberOfPages(), OCR_MAX_PAGINAS);
+            int puladas = 0;
             for (int i = 0; i < paginas; i++) {
+                PDRectangle caixa = doc.getPage(i).getMediaBox();
+                double pixels = (double) caixa.getWidth() / 72 * OCR_DPI * caixa.getHeight() / 72 * OCR_DPI;
+                if (pixels > OCR_MAX_PIXELS) {
+                    puladas++;
+                    continue;
+                }
                 BufferedImage img = renderer.renderImageWithDPI(i, OCR_DPI);
                 File png = tmp.resolve("p" + i + ".png").toFile();
                 ImageIO.write(img, "png", png);
@@ -258,6 +303,9 @@ public class TextExtractor {
                     sb.append(t).append('\n');
                 }
             }
+            if (puladas > 0) {
+                avisos.add("%d página(s) grande(s) demais foram ignoradas pelo OCR.".formatted(puladas));
+            }
             if (doc.getNumberOfPages() > paginas) {
                 avisos.add("OCR aplicado apenas às primeiras %d páginas.".formatted(OCR_MAX_PAGINAS));
             }
@@ -265,6 +313,7 @@ public class TextExtractor {
             log.warn("OCR falhou: {}", e.getClass().getSimpleName());
             avisos.add("O OCR falhou; o documento foi enviado sem texto extraído.");
         } finally {
+            ocrVagas.release();
             apagar(tmp);
         }
         String texto = limpar(sb.toString());
@@ -276,20 +325,35 @@ public class TextExtractor {
         return texto;
     }
 
-    private static String executar(List<String> comando, long timeoutSegundos) {
+    /** Executa o comando com timeout real: a saída vai para arquivo (leitura nunca bloqueia) e o processo é encerrado no fim. */
+    static String executar(List<String> comando, long timeoutSegundos) {
+        Process p = null;
+        Path saida = null;
         try {
-            Process p = new ProcessBuilder(comando).redirectError(ProcessBuilder.Redirect.DISCARD).start();
-            byte[] saida = p.getInputStream().readAllBytes();
+            saida = Files.createTempFile("ocr-out-", ".txt");
+            p = new ProcessBuilder(comando).redirectError(ProcessBuilder.Redirect.DISCARD)
+                    .redirectOutput(saida.toFile()).start();
             if (!p.waitFor(timeoutSegundos, TimeUnit.SECONDS)) {
-                p.destroyForcibly();
                 return null;
             }
-            return p.exitValue() == 0 ? new String(saida, StandardCharsets.UTF_8) : null;
+            return p.exitValue() == 0 ? Files.readString(saida, StandardCharsets.UTF_8) : null;
         } catch (IOException e) {
             return null;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return null;
+        } finally {
+            if (p != null && p.isAlive()) {
+                p.destroyForcibly();
+                try {
+                    p.waitFor(2, TimeUnit.SECONDS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+            if (saida != null) {
+                saida.toFile().delete();
+            }
         }
     }
 

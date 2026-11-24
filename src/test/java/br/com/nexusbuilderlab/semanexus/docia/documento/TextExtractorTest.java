@@ -90,4 +90,31 @@ class TextExtractorTest {
         assertThat(r.palavrasChave()).contains("desmatamento");
         assertThat(PreAnaliseRegras.analisar("a_b.pdf", null, List.of(), List.of()).titulo()).isEqualTo("a b");
     }
+
+    @Test
+    void docxComEntidadeExternaNaoVazaNemFalha() throws Exception {
+        byte[] original = docx();
+        ByteArrayOutputStream o = new ByteArrayOutputStream();
+        try (var zin = new java.util.zip.ZipInputStream(new java.io.ByteArrayInputStream(original));
+             var zout = new java.util.zip.ZipOutputStream(o)) {
+            for (var e = zin.getNextEntry(); e != null; e = zin.getNextEntry()) {
+                byte[] b = zin.readAllBytes();
+                if (e.getName().equals("word/document.xml")) {
+                    String xml = new String(b, java.nio.charset.StandardCharsets.UTF_8);
+                    xml = xml.replaceFirst("(<[?]xml[^>]*[?]>)", "$1<!DOCTYPE d [<!ENTITY x SYSTEM \"file:///etc/passwd\">]>");
+                    b = xml.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                }
+                zout.putNextEntry(new java.util.zip.ZipEntry(e.getName()));
+                zout.write(b);
+                zout.closeEntry();
+            }
+        }
+        TextExtractor.Extracao r = extrator.extrairCompleto(TipoArquivo.DOCX, o.toByteArray());
+        assertThat(r.texto() == null || !r.texto().contains("root:")).isTrue();
+    }
+
+    @Test
+    void comandoInexistenteRetornaNuloSemTravar() {
+        assertThat(TextExtractor.executar(List.of("comando-inexistente-xyz"), 2)).isNull();
+    }
 }
