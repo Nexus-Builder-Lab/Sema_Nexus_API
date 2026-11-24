@@ -214,6 +214,72 @@ final class DemoMassaGerador {
         return Math.round(r * 1_000_000d) / 1_000_000d;
     }
 
+    // ------------------------------------------------------------------ área afetada (fictícia)
+
+    /** Faixa de área (ha) por categoria com área física; as demais categorias ficam sem área. */
+    static final Map<String, double[]> FAIXA_AREA_HA = Map.of(
+            "DESMATAMENTO_ILEGAL", new double[] {8, 320},
+            "QUEIMADA_INCENDIO", new double[] {5, 450},
+            "MINERACAO_IRREGULAR", new double[] {2, 60},
+            "AREA_PRESERVACAO_PERMANENTE", new double[] {1, 25});
+
+    private static final double METROS_POR_GRAU = 111_320d;
+
+    /** Área fictícia: polígono GeoJSON (WGS84) e a área (ha) calculada do próprio polígono. */
+    record AreaFicticia(String geoJson, double hectares) {
+    }
+
+    /**
+     * Polígono FICTÍCIO e determinístico (a semente vem do número da demanda) em torno da coordenada da demanda,
+     * só para categorias com área física. A área devolvida é a do próprio polígono (sem número inventado à parte).
+     * AMBIENTE DEMONSTRATIVO — DADOS FICTÍCIOS.
+     */
+    static AreaFicticia areaFicticia(String numero, double lat, double lon, String categoria) {
+        double[] faixa = categoria == null ? null : FAIXA_AREA_HA.get(categoria);
+        if (faixa == null || numero == null) {
+            return null;
+        }
+        Random rnd = new Random(SEMENTE * 31 + numero.hashCode());
+        double alvoHa = faixa[0] + rnd.nextDouble() * (faixa[1] - faixa[0]);
+        double raio = Math.sqrt(alvoHa * 10_000d / Math.PI); // metros
+        int vertices = 7 + rnd.nextInt(5);
+        double giro = rnd.nextDouble() * 2 * Math.PI;
+        double cos = Math.cos(Math.toRadians(lat));
+        double[][] anel = new double[vertices + 1][];
+        for (int k = 0; k < vertices; k++) {
+            double ang = giro + 2 * Math.PI * k / vertices;
+            double r = raio * (0.7 + rnd.nextDouble() * 0.6);
+            double dLat = r * Math.sin(ang) / METROS_POR_GRAU;
+            double dLon = r * Math.cos(ang) / (METROS_POR_GRAU * cos);
+            anel[k] = new double[] {arredondar6(lon + dLon), arredondar6(lat + dLat)};
+        }
+        anel[vertices] = anel[0];
+        StringBuilder sb = new StringBuilder("{\"type\":\"Polygon\",\"coordinates\":[[");
+        for (int k = 0; k <= vertices; k++) {
+            sb.append(k == 0 ? "" : ",").append('[').append(anel[k][0]).append(',').append(anel[k][1]).append(']');
+        }
+        sb.append("]]}");
+        return new AreaFicticia(sb.toString(), Math.round(areaHectares(anel, lat) * 100d) / 100d);
+    }
+
+    /** Área (ha) de um anel [lon, lat] pela fórmula do laço em projeção equirretangular local (precisa p/ áreas pequenas). */
+    static double areaHectares(double[][] anel, double latRef) {
+        double cos = Math.cos(Math.toRadians(latRef));
+        double soma = 0;
+        for (int k = 0; k < anel.length - 1; k++) {
+            double x1 = anel[k][0] * METROS_POR_GRAU * cos;
+            double y1 = anel[k][1] * METROS_POR_GRAU;
+            double x2 = anel[k + 1][0] * METROS_POR_GRAU * cos;
+            double y2 = anel[k + 1][1] * METROS_POR_GRAU;
+            soma += x1 * y2 - x2 * y1;
+        }
+        return Math.abs(soma) / 2 / 10_000d;
+    }
+
+    private static double arredondar6(double v) {
+        return Math.round(v * 1_000_000d) / 1_000_000d;
+    }
+
     static String bioma(String codigo) {
         return switch (codigo) {
             case "AMAZONIA" -> "Amazônia";

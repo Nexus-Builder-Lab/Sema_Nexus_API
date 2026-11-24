@@ -118,4 +118,39 @@ class DemoMassaGeradorTest {
                         .map(DemoMassaGerador.Cenario::titulo).toList());
         assertThat(l).allSatisfy(d -> assertThat(d.descricao()).contains("FICTÍCIOS"));
     }
+
+    @Test
+    void areaFicticiaSoParaCategoriasComAreaDeterministicaECoerenteComOPoligono() throws Exception {
+        var a = DemoMassaGerador.areaFicticia("DEM-2026/0010", -12.5, -55.7, "DESMATAMENTO_ILEGAL");
+        var b = DemoMassaGerador.areaFicticia("DEM-2026/0010", -12.5, -55.7, "DESMATAMENTO_ILEGAL");
+        assertThat(a).isEqualTo(b);
+        assertThat(DemoMassaGerador.areaFicticia("DEM-2026/0011", -12.5, -55.7, "DESMATAMENTO_ILEGAL"))
+                .isNotEqualTo(a);
+        assertThat(DemoMassaGerador.areaFicticia("DEM-2026/0010", -12.5, -55.7, "PESCA_IRREGULAR")).isNull();
+        assertThat(DemoMassaGerador.areaFicticia("DEM-2026/0010", -12.5, -55.7, null)).isNull();
+
+        var json = new com.fasterxml.jackson.databind.ObjectMapper().readTree(a.geoJson());
+        assertThat(json.path("type").asText()).isEqualTo("Polygon");
+        var anel = json.path("coordinates").path(0);
+        assertThat(anel.size()).isGreaterThanOrEqualTo(8);
+        assertThat(anel.get(0)).isEqualTo(anel.get(anel.size() - 1));
+        double[][] pts = new double[anel.size()][];
+        for (int i = 0; i < anel.size(); i++) {
+            pts[i] = new double[] {anel.get(i).get(0).asDouble(), anel.get(i).get(1).asDouble()};
+            assertThat(pts[i][0]).isBetween(-55.8, -55.6);
+            assertThat(pts[i][1]).isBetween(-12.6, -12.4);
+        }
+        // A área informada é a do próprio polígono (nada inventado à parte) e fica na faixa da categoria (com folga).
+        assertThat(a.hectares()).isCloseTo(DemoMassaGerador.areaHectares(pts, -12.5),
+                org.assertj.core.data.Offset.offset(0.01));
+        assertThat(a.hectares()).isBetween(8 * 0.4, 320 * 1.7);
+    }
+
+    @Test
+    void areaDeUmQuadradoConhecido() {
+        // ~1 km x ~1 km no equador = ~100 ha
+        double g = 1000d / 111_320d;
+        double[][] q = {{0, 0}, {g, 0}, {g, g}, {0, g}, {0, 0}};
+        assertThat(DemoMassaGerador.areaHectares(q, 0)).isCloseTo(100d, org.assertj.core.data.Offset.offset(0.5));
+    }
 }

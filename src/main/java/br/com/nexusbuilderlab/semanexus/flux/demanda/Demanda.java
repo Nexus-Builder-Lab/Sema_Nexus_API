@@ -73,6 +73,15 @@ public class Demanda {
     @Column(name = "LONGITUDE", precision = 9, scale = 6)
     private BigDecimal longitude;
 
+    /** Área afetada (ha), opcional. Na demonstração só a massa do seed a preenche (fictícia). */
+    @Column(name = "AREA_HA", precision = 12, scale = 2, insertable = false, updatable = false)
+    private BigDecimal areaHa;
+
+    /** Polígono GeoJSON (WGS84) da área afetada, opcional; somente leitura pela entidade (gravado pelo seed). */
+    @Lob
+    @Column(name = "AREA_GEOMETRIA", insertable = false, updatable = false)
+    private String areaGeometria;
+
     @Column(name = "DATA_RECEBIMENTO", nullable = false)
     private LocalDate dataRecebimento;
 
@@ -214,6 +223,14 @@ public class Demanda {
 
     public void setLatitude(BigDecimal latitude) {
         this.latitude = latitude;
+    }
+
+    public BigDecimal getAreaHa() {
+        return areaHa;
+    }
+
+    public String getAreaGeometria() {
+        return areaGeometria;
     }
 
     public BigDecimal getLongitude() {

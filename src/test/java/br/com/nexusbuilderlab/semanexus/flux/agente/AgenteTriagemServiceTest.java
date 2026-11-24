@@ -81,7 +81,7 @@ class AgenteTriagemServiceTest {
         MunicipioRef sinop = new MunicipioRef(SINOP, "Sinop", Bioma.AMAZONIA);
         return new DemandaDetalhe(4L, "DEM-2026/0004", "Descarte irregular de resíduos — Sinop",
                 "Denúncia de descarte de lixo e óleo em terreno próximo ao córrego.", Origem.values()[0], null, sinop,
-                null, null, null, LocalDate.now(), null, null, null, status, false, null, null, null, null, null, null,
+                null, null, null, null, null, LocalDate.now(), null, null, null, status, false, null, null, null, null, null, null,
                 null, 0, null, null, null);
     }
 

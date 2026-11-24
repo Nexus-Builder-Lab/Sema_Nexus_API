@@ -73,7 +73,33 @@ public class DemoMassaService {
             novasDemandas = inserirDemandas(hoje, analista, gestor);
         }
         int[] docs = inserirDocumentos(hoje, analista, gestor);
+        complementarAreas();
         return new ResultadoMassa(novasDemandas, docs[0], docs[1]);
+    }
+
+    // ------------------------------------------------------------------ área afetada (fictícia)
+
+    /**
+     * Preenche a área FICTÍCIA (polígono GeoJSON + ha) das demandas do seed que ainda não a têm — inclusive em bancos
+     * criados antes da V7. Determinístico pelo número da demanda; só categorias com área física. Idempotente.
+     */
+    int complementarAreas() {
+        List<Object[]> pendentes = jdbc.query("SELECT ID, NUMERO, LATITUDE, LONGITUDE, CATEGORIA FROM DEMANDA "
+                        + "WHERE OBSERVACOES LIKE ? AND AREA_GEOMETRIA IS NULL AND LATITUDE IS NOT NULL "
+                        + "AND CATEGORIA IN ('DESMATAMENTO_ILEGAL', 'QUEIMADA_INCENDIO', 'MINERACAO_IRREGULAR', "
+                        + "'AREA_PRESERVACAO_PERMANENTE')",
+                (rs, n) -> new Object[] {rs.getLong(1), rs.getString(2), rs.getDouble(3), rs.getDouble(4),
+                        rs.getString(5)},
+                DemoMassaGerador.MARCA + "%");
+        int preenchidas = 0;
+        for (Object[] d : pendentes) {
+            var area = DemoMassaGerador.areaFicticia((String) d[1], (Double) d[2], (Double) d[3], (String) d[4]);
+            if (area != null) {
+                preenchidas += jdbc.update("UPDATE DEMANDA SET AREA_HA = ?, AREA_GEOMETRIA = ? WHERE ID = ?",
+                        java.math.BigDecimal.valueOf(area.hectares()), area.geoJson(), d[0]);
+            }
+        }
+        return preenchidas;
     }
 
     // ------------------------------------------------------------------ demandas

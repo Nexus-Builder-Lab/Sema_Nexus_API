@@ -2,6 +2,7 @@ package br.com.nexusbuilderlab.semanexus.intelligence.referencia;
 
 import br.com.nexusbuilderlab.semanexus.core.municipio.Bioma;
 import br.com.nexusbuilderlab.semanexus.intelligence.referencia.ReferenciaDto.Metadados;
+import br.com.nexusbuilderlab.semanexus.intelligence.referencia.ReferenciaDto.PontoDetalhe;
 import br.com.nexusbuilderlab.semanexus.intelligence.referencia.ReferenciaDto.PontosResponse;
 import br.com.nexusbuilderlab.semanexus.intelligence.referencia.ReferenciaDto.PorMunicipioResponse;
 import br.com.nexusbuilderlab.semanexus.security.Autorizacao;
@@ -12,6 +13,7 @@ import java.time.LocalDate;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -50,6 +52,15 @@ public class ReferenciaSateliteController {
             @RequestParam(required = false) Bioma bioma,
             @RequestParam(required = false) Integer limite) {
         return service.pontos(new ReferenciaFiltro(tipo, de, ate, municipioId, bioma), limite);
+    }
+
+    @Operation(summary = "Detalhe de um ponto de satélite do INPE (painel do mapa): todos os campos, área e polígono",
+            description = "Qualquer perfil autenticado (dados públicos). Alertas DETER trazem o polígono GeoJSON e a "
+                    + "área informada pela fonte (km² e ha). Focos de calor não têm área: o INPE fornece o foco como "
+                    + "ponto, e a resposta diz isso em areaObservacao.")
+    @GetMapping("/pontos/{id}")
+    public PontoDetalhe detalhe(@PathVariable long id) {
+        return service.detalhe(id);
     }
 
     @Operation(summary = "Contagem de pontos de satélite por município (camada coroplética e cards)")

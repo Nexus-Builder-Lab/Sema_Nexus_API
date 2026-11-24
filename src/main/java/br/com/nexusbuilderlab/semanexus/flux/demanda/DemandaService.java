@@ -8,6 +8,7 @@ import br.com.nexusbuilderlab.semanexus.common.exception.ConflitoException;
 import br.com.nexusbuilderlab.semanexus.common.exception.DadosInvalidosException;
 import br.com.nexusbuilderlab.semanexus.common.exception.GlobalExceptionHandler.ErroCampo;
 import br.com.nexusbuilderlab.semanexus.common.exception.RecursoNaoEncontradoException;
+import br.com.nexusbuilderlab.semanexus.common.geo.GeoJson;
 import br.com.nexusbuilderlab.semanexus.core.auditoria.AuditService;
 import br.com.nexusbuilderlab.semanexus.core.catalogo.StatusDemanda;
 import br.com.nexusbuilderlab.semanexus.core.equipe.Equipe;
@@ -338,7 +339,8 @@ public class DemandaService {
                 : fiscalizacoes.buscarPorDemanda(d.getId()).map(DemandaService::fiscalizacao).orElse(null);
         return new DemandaDetalhe(d.getId(), d.getNumero(), d.getTitulo(), d.getDescricao(), d.getOrigem(),
                 d.getCategoria(), municipioRef(d.getMunicipio()), d.getLocalidade(), d.getLatitude(), d.getLongitude(),
-                d.getDataRecebimento(), d.getPrioridade(), d.getPrazoSugerido(), d.getPrazo(), d.getStatus(),
+                d.getAreaHa(), GeoJson.geometria(d.getAreaGeometria()), d.getDataRecebimento(), d.getPrioridade(),
+                d.getPrazoSugerido(), d.getPrazo(), d.getStatus(),
                 d.atrasada(hoje), equipeRef(d.getEquipe()), UsuarioRef.de(d.getFiscal()), d.getObservacoes(),
                 d.getResultadoFinal(), d.getJustificativaConclusao(), d.getConcluidaEm(), fiscalizacao,
                 // Documentos (DocIA) chegam na Issue #15; até lá nenhuma demanda tem documento associado.

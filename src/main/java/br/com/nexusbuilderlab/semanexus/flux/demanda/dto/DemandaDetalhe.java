@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Map;
 
 /**
  * Dados completos da demanda. É também a resposta das operações de fluxo (triagem, distribuição, início,
@@ -28,6 +29,10 @@ public record DemandaDetalhe(
         @Schema(nullable = true) String localidade,
         @Schema(nullable = true) BigDecimal latitude,
         @Schema(nullable = true) BigDecimal longitude,
+        @Schema(description = "Área afetada em hectares, quando registrada. Na demonstração só a massa do seed tem "
+                + "área (fictícia)", nullable = true, example = "42.35") BigDecimal areaHa,
+        @Schema(description = "Polígono GeoJSON (WGS84, Polygon/MultiPolygon) da área afetada, quando registrado. "
+                + "Na demonstração é FICTÍCIO (AMBIENTE DEMONSTRATIVO — DADOS FICTÍCIOS)", types = {"object", "null"}) Map<String, Object> areaGeometria,
         LocalDate dataRecebimento,
         @Schema(nullable = true) Prioridade prioridade,
         @Schema(description = "Prazo sugerido no cadastro (>= data de recebimento)", nullable = true) LocalDate prazoSugerido,

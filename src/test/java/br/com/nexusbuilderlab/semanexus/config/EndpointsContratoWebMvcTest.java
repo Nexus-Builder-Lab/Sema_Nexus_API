@@ -467,7 +467,7 @@ class EndpointsContratoWebMvcTest {
     @Test
     void cadastroValidoResponde201ComLocationENumero() throws Exception {
         var criada = new br.com.nexusbuilderlab.semanexus.flux.demanda.dto.DemandaDetalhe(7L, "DEM-2026/0007",
-                "Título de teste", "Descrição fictícia", null, null, null, null, null, null, LocalDate.now(), null,
+                "Título de teste", "Descrição fictícia", null, null, null, null, null, null, null, null, LocalDate.now(), null,
                 null, null, StatusDemanda.PENDENTE, false, null, null, null, null, null, null, null, 0, null, null,
                 null);
         when(demandas.cadastrar(any(), any())).thenReturn(criada);
