@@ -35,12 +35,29 @@ const casos = [
   ['migration: sed -i em existente', { ...B(`sed -i "s/a/b/" ${existente}`), cwd: raiz }, 2],
   ['migration: Write em nova permitido', { tool_name: 'Write', cwd: raiz, tool_input: { file_path: path.join(raiz, MIG, 'V9999__nova_migration.sql') } }, 0],
   ['migration: Read em existente permitido', { tool_name: 'Read', cwd: raiz, tool_input: { file_path: path.join(raiz, existente) } }, 0],
+  ['migration: caixa diferente (Edit)', { tool_name: 'Edit', cwd: raiz, tool_input: { file_path: path.join(raiz, MIG, existente.split('/').pop().toLowerCase()) } }, 2],
+  ['migration: nome solto apos cd (PowerShell)', { ...P('cd src/main/resources/db/migration; Set-Content ' + existente.split('/').pop().toLowerCase() + ' x'), cwd: raiz }, 2],
+  ['migration: alias sc', { ...P('sc ' + existente + ' x'), cwd: raiz }, 2],
+  ['migration: git checkout --', { ...B('git checkout -- ' + existente), cwd: raiz }, 2],
+  ['migration: WriteAllText', { ...P('[IO.File]::WriteAllText("' + existente + '","x")'), cwd: raiz }, 2],
+  ['migration: Move-Item', { ...P('Move-Item x.sql ' + existente), cwd: raiz }, 2],
+  ['.env: glob *.env', B('cat *.env'), 2],
+  ['.env: glob .en*', B('cat .en*'), 2],
+  ['.env: com aspas', P('Get-Content ".env"'), 2],
+  ['.env: ReadAllText', P('[IO.File]::ReadAllText(".env")'), 2],
+  ['.env: Grep com glob', { tool_name: 'Grep', tool_input: { pattern: 'KEY', glob: '**/.env' } }, 2],
+  ['.env: Read com espaco final', { tool_name: 'Read', tool_input: { file_path: 'C:/x/.env ' } }, 2],
+  ['.env: Grep sem path permitido', { tool_name: 'Grep', tool_input: { pattern: 'KEY' } }, 0],
+  ['volumes: compose rm -v', B('docker compose rm -v api'), 2],
+  ['volumes: compose rm -sv', P('docker compose rm -sv'), 2],
+  ['volumes: compose rm -f permitido', B('docker compose rm -f api'), 0],
+  ['entrada: JSON null nao quebra', null, 0],
   ['outro: Edit em arquivo comum permitido', { tool_name: 'Edit', cwd: raiz, tool_input: { file_path: path.join(raiz, 'README.md') } }, 0],
 ];
 
 let falhas = 0;
 for (const [nome, entrada, esperado] of casos) {
-  const r = spawnSync(process.execPath, [hook], { input: JSON.stringify(entrada), encoding: 'utf8' });
+  const r = spawnSync(process.execPath, [hook], { input: entrada === null ? 'null' : JSON.stringify(entrada), encoding: 'utf8' });
   const ok = r.status === esperado && (esperado === 0 || /BLOQUEADO/.test(r.stderr));
   if (!ok) falhas++;
   console.log(`${ok ? 'OK    ' : 'FALHOU'} ${nome} (exit ${r.status}, esperado ${esperado})`);

@@ -95,4 +95,4 @@ Recomendação do relatório técnico (20/11/2026), registrada aqui para não se
 | `.env` | cat/type/Get-Content/etc. e a ferramenta Read/Grep em `.env` e `.env.*` | `.env.example` |
 | Migrations | Edit/Write (ou sed/Set-Content) em `V*__*.sql` que já existe na `origin/main` | migration nova, leitura |
 
-Prova: `node .claude/hooks/testar-hooks.mjs` (22 casos, bloqueados e permitidos por regra). Os hooks somam-se às permissões allow/deny/ask. Um servidor MCP próprio continua **planejado**.
+Prova: `node .claude/hooks/testar-hooks.mjs` (bloqueados e permitidos por regra). Limites conhecidos: o hook vê só o texto do comando (variáveis, concatenação e scripts externos podem contorná-lo); libera (fail-open) se `git`, o `cwd` ou a `origin/main` estiverem indisponíveis; a comparação de migrations ignora maiúsculas/minúsculas (NTFS) e reconhece o nome solto `V<n>__*.sql`. As regras `deny` do `settings.json` são a segunda camada. Os hooks somam-se às permissões allow/deny/ask. Um servidor MCP próprio continua **planejado**.

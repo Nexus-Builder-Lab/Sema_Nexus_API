@@ -484,4 +484,4 @@
 ## 2026-11-24 · GH-149 · Hooks PreToolUse de proteção (volumes, .env, migrations)
 - **Status:** PR aberto (subagente Claude Code, a pedido do proprietário).
 - **O que foi feito:** `.claude/hooks/proteger.mjs` + registro em `.claude/settings.json`; bloqueia `down -v/--volumes`, `docker volume rm/prune`, `docker system prune`, leitura do `.env` (não `.env.example`) e edição de migration já existente na `origin/main` (nova continua permitida); `docs/AGENTES.md` atualizado.
-- **Testes:** `node .claude/hooks/testar-hooks.mjs` → 22/22 (bloqueio e caso permitido por regra, Bash e PowerShell).
+- **Testes:** `node .claude/hooks/testar-hooks.mjs` → 39/39 (bloqueio e caso permitido por regra, Bash e PowerShell).
