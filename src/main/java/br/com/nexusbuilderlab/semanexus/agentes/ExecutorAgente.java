@@ -87,6 +87,17 @@ public class ExecutorAgente {
      * @throws AgenteIndisponivelException sem provedor, em erro da API, recusa, resposta inválida ou limite de iterações
      */
     public ResultadoAgente executar(DefinicaoAgente agente, String tarefa, String entidadeId) {
+        return executar(agente, tarefa, entidadeId, ObservadorAgente.NENHUM);
+    }
+
+    /**
+     * Como {@link #executar(DefinicaoAgente, String, String)}, emitindo {@code ferramenta_iniciada} e
+     * {@code ferramenta_concluida} ao {@code observador} (Issue #135). Com {@link ObservadorAgente#cancelado()}, para
+     * antes da próxima chamada ao modelo ou ferramenta (e desiste da fila da GPU) com {@link ExecucaoCanceladaException}.
+     */
+    public ResultadoAgente executar(DefinicaoAgente agente, String tarefa, String entidadeId,
+                                    ObservadorAgente observador) {
+        ObservadorAgente obs = observador == null ? ObservadorAgente.NENHUM : observador;
         String modelo = cliente.modelo(agente.modelo());
         List<PassoAgente> passos = new ArrayList<>();
         long entrada = 0;
@@ -108,11 +119,12 @@ public class ExecutorAgente {
             mensagens.add(Mensagem.usuario(tarefa));
             int rodadas = 0;
             for (int iteracao = 0; iteracao < configuracao.maxIteracoes(); iteracao++) {
+                verificarCancelamento(obs);
                 verificarOrcamento(prazo);
                 // Esgotadas as rodadas de ferramentas, o pedido vai sem ferramentas: resposta final no esquema.
                 List<FerramentaAgente> disponiveis = rodadas < agente.maxRodadasFerramentas()
                         ? agente.ferramentas() : List.of();
-                RespostaModelo resposta = chamar(prazo, new PedidoModelo(modelo, agente.instrucoes(), disponiveis,
+                RespostaModelo resposta = chamar(prazo, obs, new PedidoModelo(modelo, agente.instrucoes(), disponiveis,
                         List.copyOf(mensagens), agente.esquemaResposta(), agente.esforco(), agente.maxTokens(),
                         agente.campoTexto() != null));
                 entrada += resposta.tokensEntrada();
@@ -126,7 +138,8 @@ public class ExecutorAgente {
                             throw new AgenteIndisponivelException("Orçamento de "
                                     + configuracao.maxChamadasFerramenta() + " chamadas de ferramenta esgotado.");
                         }
-                        mensagens.add(executarFerramenta(ferramentas, chamada, passos));
+                        verificarCancelamento(obs);
+                        mensagens.add(executarFerramenta(ferramentas, chamada, passos, obs));
                     }
                     continue;
                 }
@@ -147,6 +160,10 @@ public class ExecutorAgente {
         } catch (AgenteIndisponivelException e) {
             auditar(agente, modelo, entidadeId, "AGENTE_FALHA", passos, entrada, saida, cache,
                     System.currentTimeMillis() - inicio, e.getMessage());
+            if (e instanceof ExecucaoCanceladaException) {
+                LOG.info("Agente {} cancelado: o cliente desconectou.", agente.nome());
+                throw e;
+            }
             if (tentou) {
                 metricas.falha(agente.nome(), modelo, System.currentTimeMillis() - inicio, e.getMessage());
             }
@@ -171,6 +188,21 @@ public class ExecutorAgente {
      * Interrompe a execução quando o orçamento total de tempo acabou. Uma chamada já em andamento ainda respeita o
      * timeout por chamada, então o pior caso é orçamento + timeout.
      */
+    private static void verificarCancelamento(ObservadorAgente obs) {
+        if (obs.cancelado()) {
+            throw new ExecucaoCanceladaException();
+        }
+    }
+
+    /** Entrega o evento ao observador; uma falha dele (ex.: cliente desconectado) nunca interrompe o agente. */
+    private static void emitir(ObservadorAgente obs, EventoAgente evento) {
+        try {
+            obs.emitir(evento);
+        } catch (RuntimeException e) {
+            LOG.debug("Observador do agente recusou o evento {} ({})", evento.tipo(), e.getClass().getSimpleName());
+        }
+    }
+
     private void verificarOrcamento(long prazo) {
         if (System.currentTimeMillis() > prazo) {
             throw new AgenteIndisponivelException("Orçamento de " + configuracao.orcamento().toSeconds()
@@ -182,10 +214,13 @@ public class ExecutorAgente {
      * Chama o modelo pela fila da GPU (Issue #134): no máximo {@code AGENTES_GPU_CONCORRENCIA} chamadas simultâneas, em
      * ordem de chegada; a espera por vaga não passa do timeout da fila nem do orçamento restante da execução.
      */
-    private RespostaModelo chamar(long prazo, PedidoModelo pedido) {
+    private RespostaModelo chamar(long prazo, ObservadorAgente obs, PedidoModelo pedido) {
         try {
-            return filaGpu.executar(Duration.ofMillis(Math.max(0, prazo - System.currentTimeMillis())),
-                    () -> cliente.criar(pedido));
+            Duration esperaMaxima = Duration.ofMillis(Math.max(0, prazo - System.currentTimeMillis()));
+            // Sem observador (endpoints JSON), a espera não é fatiada e preserva a ordem de chegada da fila.
+            return obs == ObservadorAgente.NENHUM
+                    ? filaGpu.executar(esperaMaxima, () -> cliente.criar(pedido))
+                    : filaGpu.executar(esperaMaxima, () -> cliente.criar(pedido), obs::cancelado);
         } catch (AgenteIndisponivelException e) {
             throw e;
         } catch (RuntimeException e) {
@@ -196,19 +231,24 @@ public class ExecutorAgente {
     }
 
     private Mensagem executarFerramenta(Map<String, FerramentaAgente> ferramentas, ChamadaFerramenta chamada,
-                                        List<PassoAgente> passos) {
+                                        List<PassoAgente> passos, ObservadorAgente obs) {
         FerramentaAgente f = ferramentas.get(chamada.nome());
+        int ordem = passos.size() + 1;
         if (f == null) {
             // O nome vem do modelo: ecoado só com caracteres seguros, e a ferramenta não é executada.
             String nome = ErroFerramenta.nomeSeguro(chamada.nome());
             passos.add(new PassoAgente(nome, "Ferramenta inexistente (ignorada)."));
+            emitir(obs, EventoAgente.ferramentaIniciada(nome, ordem));
+            emitir(obs, EventoAgente.ferramentaConcluida(nome, ordem, "Ferramenta inexistente (ignorada).", true));
             return Mensagem.ferramenta(chamada, ErroFerramenta.FERRAMENTA_INEXISTENTE.name() + ": "
                     + ErroFerramenta.FERRAMENTA_INEXISTENTE.mensagemPublica(), true);
         }
+        emitir(obs, EventoAgente.ferramentaIniciada(f.nome(), ordem));
         try {
             JsonNode entrada = chamada.entrada() == null ? json.createObjectNode() : chamada.entrada();
             FerramentaAgente.Resultado resultado = f.executar().apply(entrada);
             passos.add(new PassoAgente(f.nome(), resultado.resumo()));
+            emitir(obs, EventoAgente.ferramentaConcluida(f.nome(), ordem, resultado.resumo(), false));
             String texto = json.writeValueAsString(resultado.dados());
             if (texto.length() > LIMITE_RESULTADO) {
                 texto = texto.substring(0, LIMITE_RESULTADO) + "…(resultado truncado)";
@@ -222,6 +262,7 @@ public class ExecutorAgente {
             LOG.warn("Ferramenta {} falhou [{}] {}: {} - {}", f.nome(), referencia, erro, e.getClass().getName(),
                     e.getMessage());
             passos.add(new PassoAgente(f.nome(), "Erro " + erro.publico(referencia)));
+            emitir(obs, EventoAgente.ferramentaConcluida(f.nome(), ordem, "Erro " + erro.publico(referencia), true));
             return Mensagem.ferramenta(chamada, erro.publico(referencia), true);
         }
     }

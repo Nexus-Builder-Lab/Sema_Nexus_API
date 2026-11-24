@@ -197,4 +197,36 @@ class FilaGpuTest {
 
     private record PedidosContados() {
     }
+
+    @Test
+    void esperaCanceladaDesisteSemOcuparAVaga() throws Exception {
+        FilaGpu fila = new FilaGpu(1, Duration.ofSeconds(30));
+        CountDownLatch ocupada = new CountDownLatch(1);
+        CountDownLatch liberar = new CountDownLatch(1);
+        Future<String> primeira = ocupar(fila, ocupada, liberar);
+        assertThat(ocupada.await(5, TimeUnit.SECONDS)).isTrue();
+
+        java.util.concurrent.atomic.AtomicBoolean cancelado = new java.util.concurrent.atomic.AtomicBoolean();
+        java.util.concurrent.atomic.AtomicBoolean rodou = new java.util.concurrent.atomic.AtomicBoolean();
+        java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newSingleThreadExecutor();
+        try {
+            Future<?> segunda = pool.submit(() -> fila.executar(Duration.ofSeconds(30), () -> {
+                rodou.set(true);
+                return "segunda";
+            }, cancelado::get));
+            Thread.sleep(300);
+            long inicio = System.nanoTime();
+            cancelado.set(true); // cliente SSE desconectou enquanto esperava a GPU
+            assertThatThrownBy(() -> segunda.get(5, TimeUnit.SECONDS))
+                    .hasCauseInstanceOf(ExecucaoCanceladaException.class);
+            assertThat(Duration.ofNanos(System.nanoTime() - inicio)).isLessThan(Duration.ofSeconds(2));
+            assertThat(rodou).isFalse();
+        } finally {
+            pool.shutdownNow();
+        }
+        liberar.countDown();
+        assertThat(primeira.get(5, TimeUnit.SECONDS)).isEqualTo("primeira");
+        assertThat(fila.emUso()).isZero();
+        assertThat(fila.aguardando()).isZero();
+    }
 }

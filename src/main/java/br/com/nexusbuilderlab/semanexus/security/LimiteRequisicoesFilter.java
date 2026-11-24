@@ -19,7 +19,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
  * Aplica o {@link LimitadorRequisicoes} aos endpoints sensíveis (Issue #134): login (inclusive o demonstrativo), agentes
- * de IA (sugestão de triagem e de distribuição, perguntas ao DocIA e explicação da comparação) e envio de documento. Roda depois do {@link JwtAuthFilter}, para
+ * de IA (sugestão de triagem e de distribuição, perguntas ao DocIA e explicação da comparação — inclusive as versões SSE {@code /stream} da Issue #135) e envio de documento. Roda depois do {@link JwtAuthFilter}, para
  * contar por usuário quando há token. Excedido o limite: 429 {@code application/problem+json} com {@code Retry-After}.
  * Registrado só dentro da cadeia de segurança (como o {@link JwtAuthFilter}).
  */
@@ -29,7 +29,8 @@ public class LimiteRequisicoesFilter extends OncePerRequestFilter {
 
     private static final Pattern LOGIN = Pattern.compile("^/api/auth/(login|demo/[^/]+)/?$");
     private static final Pattern IA = Pattern.compile(
-            "^/api/(demandas/[^/]+/(triagem|distribuicao)/sugestao|docia/perguntas|docia/comparacao/explicar)/?$");
+            "^/api/(demandas/[^/]+/(triagem/sugestao(/stream)?|distribuicao/sugestao)|docia/perguntas(/stream)?"
+                    + "|docia/comparacao/explicar)/?$");
     private static final Pattern UPLOAD = Pattern.compile("^/api/documentos(/pre-analise)?/?$");
 
     private final LimitadorRequisicoes limitador;

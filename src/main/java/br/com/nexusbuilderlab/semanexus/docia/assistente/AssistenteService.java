@@ -17,6 +17,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 import br.com.nexusbuilderlab.semanexus.agentes.AgenteIndisponivelException;
+import br.com.nexusbuilderlab.semanexus.agentes.EventoAgente;
+import br.com.nexusbuilderlab.semanexus.agentes.ExecucaoCanceladaException;
+import br.com.nexusbuilderlab.semanexus.agentes.ObservadorAgente;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -30,6 +33,8 @@ public class AssistenteService {
     public static final String RECUSA = "O assistente responde apenas com base nos documentos da biblioteca. "
             + "Não orienta sobre legislação, multas ou procedimentos oficiais; consulte a fonte oficial.";
 
+    static final String FALLBACK_TEMPO = "A IA não respondeu a tempo; resposta pelo modo extrativo (sem IA generativa).";
+    static final String FALLBACK_SEM_IA = "IA indisponível; resposta pelo modo extrativo (sem IA generativa).";
     static final int MAX_DOCUMENTOS = 3;
     static final int MAX_TRECHO = 400;
     private static final Pattern RECUSAVEL = Pattern.compile(
@@ -70,17 +75,29 @@ public class AssistenteService {
      * recuperação textual + provider (extrativo por padrão). Sem transação própria: a auditoria do agente grava.
      */
     public RespostaAssistente perguntar(UsuarioAutenticado ator, PerguntaRequest pedido) {
-        Set<Long> permitidos = null;
-        if (pedido.demandaId() != null) {
-            // 404 se a demanda não existe; 403 se o fiscal está fora do escopo (mesma regra do detalhe da demanda).
-            demandas.detalhar(ator, pedido.demandaId());
-            permitidos = new LinkedHashSet<>(jdbc.queryForList(
-                    "SELECT DOCUMENTO_ID FROM DOCUMENTO_DEMANDA WHERE DEMANDA_ID = ?", Long.class, pedido.demandaId()));
-            if (permitidos.isEmpty()) {
-                return semInformacao(); // nada vinculado: não gasta a IA
-            }
+        return responder(pedido, documentosPermitidos(ator, pedido), ObservadorAgente.NENHUM);
+    }
+
+    /**
+     * Escopo da pergunta: nulo = toda a biblioteca; com {@code demandaId}, os documentos vinculados à demanda (404 se a
+     * demanda não existe; 403 se o fiscal está fora do escopo — mesma regra do detalhe da demanda). O stream SSE
+     * (Issue #135) chama antes de abrir a transmissão, para esses erros virarem status HTTP.
+     */
+    public Set<Long> documentosPermitidos(UsuarioAutenticado ator, PerguntaRequest pedido) {
+        if (pedido.demandaId() == null) {
+            return null;
         }
-        return perguntar(pedido.pergunta(), permitidos, HistoricoConversa.sanitizar(pedido.historico()));
+        demandas.detalhar(ator, pedido.demandaId());
+        return new LinkedHashSet<>(jdbc.queryForList(
+                "SELECT DOCUMENTO_ID FROM DOCUMENTO_DEMANDA WHERE DEMANDA_ID = ?", Long.class, pedido.demandaId()));
+    }
+
+    /** Resposta com o escopo já resolvido, emitindo os eventos do agente ao {@code observador} (Issue #135). */
+    public RespostaAssistente responder(PerguntaRequest pedido, Set<Long> permitidos, ObservadorAgente observador) {
+        if (permitidos != null && permitidos.isEmpty()) {
+            return semInformacao(); // nada vinculado: não gasta a IA
+        }
+        return perguntar(pedido.pergunta(), permitidos, HistoricoConversa.sanitizar(pedido.historico()), observador);
     }
 
     public RespostaAssistente perguntar(String pergunta) {
@@ -88,16 +105,26 @@ public class AssistenteService {
     }
 
     RespostaAssistente perguntar(String pergunta, Set<Long> permitidos, List<TurnoHistorico> historico) {
+        return perguntar(pergunta, permitidos, historico, ObservadorAgente.NENHUM);
+    }
+
+    private RespostaAssistente perguntar(String pergunta, Set<Long> permitidos, List<TurnoHistorico> historico,
+                                         ObservadorAgente observador) {
         String normalizada = DocumentoSpecification.normalizar(pergunta.strip());
         if (RECUSAVEL.matcher(normalizada).find()) {
             return new RespostaAssistente(RECUSA, modo(), List.of());
         }
         if (agente != null && agente.disponivel()) {
             try {
-                return agente.responder(pergunta.strip(), permitidos, historico);
+                return agente.responder(pergunta.strip(), permitidos, historico, observador);
+            } catch (ExecucaoCanceladaException e) {
+                throw e; // cliente do stream desconectou
             } catch (AgenteIndisponivelException e) {
                 // segue no modo extrativo, que já identifica o próprio modo
+                observador.emitir(EventoAgente.fallbackDemonstrativo(FALLBACK_TEMPO));
             }
+        } else if (agente != null) {
+            observador.emitir(EventoAgente.fallbackDemonstrativo(FALLBACK_SEM_IA));
         }
         if (agente != null) {
             agente.contarModoExtrativo();
