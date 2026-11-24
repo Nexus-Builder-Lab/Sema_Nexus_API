@@ -485,3 +485,11 @@
 - **Status:** PR aberto (subagente Claude Code, a pedido do proprietário).
 - **O que foi feito:** `.claude/hooks/proteger.mjs` + registro em `.claude/settings.json`; bloqueia `down -v/--volumes`, `docker volume rm/prune`, `docker system prune`, leitura do `.env` (não `.env.example`) e edição de migration já existente na `origin/main` (nova continua permitida); `docs/AGENTES.md` atualizado.
 - **Testes:** `node .claude/hooks/testar-hooks.mjs` → 39/39 (bloqueio e caso permitido por regra, Bash e PowerShell).
+
+## 2026-11-24 · GH-142 · Resumo semântico das diferenças na comparação
+- **Status:** PR solicitado (subagente implementador, a pedido do proprietário).
+- **O que foi feito:** `POST /api/docia/comparacao/explicar` (`aId`, `bId`; mesma autorização da comparação). Reaproveita `ComparacaoService` (acesso aos dois documentos, 404/400, similaridade) e `GrandezasExtrator` extrai por regex áreas (ha), vazões, valores R$, datas, prazos, percentuais e conclusões, pareando por categoria. Resumo curto pelo agente `comparacao` (`ExecutorAgente`, somente leitura, orçamento e auditoria; tabela entregue como dado) com fallback por regras identificado como `DEMONSTRATIVO`; `modo` LOCAL/CLAUDE/DEMONSTRATIVO.
+- **Decisões técnicas:** números da tabela nunca vêm do modelo; sem ferramenta (modelo 4B se confunde sem parâmetros; a tabela vai na mensagem); sem migration; nada é gravado.
+- **Arquivos principais:** `docia/comparacao/{ExplicacaoComparacaoService,GrandezasExtrator,ComparacaoController}.java`, `dto/ExplicacaoComparacaoResponse.java`, `ExplicacaoComparacaoServiceTest`, `ContratoOpenApiTest`, `docs/API.md`, `docs/AGENTES_IA.md`.
+- **Testes:** a confirmar pelo validador (implementador: ExplicacaoComparacaoServiceTest, ComparacaoServiceTest e ContratoOpenApiTest sem Oracle: 0 falhas).
+- **Pendências:** qualidade do resumo com Ollama real não exercitada (sem Docker).
