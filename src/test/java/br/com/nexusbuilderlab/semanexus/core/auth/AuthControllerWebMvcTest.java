@@ -3,6 +3,8 @@ package br.com.nexusbuilderlab.semanexus.core.auth;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -21,9 +23,11 @@ import br.com.nexusbuilderlab.semanexus.core.usuario.Perfil;
 import br.com.nexusbuilderlab.semanexus.core.usuario.Usuario;
 import br.com.nexusbuilderlab.semanexus.core.usuario.UsuarioRepository;
 import br.com.nexusbuilderlab.semanexus.security.JwtService;
+import br.com.nexusbuilderlab.semanexus.security.RevogacaoTokenService;
 import br.com.nexusbuilderlab.semanexus.security.SecurityConfig;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -76,6 +80,8 @@ class AuthControllerWebMvcTest {
     AuthService authService;
     @MockitoBean
     UsuarioRepository usuarios;
+    @MockitoBean
+    RevogacaoTokenService revogacao;
 
     private static Usuario usuario(long id, Perfil perfil, boolean ativo) {
         Usuario u = new Usuario("Fulano Fictício", "fulano@exemplo.test", "hash", perfil);
@@ -194,7 +200,21 @@ class AuthControllerWebMvcTest {
         mvc.perform(post("/api/auth/logout").header(HttpHeaders.AUTHORIZATION, bearer(u)))
                 .andExpect(status().isNoContent());
 
-        verify(authService).logout(6L);
+        verify(authService).logout(eq(6L), argThat(jti -> jti != null && !jti.isBlank()), any(Instant.class));
+    }
+
+    @Test
+    void tokenRevogadoNoLogoutRetorna401() throws Exception {
+        Usuario u = usuario(9L, Perfil.ANALISTA, true);
+        String token = bearer(u);
+        String jti = jwtService.validar(token.substring("Bearer ".length())).orElseThrow().jti();
+        when(revogacao.revogado(jti)).thenReturn(true);
+
+        mvc.perform(get("/api/auth/me").header(HttpHeaders.AUTHORIZATION, token))
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().contentTypeCompatibleWith(PROBLEM_JSON));
+        mvc.perform(post("/api/auth/logout").header(HttpHeaders.AUTHORIZATION, token))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

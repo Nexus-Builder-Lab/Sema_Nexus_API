@@ -40,6 +40,7 @@ Conexão: `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOU
 | `EQUIPE` | `ID` identity, `NOME`, `SETOR_ID` (obrigatório), `RESPONSAVEL_ID`, `ATIVO`, `CRIADO_EM`, `ATUALIZADO_EM` | `UK_EQUIPE_SETOR_NOME`, `FK_EQUIPE_SETOR`, `FK_EQUIPE_RESPONSAVEL`; `IX_EQUIPE_RESPONSAVEL_ID` |
 | `EQUIPE_MEMBRO` | `EQUIPE_ID`, `USUARIO_ID` | PK composta; `FK_EQUIPE_MEMBRO_EQUIPE` (`ON DELETE CASCADE`), `FK_EQUIPE_MEMBRO_USUARIO`; `IX_EQUIPE_MEMBRO_USUARIO_ID` |
 | `AUDITORIA` | `ID` identity, `DATA`, `USUARIO_ID`, `ACAO`, `ENTIDADE`, `ENTIDADE_ID VARCHAR2(64)`, `DETALHE VARCHAR2(4000)` | `FK_AUDITORIA_USUARIO`; `IX_AUDITORIA_DATA`, `IX_AUDITORIA_ENTIDADE (ENTIDADE, ENTIDADE_ID)`, `IX_AUDITORIA_USUARIO_ID`. Append-only (entidade `@Immutable`) |
+| `TOKEN_REVOGADO` (Issue #134, `V9__token_revogado.sql`) | `JTI VARCHAR2(64)` (PK, claim `jti` do JWT), `USUARIO_ID`, `EXPIRA_EM`, `REVOGADO_EM` | `PK_TOKEN_REVOGADO`, `IX_TOKEN_REVOGADO_EXPIRA`. Gravada no `POST /api/auth/logout`; o filtro JWT recusa (401) token cujo `jti` esteja aqui. Sem FK para `USUARIO` (registro temporário): a limpeza diária (`TOKEN_REVOGADO_LIMPEZA_CRON`, padrão 03:17 UTC) apaga os já expirados. Sobrevive a reinícios da API |
 
 ### Flux (Implementado, Issue #11) e demais módulos (Planejado)
 
