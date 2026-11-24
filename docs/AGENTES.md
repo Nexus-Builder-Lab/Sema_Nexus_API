@@ -85,6 +85,14 @@ Recomendação do relatório técnico (20/11/2026), registrada aqui para não se
 | Dados | só código, documentação e o ambiente de teste com dados fictícios | só os dados que o perfil do usuário logado pode ver |
 | Limites | não decidem sobre dados operacionais; reset, tag, merge e publicação exigem aprovação humana | ferramentas só de leitura; nunca gravam nem decidem; aplicar sugestão é ação da pessoa |
 
-Hooks (proteger volumes, `.env` e migrations, com prova de bloqueio e caso permitido) e um servidor MCP próprio
-(consultas autenticadas reutilizando a autorização da API) estão **planejados**, não implementados: hoje a proteção vem
-das permissões allow/deny/ask dos `settings.json` e das regras do `CLAUDE.md`.
+## Hooks de proteção (Implementado)
+
+`.claude/settings.json` registra hooks `PreToolUse` (matchers `Bash|PowerShell`, `Read|Grep`, `Edit|Write|MultiEdit|NotebookEdit`) que executam `node .claude/hooks/proteger.mjs` (JSON do hook na entrada padrão; exit 2 + mensagem em português bloqueia). Funciona igual em PowerShell e Git Bash. Regras:
+
+| Regra | Bloqueia | Permite |
+|---|---|---|
+| Volumes Docker | `docker compose down -v/--volumes`, `docker volume rm/prune`, `docker system prune` | `docker compose down`, `up` |
+| `.env` | cat/type/Get-Content/etc. e a ferramenta Read/Grep em `.env` e `.env.*` | `.env.example` |
+| Migrations | Edit/Write (ou sed/Set-Content) em `V*__*.sql` que já existe na `origin/main` | migration nova, leitura |
+
+Prova: `node .claude/hooks/testar-hooks.mjs` (bloqueados e permitidos por regra). Limites conhecidos: o hook vê só o texto do comando (variáveis, concatenação e scripts externos podem contorná-lo); libera (fail-open) se `git`, o `cwd` ou a `origin/main` estiverem indisponíveis; a comparação de migrations ignora maiúsculas/minúsculas (NTFS) e reconhece o nome solto `V<n>__*.sql`. As regras `deny` do `settings.json` são a segunda camada. Os hooks somam-se às permissões allow/deny/ask. Um servidor MCP próprio continua **planejado**.
