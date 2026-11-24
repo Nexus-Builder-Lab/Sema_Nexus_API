@@ -116,4 +116,26 @@ class JwtServiceTest {
         assertThatThrownBy(() -> new JwtService(SEGREDO, Duration.ZERO, relogio))
                 .isInstanceOf(IllegalStateException.class);
     }
+
+    @Test
+    void tokenTrazJtiUnicoEExpiracao() {
+        String a = servico.gerar(usuario(7, Perfil.GESTOR));
+        String b = servico.gerar(usuario(7, Perfil.GESTOR));
+
+        JwtService.TokenValido ta = servico.validar(a).orElseThrow();
+        JwtService.TokenValido tb = servico.validar(b).orElseThrow();
+        assertThat(ta.jti()).isNotBlank().isNotEqualTo(tb.jti());
+        assertThat(ta.expiraEm()).isEqualTo(AGORA.plus(Duration.ofHours(8)));
+    }
+
+    @Test
+    void tokenSemJtiERejeitado() throws Exception {
+        JWTClaimsSet claims = new JWTClaimsSet.Builder()
+                .issuer(JwtService.EMISSOR).subject("1").claim("perfil", "ADMIN")
+                .expirationTime(Date.from(AGORA.plus(Duration.ofHours(1)))).build();
+        SignedJWT jwt = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), claims);
+        jwt.sign(new MACSigner(SEGREDO.getBytes(StandardCharsets.UTF_8)));
+
+        assertThat(servico.validar(jwt.serialize())).isEmpty();
+    }
 }

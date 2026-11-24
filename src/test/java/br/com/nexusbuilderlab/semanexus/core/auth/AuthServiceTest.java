@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import br.com.nexusbuilderlab.semanexus.common.exception.CredenciaisInvalidasException;
@@ -19,6 +20,7 @@ import br.com.nexusbuilderlab.semanexus.core.usuario.Perfil;
 import br.com.nexusbuilderlab.semanexus.core.usuario.Usuario;
 import br.com.nexusbuilderlab.semanexus.core.usuario.UsuarioRepository;
 import br.com.nexusbuilderlab.semanexus.security.JwtService;
+import br.com.nexusbuilderlab.semanexus.security.RevogacaoTokenService;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -44,6 +46,8 @@ class AuthServiceTest {
     UsuarioRepository usuarios;
     @Mock
     AuditService auditoria;
+    @Mock
+    RevogacaoTokenService revogacao;
 
     PasswordEncoder encoder = spy(new BCryptPasswordEncoder(4));
     Clock relogio = Clock.fixed(Instant.parse("2026-11-10T12:00:00Z"), ZoneOffset.UTC);
@@ -54,7 +58,7 @@ class AuthServiceTest {
 
     @BeforeEach
     void setUp() {
-        servico = new AuthService(usuarios, encoder, jwt, auditoria, ambiente, relogio);
+        servico = new AuthService(usuarios, encoder, jwt, auditoria, ambiente, relogio, revogacao);
         usuario = new Usuario("Fulano Fictício", "fulano@exemplo.test", encoder.encode(SENHA), Perfil.GESTOR);
         ReflectionTestUtils.setField(usuario, "id", 5L);
     }
@@ -115,10 +119,23 @@ class AuthServiceTest {
     }
 
     @Test
-    void logoutRegistraNaAuditoria() {
-        servico.logout(5L);
+    void logoutRevogaOTokenERegistraNaAuditoria() {
+        Instant expira = Instant.parse("2026-11-10T20:00:00Z");
+        when(revogacao.revogar("jti-de-teste", 5L, expira)).thenReturn(true);
+        servico.logout(5L, "jti-de-teste", expira);
 
+        verify(revogacao).revogar("jti-de-teste", 5L, expira);
         verify(auditoria).registrarComo(eq(5L), eq("LOGOUT"), eq("USUARIO"), eq("5"), any());
+    }
+
+    @Test
+    void logoutDeTokenJaRevogadoNaoDuplicaAuditoria() {
+        Instant expira = Instant.parse("2026-11-10T20:00:00Z");
+        when(revogacao.revogar("jti-de-teste", 5L, expira)).thenReturn(false);
+
+        servico.logout(5L, "jti-de-teste", expira);
+
+        verifyNoInteractions(auditoria);
     }
 
     @Test

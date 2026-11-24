@@ -19,17 +19,20 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Emite e valida tokens JWT HS256. O token carrega apenas o ID do usuário e o perfil; nome, e-mail
- * e situação (ativo) são consultados no banco a cada requisição. Nunca registra token nem segredo em log.
+ * Emite e valida tokens JWT HS256. O token carrega apenas o ID do usuário, o perfil e um identificador único
+ * ({@code jti}, usado na revogação pelo logout — Issue #134); nome, e-mail e situação (ativo) são consultados no banco
+ * a cada requisição. Nunca registra token nem segredo em log.
  */
 public class JwtService {
 
     public static final int TAMANHO_MINIMO_SEGREDO_BYTES = 32;
     static final String EMISSOR = "sema-nexus-api";
     private static final String CLAIM_PERFIL = "perfil";
+    /** Tamanho máximo do {@code jti} aceito (UUID = 36; a coluna TOKEN_REVOGADO.JTI comporta 64). */
+    static final int TAMANHO_MAXIMO_JTI = 64;
 
-    /** Dados extraídos de um token válido. */
-    public record TokenValido(Long usuarioId, Perfil perfil) {}
+    /** Dados extraídos de um token válido: {@code jti} identifica o token e {@code expiraEm} é o fim da validade. */
+    public record TokenValido(Long usuarioId, Perfil perfil, String jti, Instant expiraEm) {}
 
     private final byte[] segredo;
     private final Duration expiracao;
@@ -72,7 +75,10 @@ public class JwtService {
         }
     }
 
-    /** Valida assinatura (somente HS256), emissor e expiração. Qualquer problema resulta em vazio. */
+    /**
+     * Valida assinatura (somente HS256), emissor, expiração e presença do {@code jti}. Qualquer problema resulta em
+     * vazio. A revogação (logout) é conferida à parte, pelo {@link RevogacaoTokenService}.
+     */
     public Optional<TokenValido> validar(String token) {
         if (token == null || token.isBlank()) {
             return Optional.empty();
@@ -90,9 +96,13 @@ public class JwtService {
                     || !expiracaoToken.toInstant().isAfter(clock.instant())) {
                 return Optional.empty();
             }
+            String jti = claims.getJWTID();
+            if (jti == null || jti.isBlank() || jti.length() > TAMANHO_MAXIMO_JTI) {
+                return Optional.empty();
+            }
             Long id = Long.valueOf(claims.getSubject());
             Perfil perfil = Perfil.valueOf(claims.getStringClaim(CLAIM_PERFIL));
-            return Optional.of(new TokenValido(id, perfil));
+            return Optional.of(new TokenValido(id, perfil, jti, expiracaoToken.toInstant()));
         } catch (ParseException | JOSEException | IllegalArgumentException | NullPointerException e) {
             return Optional.empty();
         }

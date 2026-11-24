@@ -25,11 +25,12 @@
 |---|---|
 | 200 / 201 / 204 | Sucesso (201 em criações — `POST /api/demandas`, `/atividades`, `/api/documentos`, vínculo de documento; 204 em exclusões e logout) |
 | 400 | Validação de campos (`errors` por campo), enum/data/número inválido em query ou corpo, JSON malformado |
-| 401 | Sem token ou token inválido |
+| 401 | Sem token, token inválido/expirado ou **revogado no logout** |
 | 403 | Perfil sem permissão ou fora do escopo (ex.: fiscal em demanda de outra equipe) |
 | 404 | Recurso inexistente |
 | 409 | Conflito de estado (transição inválida, edição fora de PENDENTE/EM_TRIAGEM, vínculo duplicado) |
 | 413 / 415 | Upload grande demais / tipo não permitido |
+| 429 | Limite de requisições excedido (login, IA, upload — Issue #134). Cabeçalho `Retry-After` (segundos) e corpo `problem+json` com `type` `https://semanexus.demo/problemas/limite-requisicoes`, `categoria` (`LOGIN`/`IA`/`UPLOAD`) e `retryAfterSegundos` |
 | 501 | Endpoint do contrato ainda não implementado (somente até a Issue correspondente). Corpo `problem+json` com `type` `https://semanexus.demo/problemas/nao-implementado` e a propriedade `issue` |
 
 A ordem de avaliação é **autenticação (401) → perfil (403) → validação do corpo/parâmetros (400) → regra de negócio (404/409/…)**; os endpoints ainda em `501` respondem 501 apenas depois de passar por 401, 403 e 400.
@@ -129,12 +130,12 @@ Content-Type: application/json
 ```
 > `admin@admin.com` é uma credencial **exclusivamente demonstrativa**, existente apenas nos profiles `demo`/`dev` (senha em [DEMO.md](DEMO.md)).
 
-### Autenticação (Implementado — Issue #4)
+### Autenticação (Implementado — Issue #4; revogação e limite na #134)
 
 | Endpoint | Resposta |
 |---|---|
 | `POST /api/auth/login` `{email, senha}` | `200` `{token, expiresIn, usuario}` · `400` campos inválidos · `401` credenciais inválidas (mensagem genérica, não revela se o e-mail existe) · `403` usuário inativo |
-| `POST /api/auth/logout` | `204`; registra `LOGOUT` na auditoria (o token é descartado no cliente) |
+| `POST /api/auth/logout` | `204`; **revoga o token na hora** (o `jti` vai para `TOKEN_REVOGADO`; qualquer requisição seguinte com o mesmo token, inclusive novo logout, recebe `401`) e registra `LOGOUT` na auditoria. O cliente também descarta o token |
 | `GET /api/auth/me` | `200` `{id, nome, email, perfil}` |
 | `GET /api/auth/config` (público) | `200` `{demo: true\|false, perfisDemo?: [{perfil, nome, descricao}]}` — `demo=true` quando o profile `demo` está ativo (aviso **AMBIENTE DEMONSTRATIVO — DADOS FICTÍCIOS** na tela de login); `perfisDemo` (cartões do Modo demonstração) só aparece com `demo=true` |
 | `POST /api/auth/demo/{perfil}` (público; **somente profile `demo`**, 404 nos demais) | `200` `LoginResponse` do primeiro usuário ativo e demonstrativo (`DEMO=1`) do perfil (ADMIN, GESTOR, FISCAL, ANALISTA, CONSULTA) · `400` perfil inválido · `404` perfil sem usuário ativo. Sem senha; audita `LOGIN` com detalhe "modo demonstração" |
@@ -144,6 +145,23 @@ Content-Type: application/json
 - **401 / 403:** sem token, token inválido/expirado ou usuário inativo → `401`; perfil sem permissão (`@PreAuthorize`) → `403`; ambos em `application/problem+json`.
 - **CORS:** habilitado somente no profile `dev`, para `http://localhost:5173`. No Docker o Web usa proxy (sem CORS).
 - **Auditoria:** `LOGIN` e `LOGOUT` gravam em `AUDITORIA` (sem senha nem token).
+
+### Limite de requisições (Implementado — Issue #134)
+
+Janela fixa em memória (uma instância da API), configurável por variáveis de ambiente (`.env.example`):
+
+| Categoria | Endpoints (só `POST`) | Conta por | Padrão |
+|---|---|---|---|
+| `LOGIN` | `/api/auth/login`, `/api/auth/demo/{perfil}` | IP do cliente | `LIMITE_LOGIN_POR_JANELA=20` |
+| `IA` | `/api/demandas/{id}/triagem/sugestao`, `/api/docia/perguntas`, `/api/docia/comparacao/explicar` | usuário autenticado | `LIMITE_IA_POR_JANELA=10` |
+| `UPLOAD` | `/api/documentos` (multipart) | usuário autenticado | `LIMITE_UPLOAD_POR_JANELA=20` |
+
+Janela: `LIMITE_JANELA_SEGUNDOS=60`; `LIMITE_REQUISICOES_ATIVO=false` desliga. Acima do limite: `429` com `Retry-After` (segundos até a próxima janela). O IP vem do último endereço de `X-Forwarded-For` **só** quando a conexão chega de um proxy configurado em `LIMITE_PROXY_CONFIAVEL` (IPs, CIDR ou nomes de host; no compose, `web` — o Nginx do Web, resolvido pela rede interna a cada 30 s) ou do loopback; vazio = só loopback. De qualquer outra origem o cabeçalho é ignorado e vale o IP da conexão. No compose a porta da API é publicada só em `127.0.0.1`. Memória limitada: no máximo `LIMITE_MAX_CHAVES` (10.000) contadores vivos — as janelas vencidas saem em custo amortizado e, acima do teto, a mais antiga é descartada. Os contadores zeram a cada reinício da API. O `429` aparece no OpenAPI dessas operações.
+
+**Trade-offs conhecidos (revisão da #134):**
+- *Custo da revogação por requisição:* cada requisição autenticada consulta `TOKEN_REVOGADO` pela PK (além da leitura do usuário que já existia), exceto tokens já conhecidos como revogados (cache local). Custo aceito para a demonstração; com muitas instâncias, um cache compartilhado seria o próximo passo.
+- *Cache antes do commit (falha segura):* o `jti` entra no cache local **antes** da gravação no Oracle. Se a gravação falhar, esta instância continua recusando o token até ele expirar, mas outra instância (ou um reinício) o aceitaria — o lado seguro para uma única instância.
+- *Logouts simultâneos do mesmo token:* a gravação roda em transação própria (`MERGE`, `REQUIRES_NEW`); uma colisão na PK conta como "já revogado". As duas respostas são `204` (ou `401` para a que chegar depois da revogação), e a auditoria registra **um** `LOGOUT`.
 
 ## Uso pelo frontend
 

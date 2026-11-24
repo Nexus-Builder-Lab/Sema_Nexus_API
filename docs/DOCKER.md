@@ -91,7 +91,7 @@ A imagem `gvenzl/oracle-free` é publicada também para **ARM64**, e as imagens 
 | Serviço | Imagem / build | Porta no host | Observações |
 |---|---|---|---|
 | `oracle` | `gvenzl/oracle-free:23.26.3-slim-faststart` (tag fixada; mesma imagem do `23-slim-faststart` usado nos testes) | 1521 (`ORACLE_PORT`) | volume `oradata`; healthcheck `healthcheck.sh`; `ORACLE_PASSWORD`, `APP_USER`, `APP_USER_PASSWORD` do `.env` |
-| `api` | build `.` | 8080 (`API_PORT`) | depende de `oracle` saudável; profile `demo`; `jdbc:oracle:thin:@//oracle:1521/FREEPDB1`; volume `uploads`; healthcheck `/actuator/health` |
+| `api` | build `.` | 8080 (`API_PORT`), **só em `127.0.0.1`** (#134) | depende de `oracle` saudável; profile `demo`; `jdbc:oracle:thin:@//oracle:1521/FREEPDB1`; volume `uploads`; healthcheck `/actuator/health` |
 | `web` | build `../Sema_Nexus_Web` | 3000 (`WEB_PORT`; o container escuta 8080) | depende de `api` saudável; Nginx com proxy `/api` → `api:8080` |
 
 Volumes nomeados: `oradata` (`/opt/oracle/oradata`) e `uploads` (`/data/uploads`); o projeto compose se chama `sema-nexus`, então os volumes reais são `sema-nexus_oradata` e `sema-nexus_uploads`. Variáveis obrigatórias (o compose falha com mensagem clara se faltarem): `ORACLE_PASSWORD`, `APP_USER`, `APP_USER_PASSWORD`, `JWT_SECRET`.

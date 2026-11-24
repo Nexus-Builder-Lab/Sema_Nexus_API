@@ -21,6 +21,7 @@ Card "Sugestão de IA"  ──►  endpoint do módulo (ex.: /triagem/sugestao)
 2. O `ExecutorAgente` envia a tarefa ao modelo com as instruções do agente e as ferramentas declaradas.
 3. O modelo pede ferramentas (ex.: "buscar demandas semelhantes"); a API executa o Service correspondente **na thread da requisição**, portanto com o perfil e o escopo do usuário logado, e devolve o resultado.
 4. O laço repete até a resposta final em JSON, até `AGENTES_MAX_ITERACOES` (padrão 6) ou até estourar o **orçamento total** da execução (`AGENTES_ORCAMENTO_SEGUNDOS`, padrão 150 s, e `AGENTES_MAX_CHAMADAS_FERRAMENTA`, padrão 8). Estourado o limite, a execução vira `AGENTE_FALHA` e a tela usa o modo demonstrativo identificado.
+   Cada chamada ao modelo passa pela **fila da GPU** (Issue #134, `FilaGpu`): `Semaphore` justo (ordem de chegada) com `AGENTES_GPU_CONCORRENCIA` vagas (padrão 1). Quem espera mais que `AGENTES_GPU_ESPERA_SEGUNDOS` (padrão 20 s, nunca além do orçamento restante) desiste com `AGENTE_FALHA` ("GPU ocupada") e a tela usa o modo demonstrativo identificado — os pedidos não se empilham na GPU. Os endpoints de IA também têm limite por usuário (`LIMITE_IA_POR_JANELA`, `429` com `Retry-After`; ver `docs/API.md`).
 5. A tela mostra a sugestão, o modelo e as ferramentas usadas. **Nada é gravado pelo agente**: aplicar a sugestão usa o endpoint normal do módulo, com confirmação humana.
 
 ## Provedores
@@ -117,6 +118,8 @@ A GPU chega a ~99% **durante** a geração (alguns segundos) — é o esperado: 
 | `AGENTES_MAX_ITERACOES` | `6` | Máximo de idas e voltas com ferramentas (1–10). |
 | `AGENTES_ORCAMENTO_SEGUNDOS` | `150` | Orçamento total de tempo de uma execução (1–600). Conferido antes de cada chamada ao modelo; pior caso = orçamento + 1 timeout. |
 | `AGENTES_MAX_CHAMADAS_FERRAMENTA` | `8` | Máximo de chamadas de ferramenta somadas na execução (1–30). |
+| `AGENTES_GPU_CONCORRENCIA` | `1` | Chamadas simultâneas ao modelo na fila da GPU (1–16; Issue #134). |
+| `AGENTES_GPU_ESPERA_SEGUNDOS` | `20` | Espera máxima por vaga na fila (1–120 s); esgotada, modo demonstrativo identificado. |
 
 `GET /api/agentes/status` informa o modo efetivo (`LOCAL`, `CLAUDE` ou `DEMONSTRATIVO`) e o modelo de cada agente — nunca chaves.
 

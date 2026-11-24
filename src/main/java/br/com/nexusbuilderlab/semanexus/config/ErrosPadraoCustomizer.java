@@ -1,6 +1,8 @@
 package br.com.nexusbuilderlab.semanexus.config;
 
 import br.com.nexusbuilderlab.semanexus.common.openapi.ContratoPendente;
+import br.com.nexusbuilderlab.semanexus.security.LimiteRequisicoesFilter;
+import io.swagger.v3.oas.models.headers.Header;
 import io.swagger.v3.oas.models.Operation;
 import io.swagger.v3.oas.models.media.Content;
 import io.swagger.v3.oas.models.media.MediaType;
@@ -33,7 +35,8 @@ import org.springframework.web.method.HandlerMethod;
  *   <li>401 em tudo que exige token; 403 quando há {@code @PreAuthorize};</li>
  *   <li>400 quando a operação recebe corpo, parâmetros ou paginação; 404 com {@code @PathVariable};</li>
  *   <li>409 em operações que alteram recurso identificado por caminho (transição inválida, vínculo duplicado);</li>
- *   <li>413 e 415 em uploads multipart; 501 em {@link ContratoPendente}.</li>
+ *   <li>413 e 415 em uploads multipart; 501 em {@link ContratoPendente};</li>
+ *   <li>429 (com {@code Retry-After}) nos endpoints com limite de requisições (login, IA e upload — Issue #134).</li>
  * </ul>
  *
  * Respostas já declaradas explicitamente com {@code @ApiResponse} mantêm a descrição e passam a usar o schema de erro.
@@ -100,6 +103,14 @@ public class ErrosPadraoCustomizer {
             padrao(respostas, HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Tipo de arquivo não permitido ou conteúdo incompatível com a extensão.");
         }
 
+        if (mapeamento != null && comLimiteDeRequisicoes(handler, mapeamento)) {
+            padrao(respostas, HttpStatus.TOO_MANY_REQUESTS,
+                    "Limite de requisições excedido; aguarde os segundos do cabeçalho `Retry-After`.");
+            respostas.get("429").addHeaderObject("Retry-After", new Header()
+                    .description("Segundos até a próxima janela do limite.")
+                    .schema(new Schema<Integer>().type("integer")));
+        }
+
         ContratoPendente pendente = AnnotatedElementUtils.findMergedAnnotation(metodo, ContratoPendente.class);
         if (pendente == null) {
             pendente = AnnotatedElementUtils.findMergedAnnotation(handler.getBeanType(), ContratoPendente.class);
@@ -123,6 +134,24 @@ public class ErrosPadraoCustomizer {
             }
         });
         return operation;
+    }
+
+    /** Mesma regra do {@link LimiteRequisicoesFilter}, aplicada aos caminhos declarados no controller. */
+    private static boolean comLimiteDeRequisicoes(HandlerMethod handler, RequestMapping mapeamento) {
+        if (mapeamento.method().length == 0 || mapeamento.method()[0] != RequestMethod.POST) {
+            return false;
+        }
+        RequestMapping daClasse = AnnotatedElementUtils.findMergedAnnotation(handler.getBeanType(), RequestMapping.class);
+        String[] bases = daClasse == null || daClasse.path().length == 0 ? new String[] {""} : daClasse.path();
+        String[] caminhos = mapeamento.path().length == 0 ? new String[] {""} : mapeamento.path();
+        for (String base : bases) {
+            for (String caminho : caminhos) {
+                if (LimiteRequisicoesFilter.categoria("POST", base + caminho) != null) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private static Content conteudoProblema() {
