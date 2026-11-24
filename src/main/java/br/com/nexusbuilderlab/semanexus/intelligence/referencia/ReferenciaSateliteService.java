@@ -33,6 +33,12 @@ public class ReferenciaSateliteService {
         this.repository = repository;
     }
 
+    /** Pontos do tipo na caixa envolvente (pré-filtro espacial; refinamento por distância é do chamador). */
+    public java.util.List<ReferenciaSateliteRepository.PontoEspacial> naCaixa(TipoReferencia tipo, double latMin,
+            double latMax, double lonMin, double lonMax, boolean comGeometria, int limite) {
+        return repository.naCaixa(tipo, latMin, latMax, lonMin, lonMax, comGeometria, limite);
+    }
+
     public Metadados metadados() {
         List<Importacao> imp = repository.importacoes();
         return new Metadados(ReferenciaDto.FONTE, false, atualizadoEm(imp), ReferenciaDto.AVISO, imp);

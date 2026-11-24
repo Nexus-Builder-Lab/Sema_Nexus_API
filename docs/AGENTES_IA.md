@@ -38,7 +38,7 @@ Em qualquer falha (Ollama parado, modelo não baixado, erro, resposta inválida)
 
 | Agente | Módulo | Ferramentas | Issue |
 |---|---|---|---|
-| Agente de Triagem | SEMA Flux | `obter_demanda`, `buscar_demandas_semelhantes`, `alertas_inpe_municipio` | #107 (implementado) |
+| Agente de Triagem | SEMA Flux | `obter_demanda`, `buscar_demandas_semelhantes`, `alertas_inpe_municipio`, `alertas_inpe_raio_coordenada`, `demandas_proximas_coordenada`, `documentos_mesma_localidade` | #107, #132 (implementados) |
 | Assistente DocIA | SEMA DocIA | `buscar_documentos`, `ler_documento` | #108 (implementado) |
 
 ## Preparar a IA local (uma vez)
@@ -152,3 +152,10 @@ A busca da biblioteca é **textual** (sem embeddings). Cada documento recebe pon
 - Sem placa NVIDIA o modelo roda só no processador (perfil `ia-cpu`): estimativa de 30–90 s por triagem e 1–3 min por pergunta, com o processador a 100% — para uso real, a IA deve ficar num servidor com GPU (os usuários só usam o navegador).
 - Uso real por um órgão público: o modelo local é uma boa base (dados não saem da rede); com provedor externo, exige contrato, análise de LGPD e governança de IA.
 - Futuro (P2): Agente de Prazos (agendado), Analista Ambiental (Intelligence) e Assistente SEMA ALERTA (multiagente).
+
+### Ferramentas geoespaciais do Agente de Triagem (Issue #132, Implementado)
+Somente leitura, com o perfil/escopo do usuário, parâmetros explícitos (`numero`, `raio_km`; raio padrão 10 km, máximo 50):
+- `alertas_inpe_raio_coordenada`: focos de calor num raio (pré-filtro por caixa no SQL + Haversine em Java), alertas DETER cujo polígono toca o raio (distância ponto→polígono em Java; `dentroDePoligonoDeter`, `menorDistanciaDeterKm`) a partir da coordenada ou do centroide de `areaGeometria`; sem ambos, devolve os totais do município (fallback).
+- `demandas_proximas_coordenada`: demandas não finalizadas no raio, da mais próxima à mais distante, **sem restringir por município** (duplicatas na divisa), respeitando o escopo do FISCAL; sem coordenada lista as do município.
+- `documentos_mesma_localidade`: documentos ativos do DocIA que citam a localidade (no município), vinculados a demandas próximas ou do mesmo município (documentos não têm coordenada própria).
+A resposta da sugestão traz `espacial` (referência COORDENADA/AREA/MUNICIPIO, raio, contagens INPE, demandas próximas com `distanciaKm`, documentos relacionados) calculada pela API com raio padrão, independentemente do que o modelo chamar. No modo demonstrativo, com coordenadas, as duplicatas e a prioridade usam a proximidade (limiar de 5 focos/alertas no raio) e a evidência "Proximidade espacial" identifica isso.

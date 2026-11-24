@@ -3,6 +3,8 @@ package br.com.nexusbuilderlab.semanexus.flux.agente;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyDouble;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -101,7 +103,8 @@ class AgenteTriagemServiceTest {
                 resumo(10L, "DEM-2026/0010", CategoriaFiscalizacao.RESIDUOS_POLUICAO, StatusDemanda.FINALIZADA)),
                 0, 9, 3, 1));
         return new AgenteTriagemService(demandas, municipios, referencia,
-                new ExecutorAgente(modelo, config, auditoria, json), config);
+                new ExecutorAgente(modelo, config, auditoria, json), config,
+                new AnaliseEspacial(demandas, referencia, mock(org.springframework.jdbc.core.JdbcTemplate.class)));
     }
 
     private ClienteModelo.RespostaModelo ferramenta(String nome, String args) throws Exception {
@@ -164,6 +167,56 @@ class AgenteTriagemServiceTest {
         assertThat(s.categoria()).isEqualTo(CategoriaFiscalizacao.RESIDUOS_POLUICAO);
         assertThat(s.duplicatas()).extracting(SugestaoTriagem.Duplicata::numero).containsExactly("DEM-2026/0009");
         verify(auditoria).registrar(eq("AGENTE_DEMONSTRATIVO"), eq("AGENTE"), eq("triagem:4"), anyString());
+    }
+
+    private static DemandaDetalhe comCoordenada() {
+        DemandaDetalhe b = demanda(StatusDemanda.PENDENTE);
+        return new DemandaDetalhe(b.id(), b.numero(), b.titulo(), b.descricao(), b.origem(), null, b.municipio(), null,
+                java.math.BigDecimal.valueOf(-11.86), java.math.BigDecimal.valueOf(-55.5), null, null, b.dataRecebimento(),
+                null, null, null, b.status(), false, null, null, null, null, null, null, null, 0, null, null, null);
+    }
+
+    @Test
+    void modoDemonstrativoUsaProximidadeEspacialQuandoHaCoordenadas() {
+        when(demandas.detalhar(ator, 4L)).thenReturn(comCoordenada());
+        when(demandas.proximas(eq(ator), anyDouble(), anyDouble(), eq(10.0), eq(4L), anyInt())).thenReturn(List.of(
+                new br.com.nexusbuilderlab.semanexus.flux.demanda.dto.DemandaProxima(
+                        resumo(21L, "DEM-2026/0021", null, StatusDemanda.PENDENTE), 4.2)));
+        ModeloRoteiro modelo = new ModeloRoteiro();
+        modelo.disponivel = false;
+
+        SugestaoTriagem s = service(modelo).sugerir(ator, 4L);
+
+        assertThat(s.modo()).isEqualTo("DEMONSTRATIVO");
+        assertThat(s.espacial().referencia()).isEqualTo("COORDENADA");
+        assertThat(s.espacial().raioKm()).isEqualTo(10);
+        assertThat(s.espacial().demandasProximas()).extracting(SugestaoTriagem.Proxima::distanciaKm).containsExactly(4.2);
+        assertThat(s.duplicatas()).extracting(SugestaoTriagem.Duplicata::numero).containsExactly("DEM-2026/0021");
+        assertThat(s.duplicatas().get(0).distanciaKm()).isEqualTo(4.2);
+        assertThat(s.evidencias()).anyMatch(e -> e.contains("Proximidade espacial") && e.contains("10 km"));
+    }
+
+    @Test
+    void agenteChamaAsFerramentasGeoespaciais() throws Exception {
+        when(demandas.detalhar(ator, 4L)).thenReturn(comCoordenada());
+        when(demandas.proximas(eq(ator), anyDouble(), anyDouble(), eq(5.0), eq(4L), anyInt())).thenReturn(List.of(
+                new br.com.nexusbuilderlab.semanexus.flux.demanda.dto.DemandaProxima(
+                        resumo(9L, "DEM-2026/0009", CategoriaFiscalizacao.RESIDUOS_POLUICAO, StatusDemanda.PENDENTE), 1.5)));
+        ModeloRoteiro modelo = new ModeloRoteiro();
+        modelo.respostas.add(ferramenta("alertas_inpe_raio_coordenada", "{\"numero\":\"DEM-2026/0004\",\"raio_km\":5}"));
+        modelo.respostas.add(ferramenta("demandas_proximas_coordenada", "{\"numero\":\"DEM-2026/0004\",\"raio_km\":5}"));
+        modelo.respostas.add(ferramenta("documentos_mesma_localidade", "{\"numero\":\"DEM-2026/0004\"}"));
+        modelo.respostas.add(new ClienteModelo.RespostaModelo("stop", List.of(),
+                "{\"decisao\":\"CLASSIFICAR\",\"categoria\":\"RESIDUOS_POLUICAO\",\"prioridade\":\"MEDIA\","
+                        + "\"justificativa\":\"Descarte de resíduos relatado.\",\"duplicatas\":[\"DEM-2026/0009\"]}",
+                null, 50, 30, 0));
+
+        SugestaoTriagem s = service(modelo).sugerir(ator, 4L);
+
+        assertThat(s.modo()).isEqualTo("LOCAL");
+        assertThat(s.duplicatas()).extracting(SugestaoTriagem.Duplicata::numero).containsExactly("DEM-2026/0009");
+        assertThat(s.avisos()).isEmpty();
+        verify(demandas).proximas(eq(ator), anyDouble(), anyDouble(), eq(5.0), eq(4L), anyInt());
     }
 
     @Test

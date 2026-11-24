@@ -114,6 +114,25 @@ public class ReferenciaSateliteRepository {
                 id).stream().findFirst();
     }
 
+    /** Registro espacial leve (centroide e, para DETER, o polígono GeoJSON em texto). */
+    public record PontoEspacial(long id, double latitude, double longitude, java.math.BigDecimal areaKm2,
+                                String geometria) {
+    }
+
+    /**
+     * Pontos do tipo cujo centroide está na caixa envolvente (pré-filtro; o refinamento é feito em Java).
+     * {@code comGeometria} só para DETER. No máximo {@code limite} linhas.
+     */
+    public List<PontoEspacial> naCaixa(TipoReferencia tipo, double latMin, double latMax, double lonMin,
+                                       double lonMax, boolean comGeometria, int limite) {
+        return jdbc.query("SELECT ID, LATITUDE, LONGITUDE, AREA_KM2" + (comGeometria ? ", GEOMETRIA" : "")
+                        + " FROM REFERENCIA_SATELITE WHERE TIPO = ? AND LATITUDE BETWEEN ? AND ? "
+                        + "AND LONGITUDE BETWEEN ? AND ? FETCH FIRST ? ROWS ONLY",
+                (rs, i) -> new PontoEspacial(rs.getLong("ID"), rs.getDouble("LATITUDE"), rs.getDouble("LONGITUDE"),
+                        rs.getBigDecimal("AREA_KM2"), comGeometria ? rs.getString("GEOMETRIA") : null),
+                tipo.name(), latMin, latMax, lonMin, lonMax, limite);
+    }
+
     private static Ponto ponto(ResultSet rs) throws SQLException {
         BigDecimal areaKm2 = rs.getBigDecimal("AREA_KM2");
         return new Ponto(rs.getLong("ID"), rs.getString("TIPO"), rs.getTimestamp("DATA_HORA").toLocalDateTime(),
