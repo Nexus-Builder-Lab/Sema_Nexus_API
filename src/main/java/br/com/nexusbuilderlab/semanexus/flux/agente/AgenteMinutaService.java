@@ -105,12 +105,13 @@ public class AgenteMinutaService {
     private static final Pattern NUMERO = Pattern.compile("\\d{1,3}(?:\\.\\d{3})+(?:,\\d+)?|\\d+(?:[.,]\\d+)?");
     /**
      * Conteúdo fora do escopo de uma minuta demonstrativa (sanção, valor em dinheiro, juízo de culpa, ordem vinda do
-     * texto de terceiros): se aparecer no texto do modelo, a minuta usa o template. Números de um relato malicioso
-     * passariam pela conferência de números (estão nos dados), por isso esta segunda barreira.
+     * texto de terceiros): se aparecer no texto do modelo, a minuta usa o template. Segunda barreira, além da
+     * conferência de números. "Auto de infração" é sempre barrado, mesmo que conste no histórico: a minuta é
+     * demonstrativa e não sugere autuação (decisão do servidor).
      */
-    static final Pattern FORA_DO_ESCOPO = Pattern.compile("(?iu)\\bmultas?\\b|R\\$|\\bculpad[oa]s?\\b"
-            + "|\\bauto de infra|\\bautuad[oa]s?\\b|\\bcondena|\\bignore\\b|\\binstru[cç][oõ]es\\b"
-            + "|\\bMINUTA APROVADA\\b");
+    static final Pattern FORA_DO_ESCOPO = Pattern.compile("(?iu)\\bmultas?\\b|R\\$|\\breais\\b|\\bculpad[oa]s?\\b"
+            + "|\\bauto de infra|\\bautuad[oa]s?\\b|\\bcondena|\\bsan[cç](ão|ões|oes|ao)\\b|\\bpenalidades?\\b"
+            + "|\\bembargos?\\b|\\bembargad[oa]s?\\b|\\bresponsabiliz|\\bignore\\b|\\bMINUTA APROVADA\\b");
     private static final Pattern MARCADOR_LISTA = Pattern.compile("(?m)^\\s*\\d{1,2}[.)]\\s");
 
     private final DemandaService demandas;
@@ -361,7 +362,7 @@ public class AgenteMinutaService {
 
     /** Remove HTML, títulos Markdown, links, URLs e controles; limita o tamanho. */
     static String limpar(String s) {
-        String t = s == null ? "" : s.replaceAll("<[^>]*>", " ")
+        String t = s == null ? "" : s.replaceAll("`{3,}[A-Za-z]*", " ").replaceAll("<[^>]*>", " ")
                 .replaceAll("\\[([^\\]]*)\\]\\([^)]*\\)", "$1")
                 .replaceAll("(?i)(https?://|www\\.)\\S+", " ")
                 .replace(INICIO_DADO, " ").replace(FIM_DADO, " ")
@@ -400,7 +401,11 @@ public class AgenteMinutaService {
         if (n.isNumber()) {
             permitidos.add(n.asDouble());
         } else if (n.isTextual()) {
-            coletarTexto(n.asText(), permitidos);
+            // Só campos estruturados (datas, número da demanda, prazos). Texto livre de terceiros (relato, histórico,
+            // fiscalização, documentos) passa sempre por dado() e não autoriza números: poderia ter sido plantado.
+            if (!n.asText().startsWith(INICIO_DADO)) {
+                coletarTexto(n.asText(), permitidos);
+            }
         } else if (n.isContainerNode()) {
             n.forEach(x -> coletar(x, permitidos));
         }
@@ -585,8 +590,11 @@ public class AgenteMinutaService {
             return null;
         }
         String t = s.replace(INICIO_DADO, " ").replace(FIM_DADO, " ")
+                .replaceAll("(?i)(https?://|www\\.)\\S+", " link removido ")
                 .replaceAll("[\\p{Cntrl}<>`#*_|]", " ").replaceAll("\\s+", " ").strip();
-        return t.length() > max ? t.substring(0, max).strip() + "…" : t;
+        t = t.length() > max ? t.substring(0, max).strip() + "…" : t;
+        // Links e imagens Markdown viram texto literal: [ ] ( ) ! escapados.
+        return t.replaceAll("([\\[\\]()!])", "\\\\$1");
     }
 
     private static String rotulo(String s) {
