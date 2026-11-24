@@ -155,7 +155,12 @@ Janela fixa em memória (uma instância da API), configurável por variáveis de
 | `IA` | `/api/demandas/{id}/triagem/sugestao`, `/api/docia/perguntas` | usuário autenticado | `LIMITE_IA_POR_JANELA=10` |
 | `UPLOAD` | `/api/documentos` (multipart) | usuário autenticado | `LIMITE_UPLOAD_POR_JANELA=20` |
 
-Janela: `LIMITE_JANELA_SEGUNDOS=60`; `LIMITE_REQUISICOES_ATIVO=false` desliga. Acima do limite: `429` com `Retry-After` (segundos até a próxima janela). O IP vem do último endereço de `X-Forwarded-For` **só** quando a conexão chega de endereço privado/local (o Nginx do Web); de fora, vale o IP da conexão. Os contadores zeram a cada reinício da API. O `429` aparece no OpenAPI dessas operações.
+Janela: `LIMITE_JANELA_SEGUNDOS=60`; `LIMITE_REQUISICOES_ATIVO=false` desliga. Acima do limite: `429` com `Retry-After` (segundos até a próxima janela). O IP vem do último endereço de `X-Forwarded-For` **só** quando a conexão chega de um proxy configurado em `LIMITE_PROXY_CONFIAVEL` (IPs, CIDR ou nomes de host; no compose, `web` — o Nginx do Web, resolvido pela rede interna a cada 30 s) ou do loopback; vazio = só loopback. De qualquer outra origem o cabeçalho é ignorado e vale o IP da conexão. No compose a porta da API é publicada só em `127.0.0.1`. Memória limitada: no máximo `LIMITE_MAX_CHAVES` (10.000) contadores vivos — as janelas vencidas saem em custo amortizado e, acima do teto, a mais antiga é descartada. Os contadores zeram a cada reinício da API. O `429` aparece no OpenAPI dessas operações.
+
+**Trade-offs conhecidos (revisão da #134):**
+- *Custo da revogação por requisição:* cada requisição autenticada consulta `TOKEN_REVOGADO` pela PK (além da leitura do usuário que já existia), exceto tokens já conhecidos como revogados (cache local). Custo aceito para a demonstração; com muitas instâncias, um cache compartilhado seria o próximo passo.
+- *Cache antes do commit (falha segura):* o `jti` entra no cache local **antes** da gravação no Oracle. Se a gravação falhar, esta instância continua recusando o token até ele expirar, mas outra instância (ou um reinício) o aceitaria — o lado seguro para uma única instância.
+- *Logouts simultâneos do mesmo token:* a gravação roda em transação própria (`MERGE`, `REQUIRES_NEW`); uma colisão na PK conta como "já revogado". As duas respostas são `204` (ou `401` para a que chegar depois da revogação), e a auditoria registra **um** `LOGOUT`.
 
 ## Uso pelo frontend
 

@@ -15,61 +15,69 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 
-/** Revogação de JWT no logout (Issue #134): gravação idempotente, consulta com cache e limpeza dos expirados. */
+/** Revogação de JWT no logout (Issue #134): gravação idempotente, colisão concorrente, cache e limpeza. */
 @ExtendWith(MockitoExtension.class)
 class RevogacaoTokenServiceTest {
 
     static final Instant AGORA = Instant.parse("2026-11-24T12:00:00Z");
     static final Instant EXPIRA = AGORA.plusSeconds(3600);
+    static final LocalDateTime EXPIRA_UTC = LocalDateTime.ofInstant(EXPIRA, ZoneOffset.UTC);
+    static final LocalDateTime AGORA_UTC = LocalDateTime.ofInstant(AGORA, ZoneOffset.UTC);
 
     @Mock
     TokenRevogadoRepository repositorio;
+    @Mock
+    GravadorTokenRevogado gravador;
 
     RevogacaoTokenService servico;
 
     @BeforeEach
     void setUp() {
-        servico = new RevogacaoTokenService(repositorio, Clock.fixed(AGORA, ZoneOffset.UTC));
+        servico = new RevogacaoTokenService(repositorio, gravador, Clock.fixed(AGORA, ZoneOffset.UTC));
     }
 
     @Test
     void revogarGravaJtiComExpiracaoEPassaAValerNaHora() {
-        when(repositorio.existsById("jti-1")).thenReturn(false);
+        when(gravador.gravar("jti-1", 5L, EXPIRA_UTC, AGORA_UTC)).thenReturn(true);
 
-        servico.revogar("jti-1", 5L, EXPIRA);
+        assertThat(servico.revogar("jti-1", 5L, EXPIRA)).isTrue();
 
-        ArgumentCaptor<TokenRevogado> gravado = ArgumentCaptor.forClass(TokenRevogado.class);
-        verify(repositorio).saveAndFlush(gravado.capture());
-        assertThat(gravado.getValue().getJti()).isEqualTo("jti-1");
-        assertThat(gravado.getValue().getUsuarioId()).isEqualTo(5L);
-        assertThat(gravado.getValue().getExpiraEm()).isEqualTo(LocalDateTime.ofInstant(EXPIRA, ZoneOffset.UTC));
         // Cache local: não consulta o banco para um revogado já conhecido.
         assertThat(servico.revogado("jti-1")).isTrue();
         verify(repositorio, never()).findById("jti-1");
     }
 
     @Test
-    void revogarDeNovoOuEmParaleloNaoFalha() {
-        when(repositorio.existsById("jti-2")).thenReturn(true);
-        servico.revogar("jti-2", 5L, EXPIRA);
-        verify(repositorio, never()).saveAndFlush(any());
+    void revogarDeNovoDevolveFalseSemFalhar() {
+        when(gravador.gravar("jti-2", 5L, EXPIRA_UTC, AGORA_UTC)).thenReturn(false);
 
-        when(repositorio.existsById("jti-3")).thenReturn(false);
-        when(repositorio.saveAndFlush(any())).thenThrow(new DataIntegrityViolationException("PK"));
-        servico.revogar("jti-3", 5L, EXPIRA);
+        assertThat(servico.revogar("jti-2", 5L, EXPIRA)).isFalse();
+        assertThat(servico.revogado("jti-2")).isTrue();
+    }
+
+    @Test
+    void colisaoConcorrenteNaPkContaComoJaRevogadoSemPropagarErro() {
+        when(gravador.gravar(any(), any(), any(), any())).thenThrow(new DataIntegrityViolationException("ORA-00001"));
+
+        assertThat(servico.revogar("jti-3", 5L, EXPIRA)).isFalse();
         assertThat(servico.revogado("jti-3")).isTrue();
+    }
+
+    @Test
+    void semDadosDoTokenNaoGrava() {
+        assertThat(servico.revogar(null, 5L, EXPIRA)).isFalse();
+        assertThat(servico.revogar("jti", 5L, null)).isFalse();
+        verify(gravador, never()).gravar(any(), any(), any(), any());
     }
 
     @Test
     void consultaOBancoParaTokenDesconhecido() {
         when(repositorio.findById("de-outra-instancia")).thenReturn(Optional.of(
-                new TokenRevogado("de-outra-instancia", 1L, LocalDateTime.ofInstant(EXPIRA, ZoneOffset.UTC),
-                        LocalDateTime.ofInstant(AGORA, ZoneOffset.UTC))));
+                new TokenRevogado("de-outra-instancia", 1L, EXPIRA_UTC, AGORA_UTC)));
         when(repositorio.findById("valido")).thenReturn(Optional.empty());
 
         assertThat(servico.revogado("de-outra-instancia")).isTrue();
@@ -86,7 +94,7 @@ class RevogacaoTokenServiceTest {
 
     @Test
     void limpezaRemoveExpiradosPelaDataAtual() {
-        when(repositorio.removerExpirados(LocalDateTime.ofInstant(AGORA, ZoneOffset.UTC))).thenReturn(3);
+        when(repositorio.removerExpirados(AGORA_UTC)).thenReturn(3);
 
         assertThat(servico.limparExpirados()).isEqualTo(3);
     }

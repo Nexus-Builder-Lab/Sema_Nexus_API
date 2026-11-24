@@ -27,12 +27,14 @@ public class RevogacaoTokenService {
     static final int LIMITE_CACHE = 10_000;
 
     private final TokenRevogadoRepository repositorio;
+    private final GravadorTokenRevogado gravador;
     private final Clock clock;
     /** jti → expiração dos tokens sabidamente revogados. */
     private final Map<String, Instant> revogadosConhecidos = new ConcurrentHashMap<>();
 
-    public RevogacaoTokenService(TokenRevogadoRepository repositorio, Clock clock) {
+    RevogacaoTokenService(TokenRevogadoRepository repositorio, GravadorTokenRevogado gravador, Clock clock) {
         this.repositorio = repositorio;
+        this.gravador = gravador;
         this.clock = clock;
     }
 
@@ -53,22 +55,25 @@ public class RevogacaoTokenService {
                 .orElse(false);
     }
 
-    /** Revoga o token na hora. Idempotente: revogar de novo (ou em paralelo) não falha. */
-    @Transactional
-    public void revogar(String jti, Long usuarioId, Instant expiraEm) {
+    /**
+     * Revoga o token na hora. Idempotente e seguro sob concorrência: a gravação roda em transação própria (MERGE) e uma
+     * colisão na PK conta como "já revogado", sem afetar a transação de quem chama.
+     *
+     * @return true quando esta chamada revogou o token; false quando ele já estava revogado (ou sem dados do token)
+     */
+    public boolean revogar(String jti, Long usuarioId, Instant expiraEm) {
         if (jti == null || jti.isBlank() || expiraEm == null) {
-            return;
+            return false;
         }
+        // Lembrado antes da gravação de propósito (falha segura): se a gravação falhar, esta instância continua
+        // recusando o token até ele expirar.
         lembrar(jti, expiraEm);
-        if (repositorio.existsById(jti)) {
-            return;
-        }
         try {
-            repositorio.saveAndFlush(new TokenRevogado(jti, usuarioId, LocalDateTime.ofInstant(expiraEm, ZoneOffset.UTC),
-                    LocalDateTime.now(clock)));
+            return gravador.gravar(jti, usuarioId, LocalDateTime.ofInstant(expiraEm, ZoneOffset.UTC),
+                    LocalDateTime.now(clock));
         } catch (DataIntegrityViolationException e) {
-            // Outra requisição revogou o mesmo token ao mesmo tempo: o resultado é o mesmo.
             LOG.debug("Token já revogado por requisição concorrente.");
+            return false;
         }
     }
 

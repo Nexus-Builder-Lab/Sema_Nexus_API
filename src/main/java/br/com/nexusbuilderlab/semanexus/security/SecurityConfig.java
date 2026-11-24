@@ -67,6 +67,7 @@ public class SecurityConfig {
             // fatias de teste web (@WebMvcTest), que não carregam banco nem estas configurações.
             ObjectProvider<RevogacaoTokenService> revogacao,
             ObjectProvider<LimitadorRequisicoes> limitador,
+            ObjectProvider<ProxiesConfiaveis> proxies,
             // O Spring MVC também expõe um CorsConfigurationSource (introspector): pegar só o do profile dev, pelo nome.
             @Qualifier("corsConfigurationSource") ObjectProvider<CorsConfigurationSource> cors) throws Exception {
         ProblemDetailSecurityHandlers problemas = new ProblemDetailSecurityHandlers(mapper);
@@ -90,7 +91,8 @@ public class SecurityConfig {
                         .accessDeniedHandler(problemas));
         LimitadorRequisicoes limites = limitador.getIfAvailable();
         if (limites != null) {
-            http.addFilterAfter(new LimiteRequisicoesFilter(limites, mapper), JwtAuthFilter.class);
+            http.addFilterAfter(new LimiteRequisicoesFilter(limites,
+                    proxies.getIfAvailable(ProxiesConfiaveis::somenteLoopback), mapper), JwtAuthFilter.class);
         }
         if (fonteCors != null) {
             http.cors(c -> c.configurationSource(fonteCors));

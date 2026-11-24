@@ -45,7 +45,18 @@ public class FilaGpu {
      * @throws AgenteIndisponivelException fila cheia além do tempo de espera ou espera interrompida
      */
     public <T> T executar(Duration esperaMaxima, Supplier<T> chamada) {
-        long esperaMs = Math.max(0, Math.min(espera.toMillis(), esperaMaxima.toMillis()));
+        return executarComEspera(Math.max(0, Math.min(espera.toMillis(), esperaMaxima.toMillis())), chamada);
+    }
+
+    /**
+     * Como {@link #executar}, mas espera até {@code espera} mesmo além do timeout da fila — para tarefas de fundo, como o
+     * aquecimento do modelo ao iniciar, que não têm usuário esperando.
+     */
+    public <T> T executarAguardando(Duration espera, Supplier<T> chamada) {
+        return executarComEspera(Math.max(0, espera.toMillis()), chamada);
+    }
+
+    private <T> T executarComEspera(long esperaMs, Supplier<T> chamada) {
         boolean obteve;
         try {
             obteve = semaforo.tryAcquire(esperaMs, TimeUnit.MILLISECONDS);

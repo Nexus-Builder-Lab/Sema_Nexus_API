@@ -113,6 +113,43 @@ class AuthOracleTest {
     }
 
     @Test
+    void logoutsSimultaneosDoMesmoTokenNaoFalhamEAuditamUmaVez() throws Exception {
+        Usuario u = criar("logout.duplo@exemplo.test", true);
+        String json = mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+                        .content(corpo("logout.duplo@exemplo.test", SENHA)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        String bearer = "Bearer " + mapper.readTree(json).get("token").asText();
+
+        java.util.concurrent.ExecutorService threads = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            java.util.concurrent.CountDownLatch largada = new java.util.concurrent.CountDownLatch(1);
+            java.util.concurrent.Callable<Integer> logout = () -> {
+                largada.await();
+                return mvc.perform(post("/api/auth/logout").header(HttpHeaders.AUTHORIZATION, bearer))
+                        .andReturn().getResponse().getStatus();
+            };
+            var a = threads.submit(logout);
+            var b = threads.submit(logout);
+            largada.countDown();
+            // Corrida: os dois passam pelo filtro (204) ou o segundo já vê o token revogado (401); nunca 500.
+            java.util.List<Integer> status = java.util.List.of(a.get(60, java.util.concurrent.TimeUnit.SECONDS),
+                    b.get(60, java.util.concurrent.TimeUnit.SECONDS));
+            assertThat(status).allMatch(s -> s == 204 || s == 401).contains(204);
+        } finally {
+            threads.shutdownNow();
+        }
+
+        Integer logouts = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM AUDITORIA WHERE USUARIO_ID = ? AND ACAO = 'LOGOUT'", Integer.class, u.getId());
+        Integer revogados = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM TOKEN_REVOGADO WHERE USUARIO_ID = ?", Integer.class, u.getId());
+        assertThat(logouts).isEqualTo(1);
+        assertThat(revogados).isEqualTo(1);
+        mvc.perform(get("/api/auth/me").header(HttpHeaders.AUTHORIZATION, bearer))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void senhaErradaOuEmailInexistenteRetornam401ComMesmaMensagem() throws Exception {
         criar("outro.teste@exemplo.test", true);
 

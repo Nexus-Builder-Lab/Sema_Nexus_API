@@ -8,9 +8,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.net.InetAddress;
 import java.net.URI;
-import java.net.UnknownHostException;
 import java.util.regex.Pattern;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -32,13 +30,14 @@ public class LimiteRequisicoesFilter extends OncePerRequestFilter {
     private static final Pattern LOGIN = Pattern.compile("^/api/auth/(login|demo/[^/]+)/?$");
     private static final Pattern IA = Pattern.compile("^/api/(demandas/[^/]+/triagem/sugestao|docia/perguntas)/?$");
     private static final Pattern UPLOAD = Pattern.compile("^/api/documentos/?$");
-    private static final Pattern IP_LITERAL = Pattern.compile("^[0-9A-Fa-f:.]{2,45}$");
 
     private final LimitadorRequisicoes limitador;
+    private final ProxiesConfiaveis proxies;
     private final ObjectMapper mapper;
 
-    public LimiteRequisicoesFilter(LimitadorRequisicoes limitador, ObjectMapper mapper) {
+    public LimiteRequisicoesFilter(LimitadorRequisicoes limitador, ProxiesConfiaveis proxies, ObjectMapper mapper) {
         this.limitador = limitador;
+        this.proxies = proxies;
         this.mapper = mapper;
     }
 
@@ -67,7 +66,7 @@ public class LimiteRequisicoesFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         Categoria categoria = limitador.ativo() ? categoria(request.getMethod(), caminho(request)) : null;
         if (categoria != null) {
-            Decisao decisao = limitador.consumir(categoria, chave(categoria, request));
+            Decisao decisao = limitador.consumir(categoria, chave(categoria, request, proxies));
             if (!decisao.permitido()) {
                 recusar(request, response, categoria, decisao.retryAfterSegundos());
                 return;
@@ -84,44 +83,32 @@ public class LimiteRequisicoesFilter extends OncePerRequestFilter {
     }
 
     /** Login sempre por IP (não há usuário); IA e upload por usuário autenticado (ou IP, sem token). */
-    private static String chave(Categoria categoria, HttpServletRequest request) {
+    private static String chave(Categoria categoria, HttpServletRequest request, ProxiesConfiaveis proxies) {
         if (categoria != Categoria.LOGIN) {
             var autenticacao = SecurityContextHolder.getContext().getAuthentication();
             if (autenticacao != null && autenticacao.getPrincipal() instanceof UsuarioAutenticado u) {
                 return "u:" + u.id();
             }
         }
-        return "ip:" + ipCliente(request);
+        return "ip:" + ipCliente(request, proxies);
     }
 
     /**
-     * IP do cliente. Atrás do Nginx do Web (rede privada do Docker), vale o último endereço de {@code X-Forwarded-For}
-     * — o que o próprio Nginx acrescentou; o cabeçalho só é considerado quando a conexão vem de endereço privado ou
-     * local (proxy confiável), para um cliente externo não escolher o próprio IP.
+     * IP do cliente. Atrás do Nginx do Web, vale o último endereço de {@code X-Forwarded-For} — o que o próprio Nginx
+     * acrescentou —, mas só quando a conexão vem de um proxy confiável ({@code LIMITE_PROXY_CONFIAVEL} ou loopback).
+     * De qualquer outra origem o cabeçalho é ignorado: um cliente não escolhe o próprio IP para fugir do limite.
      */
-    static String ipCliente(HttpServletRequest request) {
+    static String ipCliente(HttpServletRequest request, ProxiesConfiaveis proxies) {
         String remoto = request.getRemoteAddr();
         String encaminhado = request.getHeader("X-Forwarded-For");
-        if (encaminhado != null && !encaminhado.isBlank() && proxyConfiavel(remoto)) {
+        if (encaminhado != null && !encaminhado.isBlank() && proxies.confiavel(remoto)) {
             String[] partes = encaminhado.split(",");
             String ultimo = partes[partes.length - 1].strip();
-            if (IP_LITERAL.matcher(ultimo).matches()) {
+            if (ProxiesConfiaveis.literal(ultimo) != null) {
                 return ultimo;
             }
         }
         return remoto == null ? "desconhecido" : remoto;
-    }
-
-    private static boolean proxyConfiavel(String endereco) {
-        if (endereco == null || !IP_LITERAL.matcher(endereco).matches()) {
-            return false;
-        }
-        try {
-            InetAddress ip = InetAddress.getByName(endereco); // literal de IP: não consulta DNS
-            return ip.isLoopbackAddress() || ip.isSiteLocalAddress() || ip.isLinkLocalAddress();
-        } catch (UnknownHostException e) {
-            return false;
-        }
     }
 
     private void recusar(HttpServletRequest request, HttpServletResponse response, Categoria categoria,

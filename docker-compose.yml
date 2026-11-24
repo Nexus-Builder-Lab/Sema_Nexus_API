@@ -63,12 +63,16 @@ services:
       LIMITE_LOGIN_POR_JANELA: ${LIMITE_LOGIN_POR_JANELA:-20}
       LIMITE_IA_POR_JANELA: ${LIMITE_IA_POR_JANELA:-10}
       LIMITE_UPLOAD_POR_JANELA: ${LIMITE_UPLOAD_POR_JANELA:-20}
+      LIMITE_MAX_CHAVES: ${LIMITE_MAX_CHAVES:-10000}
+      # Só o Nginx do Web (serviço "web", rede interna) pode informar o IP do cliente em X-Forwarded-For.
+      LIMITE_PROXY_CONFIAVEL: ${LIMITE_PROXY_CONFIAVEL:-web}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       AGENTE_TRIAGEM_MODELO: ${AGENTE_TRIAGEM_MODELO:-claude-haiku-5-5}
       AGENTE_DOCIA_MODELO: ${AGENTE_DOCIA_MODELO:-claude-sonnet-5-5}
       DEMO_RESET_CONFIRM: ${DEMO_RESET_CONFIRM:-}
     ports:
-      - "${API_PORT:-8080}:8080"
+      # Só no loopback do host (#134): de fora, a API é acessada pelo Nginx do Web (proxy /api -> api:8080, rede interna).
+      - "127.0.0.1:${API_PORT:-8080}:8080"
     volumes:
       - uploads:/data/uploads
     healthcheck:

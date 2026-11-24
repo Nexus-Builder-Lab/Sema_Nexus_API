@@ -90,11 +90,15 @@ public class AuthService {
 
     /**
      * Revoga o token na hora (Issue #134: o {@code jti} vai para TOKEN_REVOGADO e o mesmo token passa a receber 401) e
-     * registra a saída na auditoria. O cliente também descarta o token.
+     * registra a saída na auditoria (uma vez por token). O cliente também descarta o token.
      */
     @Transactional
     public void logout(Long usuarioId, String jti, Instant expiraEm) {
-        revogacao.revogar(jti, usuarioId, expiraEm);
+        // Dois logouts simultâneos do mesmo token: só o que revogou de fato registra a auditoria (o outro também
+        // responde 204 — o token já está invalidado).
+        if (jti != null && !revogacao.revogar(jti, usuarioId, expiraEm)) {
+            return;
+        }
         auditoria.registrarComo(usuarioId, "LOGOUT", ENTIDADE, String.valueOf(usuarioId), "Logout realizado.");
     }
 

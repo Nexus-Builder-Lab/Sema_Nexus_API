@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import br.com.nexusbuilderlab.semanexus.common.exception.CredenciaisInvalidasException;
@@ -120,10 +121,21 @@ class AuthServiceTest {
     @Test
     void logoutRevogaOTokenERegistraNaAuditoria() {
         Instant expira = Instant.parse("2026-11-10T20:00:00Z");
+        when(revogacao.revogar("jti-de-teste", 5L, expira)).thenReturn(true);
         servico.logout(5L, "jti-de-teste", expira);
 
         verify(revogacao).revogar("jti-de-teste", 5L, expira);
         verify(auditoria).registrarComo(eq(5L), eq("LOGOUT"), eq("USUARIO"), eq("5"), any());
+    }
+
+    @Test
+    void logoutDeTokenJaRevogadoNaoDuplicaAuditoria() {
+        Instant expira = Instant.parse("2026-11-10T20:00:00Z");
+        when(revogacao.revogar("jti-de-teste", 5L, expira)).thenReturn(false);
+
+        servico.logout(5L, "jti-de-teste", expira);
+
+        verifyNoInteractions(auditoria);
     }
 
     @Test

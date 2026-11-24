@@ -160,6 +160,41 @@ class FilaGpuTest {
         assertThat(executor.executar(agente, "Tarefa", "8").resposta().get("ok").asBoolean()).isTrue();
     }
 
+    @Test
+    void aquecimentoDoModeloOcupaUmaVagaDaFila() {
+        FilaGpu fila = new FilaGpu(1, Duration.ofMillis(100));
+        int[] emUsoDuranteAquecimento = {-1};
+        ClienteModelo cliente = new ClienteModelo() {
+            @Override
+            public boolean disponivel() {
+                return true;
+            }
+
+            @Override
+            public String modelo(String modeloSugerido) {
+                return "modelo-local";
+            }
+
+            @Override
+            public boolean aquecer() {
+                emUsoDuranteAquecimento[0] = fila.emUso();
+                return true;
+            }
+
+            @Override
+            public RespostaModelo criar(PedidoModelo pedido) {
+                throw new UnsupportedOperationException();
+            }
+        };
+        AgentesConfiguracao config = new AgentesConfiguracao("ollama", "", "claude-haiku-5-5", "claude-sonnet-5-5",
+                "http://ollama:11434", "qwen3:4b", false, 30, 3);
+
+        new AquecimentoModelo(cliente, config, fila).aquecer();
+
+        assertThat(emUsoDuranteAquecimento[0]).isEqualTo(1);
+        assertThat(fila.emUso()).isZero();
+    }
+
     private record PedidosContados() {
     }
 }
