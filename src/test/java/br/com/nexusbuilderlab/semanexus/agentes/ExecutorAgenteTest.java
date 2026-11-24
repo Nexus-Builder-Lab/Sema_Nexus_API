@@ -196,7 +196,7 @@ class ExecutorAgenteTest {
         var c = new AgentesController(claude, new ExecutorAgente(anthropic, claude, auditoria, json)).status();
         assertThat(c.modo()).isEqualTo(AgentesController.MODO_CLAUDE);
         assertThat(c.agentes()).extracting(AgentesController.AgenteInfo::modelo)
-                .containsExactly("claude-haiku-5-5", "claude-sonnet-5-5");
+                .containsExactly("claude-haiku-5-5", "claude-sonnet-5-5", "claude-haiku-5-5");
         assertThat(c.toString()).doesNotContain(CHAVE_FICTICIA);
     }
 }
