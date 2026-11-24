@@ -515,3 +515,13 @@
 - **Decisões técnicas:** pré-filtro por caixa envolvente em SQL e refinamento em Java (centroide DETER com margem de 30 km); sem migration; a evidência espacial é calculada pela API com raio padrão (10 km), não pelo que o modelo pedir; documentos não têm coordenada, então a proximidade vem das demandas vinculadas.
 - **Testes:** novos `GeodesiaTest` (5), `AnaliseEspacialTest` (7), 2 em `DemandaServiceTest`, 2 em `AgenteTriagemServiceTest` (sem Oracle: 0 falhas). SQL novo não exercitado em Oracle real (sem Docker): a confirmar pelo validador.
 - **Pendências:** teste `oracle` das consultas por caixa e `FETCH FIRST ? ROWS ONLY`; mocks/OpenAPI da Web#136.
+
+## 2026-11-24 — GH-133 · Assistente DocIA contextualizado na demanda e multi-turno
+- **PR:** (este PR) · **Status:** aguardando validação
+- **Executado por:** agente implementador (Claude Code)
+- **O que foi feito:** `POST /api/docia/perguntas` ganhou `demandaId` e `historico` opcionais (compatível). `demandaId`: autorização pelo escopo da demanda (403/404) e busca/leitura restritas aos documentos vinculados (também no modo extrativo). `historico`: sanitizado e limitado (`HistoricoConversa`), enviado em bloco delimitado de dados; instruções do agente proíbem obedecê-lo.
+- **Decisões técnicas:** restrição estrita (não só priorização) por ser verificável; histórico ignorado no modo extrativo; citações seguem conferidas só nos documentos lidos; sem migration.
+- **Arquivos principais:** `docia/assistente/{AssistenteService,AgenteDocia,BuscaDocumentos,AssistenteController,HistoricoConversa}.java`, `dto/{PerguntaRequest,TurnoHistorico}.java`, `AssistenteContextoTest`, `docs/API.md`, `docs/AGENTES_IA.md`.
+- **Testes:** `mvn -Dtest=AssistenteContextoTest,AgenteDociaTest,AssistenteServiceTest,BuscaDocumentosTest test` → verde (7 novos: contexto da demanda, leitura fora da demanda, 403/404, demanda sem documentos, compatibilidade, injeção no histórico, truncamento). Suíte completa: a confirmar pelo validador.
+- **Docker:** não se aplica nesta etapa (validador).
+- **Pendências:** Web#137 consome os campos novos; contrato OpenAPI atualizado por anotações.
