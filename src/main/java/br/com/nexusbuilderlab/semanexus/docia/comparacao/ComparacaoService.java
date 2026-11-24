@@ -45,7 +45,7 @@ public class ComparacaoService {
         return comparar(a, b);
     }
 
-    private Documento carregar(String campo, Long id) {
+    Documento carregar(String campo, Long id) {
         Documento d = documentos.buscarAtivo(id).orElseThrow(() -> RecursoNaoEncontradoException.de("Documento", id));
         if (d.getTextoExtraido() == null || d.getTextoExtraido().isBlank()) {
             throw new DadosInvalidosException(campo, "O documento " + id + " (" + d.getTitulo()
