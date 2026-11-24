@@ -46,7 +46,9 @@ public record SugestaoTriagem(
             @Schema(description = "O ponto está dentro de algum polígono DETER") boolean dentroDePoligonoDeter,
             @Schema(description = "Menor distância (km) do ponto a um polígono DETER no raio; 0 se dentro", nullable = true) Double menorDistanciaDeterKm,
             @Schema(description = "Focos de calor no município (contexto)") long focosMunicipio,
-            @Schema(description = "Alertas DETER no município (contexto)") long alertasDeterMunicipio) {
+            @Schema(description = "Alertas DETER no município (contexto)") long alertasDeterMunicipio,
+            @Schema(description = "Janela de dias anteriores à data de recebimento considerada nos focos/DETER do raio", example = "90") int periodoDias,
+            @Schema(description = "true se algum limite de leitura foi atingido (contagens do raio podem estar subestimadas)") boolean truncado) {
     }
 
     public record Proxima(Long id, String numero, String titulo, StatusDemanda status,
@@ -63,6 +65,6 @@ public record SugestaoTriagem(
 
     @Schema(description = "Possível duplicata")
     public record Duplicata(Long id, String numero, String titulo, StatusDemanda status, LocalDate dataRecebimento,
-                            @Schema(description = "Distancia em km quando achada por proximidade espacial", nullable = true) Double distanciaKm) {
+                            @Schema(description = "Distância em km quando achada por proximidade espacial", nullable = true) Double distanciaKm) {
     }
 }

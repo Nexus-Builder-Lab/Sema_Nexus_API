@@ -46,8 +46,8 @@ final class RegrasTriagem {
     private static final List<String> AGRAVANTES = List.of("urgente", "em andamento", "neste momento", "agora",
             "grande", "extensa", "hectares", "risco", "reincid");
 
-    /** Focos + alertas DETER no raio a partir dos quais a prioridade sobe um nível. */
-    static final long LIMIAR_RAIO = 5;
+    /** Focos + alertas DETER no raio de 10 km, nos 90 dias anteriores ao recebimento, a partir dos quais a prioridade sobe um nível. */
+    static final long LIMIAR_RAIO = 10;
 
     private RegrasTriagem() {
     }

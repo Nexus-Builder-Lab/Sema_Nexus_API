@@ -104,7 +104,7 @@ class AgenteTriagemServiceTest {
                 0, 9, 3, 1));
         return new AgenteTriagemService(demandas, municipios, referencia,
                 new ExecutorAgente(modelo, config, auditoria, json), config,
-                new AnaliseEspacial(demandas, referencia, mock(org.springframework.jdbc.core.JdbcTemplate.class)));
+                new AnaliseEspacial(demandas, referencia, mock(org.springframework.jdbc.core.JdbcTemplate.class), 90));
     }
 
     private ClienteModelo.RespostaModelo ferramenta(String nome, String args) throws Exception {
@@ -217,6 +217,21 @@ class AgenteTriagemServiceTest {
         assertThat(s.duplicatas()).extracting(SugestaoTriagem.Duplicata::numero).containsExactly("DEM-2026/0009");
         assertThat(s.avisos()).isEmpty();
         verify(demandas).proximas(eq(ator), anyDouble(), anyDouble(), eq(5.0), eq(4L), anyInt());
+    }
+
+    @Test
+    void ferramentasReutilizamAAnaliseEspacialDoRaioPadrao() throws Exception {
+        when(demandas.detalhar(ator, 4L)).thenReturn(comCoordenada());
+        ModeloRoteiro modelo = new ModeloRoteiro();
+        modelo.respostas.add(ferramenta("alertas_inpe_raio_coordenada", "{\"numero\":\"DEM-2026/0004\",\"raio_km\":10}"));
+        modelo.respostas.add(ferramenta("demandas_proximas_coordenada", "{\"numero\":\"DEM-2026/0004\",\"raio_km\":10}"));
+        modelo.respostas.add(ferramenta("documentos_mesma_localidade", "{\"numero\":\"DEM-2026/0004\"}"));
+        modelo.respostas.add(new ClienteModelo.RespostaModelo("stop", List.of(),
+                "{\"decisao\":\"CLASSIFICAR\",\"categoria\":\"RESIDUOS_POLUICAO\",\"prioridade\":\"MEDIA\","
+                        + "\"justificativa\":\"Descarte de resíduos relatado.\",\"duplicatas\":[]}", null, 50, 30, 0));
+        service(modelo).sugerir(ator, 4L);
+        verify(demandas, org.mockito.Mockito.times(1)).proximas(eq(ator), anyDouble(), anyDouble(), eq(10.0), eq(4L),
+                anyInt());
     }
 
     @Test

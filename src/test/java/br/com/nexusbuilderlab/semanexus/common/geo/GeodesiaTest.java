@@ -43,6 +43,29 @@ class GeodesiaTest {
         assertThat(km).isBetween(10.5, 11.3);
     }
 
+    private static Map<String, Object> quad(double x, double y, double lado) {
+        return Map.of("type", "Polygon", "coordinates", List.of(List.of(List.of(x, y), List.of(x + lado, y),
+                List.of(x + lado, y + lado), List.of(x, y + lado), List.of(x, y))));
+    }
+
+    @Test
+    void centroideNaoContaOVerticeDeFechamentoEUsaTodosOsPoligonos() {
+        assertThat(Geodesia.centroide(quad(0, 0, 2))).containsExactly(1.0, 1.0);
+        Map<String, Object> multi = Map.of("type", "MultiPolygon", "coordinates", List.of(
+                quad(0, 0, 2).get("coordinates"), quad(10, 0, 2).get("coordinates")));
+        assertThat(Geodesia.centroide(multi)[1]).isEqualTo(6.0);
+        var c = Geodesia.caixaDaGeometria(multi, 0);
+        assertThat(c.lonMin()).isEqualTo(0.0);
+        assertThat(c.lonMax()).isEqualTo(12.0);
+    }
+
+    @Test
+    void distanciaEntreAreasZeroQuandoUmaContemAOutra() {
+        assertThat(Geodesia.distanciaEntreAreasKm(quad(-1, -1, 4), quad(0, 0, 1))).isZero();
+        assertThat(Geodesia.distanciaEntreAreasKm(quad(0, 0, 1), quad(-1, -1, 4))).isZero();
+        assertThat(Geodesia.distanciaEntreAreasKm(quad(0, 0, 1), quad(5, 0, 1))).isBetween(400.0, 460.0);
+    }
+
     @Test
     void geometriaInvalidaDaNaN() {
         assertThat(Geodesia.distanciaAoPoligonoKm(0, 0, null)).isNaN();

@@ -114,23 +114,32 @@ public class ReferenciaSateliteRepository {
                 id).stream().findFirst();
     }
 
-    /** Registro espacial leve (centroide e, para DETER, o polígono GeoJSON em texto). */
-    public record PontoEspacial(long id, double latitude, double longitude, java.math.BigDecimal areaKm2,
-                                String geometria) {
+    /** Registro espacial leve (centroide; a geometria DETER é lida à parte, só dos candidatos). */
+    public record PontoEspacial(long id, double latitude, double longitude, java.math.BigDecimal areaKm2) {
     }
 
     /**
-     * Pontos do tipo cujo centroide está na caixa envolvente (pré-filtro; o refinamento é feito em Java).
-     * {@code comGeometria} só para DETER. No máximo {@code limite} linhas.
+     * Até {@code limite} pontos do tipo na caixa e no período [de, ate), do mais próximo ao mais distante do centro
+     * (distância aproximada em graus², ordenada no banco). Usa IX_REFSAT_TIPO_DATA para o período. Sem geometria.
      */
-    public List<PontoEspacial> naCaixa(TipoReferencia tipo, double latMin, double latMax, double lonMin,
-                                       double lonMax, boolean comGeometria, int limite) {
-        return jdbc.query("SELECT ID, LATITUDE, LONGITUDE, AREA_KM2" + (comGeometria ? ", GEOMETRIA" : "")
-                        + " FROM REFERENCIA_SATELITE WHERE TIPO = ? AND LATITUDE BETWEEN ? AND ? "
-                        + "AND LONGITUDE BETWEEN ? AND ? FETCH FIRST ? ROWS ONLY",
+    public List<PontoEspacial> maisProximosNaCaixa(TipoReferencia tipo, double latMin, double latMax, double lonMin,
+                                                   double lonMax, LocalDateTime de, LocalDateTime ate,
+                                                   double latCentro, double lonCentro, int limite) {
+        double cos = Math.cos(Math.toRadians(latCentro));
+        return jdbc.query("SELECT ID, LATITUDE, LONGITUDE, AREA_KM2 FROM REFERENCIA_SATELITE WHERE TIPO = ? "
+                        + "AND DATA_HORA >= ? AND DATA_HORA < ? AND LATITUDE BETWEEN ? AND ? "
+                        + "AND LONGITUDE BETWEEN ? AND ? ORDER BY (LATITUDE - ?) * (LATITUDE - ?) "
+                        + "+ ((LONGITUDE - ?) * ?) * ((LONGITUDE - ?) * ?), ID FETCH FIRST ? ROWS ONLY",
                 (rs, i) -> new PontoEspacial(rs.getLong("ID"), rs.getDouble("LATITUDE"), rs.getDouble("LONGITUDE"),
-                        rs.getBigDecimal("AREA_KM2"), comGeometria ? rs.getString("GEOMETRIA") : null),
-                tipo.name(), latMin, latMax, lonMin, lonMax, limite);
+                        rs.getBigDecimal("AREA_KM2")),
+                tipo.name(), Timestamp.valueOf(de), Timestamp.valueOf(ate), latMin, latMax, lonMin, lonMax,
+                latCentro, latCentro, lonCentro, cos, lonCentro, cos, limite);
+    }
+
+    /** Geometria GeoJSON (texto) de um registro; {@code null} se não existe. */
+    public String geometria(long id) {
+        return jdbc.query("SELECT GEOMETRIA FROM REFERENCIA_SATELITE WHERE ID = ?",
+                (rs, i) -> rs.getString(1), id).stream().findFirst().orElse(null);
     }
 
     private static Ponto ponto(ResultSet rs) throws SQLException {

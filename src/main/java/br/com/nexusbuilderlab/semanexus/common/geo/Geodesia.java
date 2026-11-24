@@ -1,6 +1,7 @@
 package br.com.nexusbuilderlab.semanexus.common.geo;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -42,16 +43,22 @@ public final class Geodesia {
     /** Anéis (exteriores e furos) de um Polygon/MultiPolygon GeoJSON como listas de {lon, lat}; vazia se inválido. */
     @SuppressWarnings("unchecked")
     public static List<List<double[]>> aneis(Map<String, Object> geometria) {
+        return aneis(geometria, false);
+    }
+
+    /** Como {@link #aneis(Map)}; com {@code soExteriores}, só o primeiro anel de cada polígono (sem furos). */
+    @SuppressWarnings("unchecked")
+    public static List<List<double[]>> aneis(Map<String, Object> geometria, boolean soExteriores) {
         List<List<double[]>> aneis = new ArrayList<>();
         if (geometria == null || !(geometria.get("coordinates") instanceof List<?> coords)) {
             return aneis;
         }
         try {
             if ("Polygon".equals(geometria.get("type"))) {
-                adicionar(aneis, (List<Object>) coords);
+                adicionar(aneis, (List<Object>) coords, soExteriores);
             } else if ("MultiPolygon".equals(geometria.get("type"))) {
                 for (Object poligono : coords) {
-                    adicionar(aneis, (List<Object>) poligono);
+                    adicionar(aneis, (List<Object>) poligono, soExteriores);
                 }
             }
         } catch (ClassCastException | NullPointerException e) {
@@ -61,8 +68,8 @@ public final class Geodesia {
     }
 
     @SuppressWarnings("unchecked")
-    private static void adicionar(List<List<double[]>> destino, List<Object> aneisDoPoligono) {
-        for (Object anel : aneisDoPoligono) {
+    private static void adicionar(List<List<double[]>> destino, List<Object> aneisDoPoligono, boolean soExterior) {
+        for (Object anel : soExterior ? aneisDoPoligono.subList(0, Math.min(1, aneisDoPoligono.size())) : aneisDoPoligono) {
             List<double[]> pontos = new ArrayList<>();
             for (Object p : (List<Object>) anel) {
                 List<Object> c = (List<Object>) p;
@@ -72,20 +79,69 @@ public final class Geodesia {
         }
     }
 
-    /** Centroide aproximado (média dos vértices do primeiro anel); {@code null} se a geometria é inválida. */
+   /** Centroide aproximado (média dos vértices dos anéis exteriores de todos os polígonos, sem repetir o vértice de fechamento). */
     public static double[] centroide(Map<String, Object> geometria) {
-        List<List<double[]>> aneis = aneis(geometria);
-        if (aneis.isEmpty() || aneis.get(0).isEmpty()) {
-            return null;
-        }
         double lat = 0;
         double lon = 0;
-        for (double[] p : aneis.get(0)) {
-            lon += p[0];
-            lat += p[1];
+        int n = 0;
+        for (List<double[]> anel : aneis(geometria, true)) {
+            int fim = anel.size() > 1 && Arrays.equals(anel.get(0), anel.get(anel.size() - 1)) ? anel.size() - 1 : anel.size();
+            for (int k = 0; k < fim; k++) {
+                lon += anel.get(k)[0];
+                lat += anel.get(k)[1];
+                n++;
+            }
         }
-        int n = aneis.get(0).size();
-        return new double[] {lat / n, lon / n};
+        return n == 0 ? null : new double[] {lat / n, lon / n};
+    }
+
+    /** Caixa envolvente de todos os vértices da geometria, ampliada em {@code raioKm}; {@code null} se inválida. */
+    public static Caixa caixaDaGeometria(Map<String, Object> geometria, double raioKm) {
+        double latMin = 90, latMax = -90, lonMin = 180, lonMax = -180;
+        boolean algum = false;
+        for (List<double[]> anel : aneis(geometria, true)) {
+            for (double[] p : anel) {
+                latMin = Math.min(latMin, p[1]);
+                latMax = Math.max(latMax, p[1]);
+                lonMin = Math.min(lonMin, p[0]);
+                lonMax = Math.max(lonMax, p[0]);
+                algum = true;
+            }
+        }
+        if (!algum) {
+            return null;
+        }
+        double dLat = raioKm / KM_POR_GRAU;
+        double dLon = raioKm / (KM_POR_GRAU * Math.max(0.01, Math.cos(Math.toRadians(Math.max(Math.abs(latMin), Math.abs(latMax))))));
+        return new Caixa(latMin - dLat, latMax + dLat, lonMin - dLon, lonMax + dLon);
+    }
+
+    /**
+     * Distância aproximada entre duas áreas: 0 se algum vértice de uma está dentro da outra; senão a menor distância
+     * de um vértice (amostrado, no máximo ~200 por área) de uma até a outra. Não detecta cruzamento de arestas sem
+     * vértice interno (raro). {@code NaN} se alguma geometria é inválida.
+     */
+    public static double distanciaEntreAreasKm(Map<String, Object> a, Map<String, Object> b) {
+        double d1 = distanciaDosVertices(a, b);
+        double d2 = distanciaDosVertices(b, a);
+        return Double.isNaN(d1) || Double.isNaN(d2) ? Double.NaN : Math.min(d1, d2);
+    }
+
+    private static double distanciaDosVertices(Map<String, Object> de, Map<String, Object> para) {
+        List<double[]> vertices = new ArrayList<>();
+        aneis(de, true).forEach(vertices::addAll);
+        if (vertices.isEmpty() || aneis(para).isEmpty()) {
+            return Double.NaN;
+        }
+        int passo = Math.max(1, vertices.size() / 200);
+        double min = Double.MAX_VALUE;
+        for (int i = 0; i < vertices.size(); i += passo) {
+            min = Math.min(min, distanciaAoPoligonoKm(vertices.get(i)[1], vertices.get(i)[0], para));
+            if (min == 0) {
+                break;
+            }
+        }
+        return min;
     }
 
     /**

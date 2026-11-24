@@ -2,6 +2,7 @@ package br.com.nexusbuilderlab.semanexus.flux.agente;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -43,12 +44,17 @@ public class AnaliseEspacial {
     static final double RAIO_MAXIMO_KM = 50;
     static final int MAX_PROXIMAS = 8;
     static final int MAX_DOCUMENTOS = 8;
-    static final int LIMITE_PONTOS = 5000;
+    /** Máximo de focos lidos (os mais próximos do centro); acima disso a contagem é marcada como truncada. */
+    static final int LIMITE_FOCOS = 2000;
+    /** Máximo de candidatos DETER cuja geometria (CLOB) é lida. */
+    static final int LIMITE_DETER = 300;
+    /** Máximo de documentos citando a localidade usados no IN (limite de 1000 do Oracle). */
+    static final int LIMITE_CITAM = 900;
     /** Margem da caixa para poligonos DETER, cujo centroide pode estar longe de uma borda que toca o raio. */
     static final double MARGEM_DETER_KM = 30;
 
     /** Ponto de referencia da analise. */
-    record Ponto(String origem, Double lat, Double lon) {
+    record Ponto(String origem, Double lat, Double lon, Map<String, Object> area) {
         boolean temCoordenada() {
             return lat != null;
         }
@@ -57,8 +63,11 @@ public class AnaliseEspacial {
     private final DemandaService demandas;
     private final ReferenciaSateliteService referencia;
     private final JdbcTemplate jdbc;
+    private final int janelaDias;
 
-    public AnaliseEspacial(DemandaService demandas, ReferenciaSateliteService referencia, JdbcTemplate jdbc) {
+    public AnaliseEspacial(DemandaService demandas, ReferenciaSateliteService referencia, JdbcTemplate jdbc,
+                           @org.springframework.beans.factory.annotation.Value("${sema.triagem.espacial.janela-dias:90}") int janelaDias) {
+        this.janelaDias = janelaDias;
         this.demandas = demandas;
         this.referencia = referencia;
         this.jdbc = jdbc;
@@ -74,10 +83,10 @@ public class AnaliseEspacial {
     /** Coordenada da demanda; senao centroide da area; senao sem ponto (fallback ao municipio). */
     static Ponto ponto(DemandaDetalhe d) {
         if (d.latitude() != null && d.longitude() != null) {
-            return new Ponto("COORDENADA", d.latitude().doubleValue(), d.longitude().doubleValue());
+            return new Ponto("COORDENADA", d.latitude().doubleValue(), d.longitude().doubleValue(), null);
         }
         double[] c = Geodesia.centroide(d.areaGeometria());
-        return c == null ? new Ponto("MUNICIPIO", null, null) : new Ponto("AREA", c[0], c[1]);
+        return c == null ? new Ponto("MUNICIPIO", null, null, null) : new Ponto("AREA", c[0], c[1], d.areaGeometria());
     }
 
     public EvidenciaEspacial analisar(UsuarioAutenticado ator, DemandaDetalhe d, Double raioKm) {
@@ -90,31 +99,52 @@ public class AnaliseEspacial {
 
     // -------------------------------------------------------------------------------------------- INPE
 
+    /**
+     * Focos de calor e alertas DETER no raio, nos {@code janelaDias} dias até a data de recebimento da demanda.
+     * Com coordenada o raio parte do ponto; com área, da borda da área. Focos: os mais próximos do centro (até
+     * {@link #LIMITE_FOCOS}); DETER: candidatos por caixa/distância do centroide e só então a geometria é lida.
+     */
     public Inpe inpe(DemandaDetalhe d, double raio) {
         long focosMun = contarMunicipio(TipoReferencia.FOCO_CALOR, d.municipio().id());
         long deterMun = contarMunicipio(TipoReferencia.DESMATAMENTO, d.municipio().id());
         Ponto p = ponto(d);
         if (!p.temCoordenada()) {
-            return new Inpe(0, null, 0, false, null, focosMun, deterMun);
+            return new Inpe(0, null, 0, false, null, focosMun, deterMun, janelaDias, false);
         }
         try {
-            var c = Geodesia.caixa(p.lat(), p.lon(), raio, 0);
+            LocalDateTime ate = d.dataRecebimento().plusDays(1).atStartOfDay();
+            LocalDateTime de = d.dataRecebimento().minusDays(janelaDias).atStartOfDay();
+            boolean truncado = false;
+            var c = p.area() != null ? Geodesia.caixaDaGeometria(p.area(), raio) : Geodesia.caixa(p.lat(), p.lon(), raio, 0);
             long focos = 0;
             Double maisProximo = null;
-            for (PontoEspacial f : referencia.naCaixa(TipoReferencia.FOCO_CALOR, c.latMin(), c.latMax(), c.lonMin(),
-                    c.lonMax(), false, LIMITE_PONTOS)) {
-                double km = Geodesia.haversineKm(p.lat(), p.lon(), f.latitude(), f.longitude());
+            List<PontoEspacial> pf = referencia.maisProximosNaCaixa(TipoReferencia.FOCO_CALOR, c.latMin(), c.latMax(),
+                    c.lonMin(), c.lonMax(), de, ate, p.lat(), p.lon(), LIMITE_FOCOS);
+            double kmUltimo = 0;
+            for (PontoEspacial f : pf) {
+                double km = p.area() != null ? Geodesia.distanciaAoPoligonoKm(f.latitude(), f.longitude(), p.area())
+                        : Geodesia.haversineKm(p.lat(), p.lon(), f.latitude(), f.longitude());
+                kmUltimo = km;
                 if (km <= raio) {
                     focos++;
                     maisProximo = maisProximo == null ? km : Math.min(maisProximo, km);
                 }
             }
-            var cd = Geodesia.caixa(p.lat(), p.lon(), raio, MARGEM_DETER_KM);
+            // Ordenado do centro para fora: se o último lido ainda está no raio, podem faltar focos.
+            truncado |= pf.size() >= LIMITE_FOCOS && kmUltimo <= raio;
+            var cd = p.area() != null ? Geodesia.caixaDaGeometria(p.area(), raio + MARGEM_DETER_KM)
+                    : Geodesia.caixa(p.lat(), p.lon(), raio, MARGEM_DETER_KM);
             long alertas = 0;
             boolean dentro = false;
             Double menor = null;
-            for (PontoEspacial a : referencia.naCaixa(TipoReferencia.DESMATAMENTO, cd.latMin(), cd.latMax(),
-                    cd.lonMin(), cd.lonMax(), true, LIMITE_PONTOS)) {
+            List<PontoEspacial> pd = referencia.maisProximosNaCaixa(TipoReferencia.DESMATAMENTO, cd.latMin(),
+                    cd.latMax(), cd.lonMin(), cd.lonMax(), de, ate, p.lat(), p.lon(), LIMITE_DETER);
+            truncado |= pd.size() >= LIMITE_DETER;
+            for (PontoEspacial a : pd) {
+                if (p.area() == null && Geodesia.haversineKm(p.lat(), p.lon(), a.latitude(), a.longitude())
+                        > raio + MARGEM_DETER_KM) {
+                    continue; // longe demais para o polígono tocar o raio: não lê o CLOB
+                }
                 double km = distanciaDeter(p, a);
                 if (km <= raio) {
                     alertas++;
@@ -122,15 +152,18 @@ public class AnaliseEspacial {
                     menor = menor == null ? km : Math.min(menor, km);
                 }
             }
-            return new Inpe(focos, arredondar(maisProximo), alertas, dentro, arredondar(menor), focosMun, deterMun);
+            return new Inpe(focos, arredondar(maisProximo), alertas, dentro, arredondar(menor), focosMun, deterMun,
+                    janelaDias, truncado);
         } catch (RuntimeException e) {
-            return new Inpe(0, null, 0, false, null, focosMun, deterMun);
+            return new Inpe(0, null, 0, false, null, focosMun, deterMun, janelaDias, false);
         }
     }
 
-    /** Distancia do ponto ao poligono DETER; sem geometria valida usa a distancia ao centroide do alerta. */
-    private static double distanciaDeter(Ponto p, PontoEspacial a) {
-        double km = Geodesia.distanciaAoPoligonoKm(p.lat(), p.lon(), GeoJson.geometria(a.geometria()));
+    /** Distância do ponto (ou da área) ao polígono DETER; sem geometria válida usa a distância ao centroide. */
+    private double distanciaDeter(Ponto p, PontoEspacial a) {
+        Map<String, Object> g = GeoJson.geometria(referencia.geometria(a.id()));
+        double km = g == null ? Double.NaN : p.area() != null ? Geodesia.distanciaEntreAreasKm(p.area(), g)
+                : Geodesia.distanciaAoPoligonoKm(p.lat(), p.lon(), g);
         return Double.isNaN(km) ? Geodesia.haversineKm(p.lat(), p.lon(), a.latitude(), a.longitude()) : km;
     }
 
@@ -181,6 +214,9 @@ public class AnaliseEspacial {
                 String padrao = DocumentoSpecification.padraoBusca(loc);
                 List<Long> citam = jdbc.queryForList(DocumentoSpecification.SQL_BUSCA, Long.class,
                         padrao, padrao, padrao, padrao);
+                if (citam.size() > LIMITE_CITAM) {
+                    citam = citam.subList(0, LIMITE_CITAM);
+                }
                 if (!citam.isEmpty()) {
                     jdbc.query("SELECT ID, TITULO FROM DOCUMENTO WHERE EXCLUIDO_EM IS NULL AND MUNICIPIO_ID = ? "
                                     + "AND ID IN (" + marcas(citam.size()) + ") FETCH FIRST ? ROWS ONLY",
@@ -189,26 +225,47 @@ public class AnaliseEspacial {
                             argumentos(d.municipio().id(), citam, MAX_DOCUMENTOS));
                 }
             }
+        } catch (RuntimeException e) {
+            // consulta auxiliar: segue com as demais
+        }
+        try {
             List<Long> ids = proximas.stream().map(Proxima::id).toList();
             if (!ids.isEmpty()) {
+                Map<Long, Double> distancia = new LinkedHashMap<>();
+                Map<Long, String> numeros = new LinkedHashMap<>();
+                proximas.forEach(x -> {
+                    distancia.put(x.id(), x.distanciaKm());
+                    numeros.put(x.id(), x.numero());
+                });
+                List<long[]> pares = new ArrayList<>();
+                Map<Long, String> titulos = new LinkedHashMap<>();
                 jdbc.query("SELECT DISTINCT doc.ID, doc.TITULO, dd.DEMANDA_ID FROM DOCUMENTO_DEMANDA dd "
                                 + "JOIN DOCUMENTO doc ON doc.ID = dd.DOCUMENTO_ID WHERE doc.EXCLUIDO_EM IS NULL "
                                 + "AND dd.DEMANDA_ID IN (" + marcas(ids.size()) + ") FETCH FIRST ? ROWS ONLY",
                         (rs, i) -> {
-                            long demandaId = rs.getLong("DEMANDA_ID");
-                            Proxima x = proximas.stream().filter(y -> y.id() == demandaId).findFirst().orElseThrow();
-                            return r.putIfAbsent(rs.getLong("ID"), new DocumentoRelacionado(rs.getLong("ID"),
-                                    rs.getString("TITULO"), "Vinculado a demanda " + x.numero()
-                                    + (x.distanciaKm() == null ? "" : " (" + x.distanciaKm() + " km)")));
-                        }, argumentos(null, ids, MAX_DOCUMENTOS));
+                            pares.add(new long[] {rs.getLong("ID"), rs.getLong("DEMANDA_ID")});
+                            titulos.put(rs.getLong("ID"), rs.getString("TITULO"));
+                            return null;
+                        }, argumentos(null, ids, MAX_DOCUMENTOS * 4));
+                pares.sort(java.util.Comparator.comparingDouble(
+                        par -> distancia.get(par[1]) == null ? Double.MAX_VALUE : distancia.get(par[1])));
+                for (long[] par : pares) {
+                    Double km = distancia.get(par[1]);
+                    r.putIfAbsent(par[0], new DocumentoRelacionado(par[0], titulos.get(par[0]),
+                            "Vinculado a demanda " + numeros.get(par[1]) + (km == null ? "" : " (" + km + " km)")));
+                }
             }
+        } catch (RuntimeException e) {
+            // consulta auxiliar: segue com as demais
+        }
+        try {
             jdbc.query("SELECT ID, TITULO FROM DOCUMENTO WHERE EXCLUIDO_EM IS NULL AND MUNICIPIO_ID = ? "
                             + "ORDER BY DATA_DOCUMENTO DESC FETCH FIRST ? ROWS ONLY",
                     (rs, i) -> r.putIfAbsent(rs.getLong("ID"), new DocumentoRelacionado(rs.getLong("ID"),
-                            rs.getString("TITULO"), "Mesmo municipio (" + d.municipio().nome() + ")")),
+                            rs.getString("TITULO"), "Mesmo município (" + d.municipio().nome() + ")")),
                     d.municipio().id(), MAX_DOCUMENTOS);
         } catch (RuntimeException e) {
-            // consulta auxiliar: devolve o que ja foi reunido
+            // consulta auxiliar: devolve o que já foi reunido
         }
         return r.values().stream().limit(MAX_DOCUMENTOS).toList();
     }

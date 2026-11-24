@@ -41,7 +41,7 @@ class AnaliseEspacialTest {
     private final ReferenciaSateliteService ref = mock(ReferenciaSateliteService.class);
     private final JdbcTemplate jdbc = mock(JdbcTemplate.class);
     private final UsuarioAutenticado ator = mock(UsuarioAutenticado.class);
-    private final AnaliseEspacial analise = new AnaliseEspacial(demandas, ref, jdbc);
+    private final AnaliseEspacial analise = new AnaliseEspacial(demandas, ref, jdbc, 90);
 
     private static DemandaDetalhe demanda(BigDecimal lat, BigDecimal lon, Map<String, Object> area) {
         return new DemandaDetalhe(4L, "DEM-2026/0004", "Queimada", "Fogo", Origem.values()[0], null,
@@ -62,10 +62,10 @@ class AnaliseEspacialTest {
     void contaFocosNoRaioEIgnoraOsForaDoRaioMesmoDentroDaCaixa() {
         totaisDoMunicipio();
         // foco a cerca de 2,2 km (dentro de 5 km) e foco na diagonal da caixa a cerca de 7 km (fora de 5 km)
-        when(ref.naCaixa(eq(TipoReferencia.FOCO_CALOR), anyDouble(), anyDouble(), anyDouble(), anyDouble(),
-                eq(false), anyInt())).thenReturn(List.of(
-                new PontoEspacial(1, LAT + 0.02, LON, null, null),
-                new PontoEspacial(2, LAT + 0.0445, LON + 0.0445, null, null)));
+        when(ref.maisProximosNaCaixa(eq(TipoReferencia.FOCO_CALOR), anyDouble(), anyDouble(), anyDouble(), anyDouble(),
+                any(), any(), anyDouble(), anyDouble(), anyInt())).thenReturn(List.of(
+                new PontoEspacial(1, LAT + 0.02, LON, null),
+                new PontoEspacial(2, LAT + 0.0445, LON + 0.0445, null)));
         var i = analise.inpe(demanda(BigDecimal.valueOf(LAT), BigDecimal.valueOf(LON), null), 5);
         assertThat(i.focosNoRaio()).isEqualTo(1);
         assertThat(i.focoMaisProximoKm()).isBetween(2.1, 2.3);
@@ -78,11 +78,13 @@ class AnaliseEspacialTest {
         Map<String, Object> dentro = quadrado(LON - 0.01, LAT - 0.01, 0.02);   // contem o ponto
         Map<String, Object> perto = quadrado(LON + 0.05, LAT - 0.01, 0.02);    // borda a cerca de 5,4 km a leste
         Map<String, Object> longe = quadrado(LON + 0.5, LAT, 0.02);            // cerca de 55 km
-        when(ref.naCaixa(eq(TipoReferencia.DESMATAMENTO), anyDouble(), anyDouble(), anyDouble(), anyDouble(),
-                eq(true), anyInt())).thenReturn(List.of(
-                new PontoEspacial(1, LAT, LON, null, json(dentro)),
-                new PontoEspacial(2, LAT, LON + 0.06, null, json(perto)),
-                new PontoEspacial(3, LAT, LON + 0.5, null, json(longe))));
+        when(ref.maisProximosNaCaixa(eq(TipoReferencia.DESMATAMENTO), anyDouble(), anyDouble(), anyDouble(),
+                anyDouble(), any(), any(), anyDouble(), anyDouble(), anyInt())).thenReturn(List.of(
+                new PontoEspacial(1, LAT, LON, null), new PontoEspacial(2, LAT, LON + 0.06, null),
+                new PontoEspacial(3, LAT, LON + 0.5, null)));
+        when(ref.geometria(1)).thenReturn(json(dentro));
+        when(ref.geometria(2)).thenReturn(json(perto));
+        when(ref.geometria(3)).thenReturn(json(longe));
         var d = demanda(BigDecimal.valueOf(LAT), BigDecimal.valueOf(LON), null);
         var i10 = analise.inpe(d, 10);
         assertThat(i10.alertasDeterNoRaio()).isEqualTo(2);
