@@ -40,6 +40,7 @@ Em qualquer falha (Ollama parado, modelo não baixado, erro, resposta inválida)
 |---|---|---|---|
 | Agente de Triagem | SEMA Flux | `obter_demanda`, `buscar_demandas_semelhantes`, `alertas_inpe_municipio` | #107 (implementado) |
 | Assistente DocIA | SEMA DocIA | `buscar_documentos`, `ler_documento` | #108 (implementado) |
+| Agente de Distribuição | SEMA Flux | `carga_trabalho_fiscais`, `demandas_ativas_na_regiao`, `tempo_medio_categoria` | #130 (implementado) |
 
 ## Preparar a IA local (uma vez)
 
@@ -62,6 +63,16 @@ Em qualquer falha (Ollama parado, modelo não baixado, erro, resposta inválida)
 Medido em 13/11/2026 (GTX 1660 SUPER, `qwen3:4b-instruct`): **7–11 s** por sugestão (10 de 10 demandas pendentes com IA, sem cair nas regras). Em 16/11/2026 (Issue #120), com justificativa de até 220 caracteres e limite de 400 tokens: **média 7,2 s** (antes 9,4 s), mesmas categorias, prioridades e núcleos nas 5 demandas medidas.
 
 Lições com modelo pequeno: ferramentas **sem parâmetros** confundem o modelo (ele fica raciocinando sobre como passar o número) — toda ferramenta tem um parâmetro, e o servidor usa sempre a demanda em triagem; o `qwen3:4b` (com raciocínio) gastava ~1.000 tokens por etapa (15–20 s), por isso o padrão é a versão *instruct*; sem limite de tamanho no esquema o modelo pode se repetir até o limite de tokens.
+
+## Agente de Distribuição (Issue #130)
+
+`POST /api/demandas/{id}/distribuicao/sugestao` (ADMIN, GESTOR — os mesmos da distribuição; demanda em Aguardando distribuição, senão 409 — o fluxo não tem redistribuição). Não grava nada: a pessoa aplica pelo `POST /api/demandas/{id}/distribuicao`.
+
+1. Ferramentas somente leitura, todas com parâmetro explícito: `carga_trabalho_fiscais(nucleo)` — equipes ativas do núcleo regional (setor `NR-*` da região do município; `TODOS` ou núcleo sem equipe = todas as ativas) com ids dos fiscais e demandas ativas, atrasadas e com prazo nos próximos 7 dias por equipe e por fiscal; `demandas_ativas_na_regiao(abrangencia = MUNICIPIO|REGIAO)` — vistorias Distribuída/Em andamento no município ou na região, com a equipe (logística); `tempo_medio_categoria(categoria)` — média histórica (recebimento → conclusão) das finalizadas e um `prazoReferencia`. Parâmetro fora do enum → `PARAMETRO_INVALIDO` do catálogo `ErroFerramenta`.
+2. A tarefa enviada ao modelo leva só campos estruturados (número, categoria, prioridade, município, núcleo, data de hoje) — título e relato não entram (menos superfície de *prompt injection*).
+3. Resposta no esquema `{equipeId, fiscalId, prazo, justificativa}`. **O servidor valida**: equipe existe e está ativa, fiscal é membro ativo dela, prazo é data válida entre hoje e hoje + 180 dias. Qualquer falha → a sugestão inteira vem das **regras locais** (`RegrasDistribuicao`), com `modo` DEMONSTRATIVO, aviso com o motivo e auditoria `AGENTE_DEMONSTRATIVO` (a execução da IA fica em `AGENTE_EXECUCAO`).
+4. Regras locais (também sem IA): fiscal com menor pontuação `ativas + 2×próximas do vencimento + 3×atrasadas`, com 1 ponto de desconto se a equipe já tem vistoria em campo no mesmo município; empate por carga da equipe e nome. Prefere membros com perfil FISCAL (senão, qualquer membro ativo — mesma regra do endpoint de distribuição). Prazo = hoje + tempo médio da categoria arredondado para cima (15 dias sem histórico), no máximo 7 dias se URGENTE e 15 se ALTA, entre 3 e 90 dias.
+5. Mesmas proteções dos demais agentes: `ExecutorAgente` (fila da GPU, orçamento, catálogo de erros), categoria `IA` do limite de requisições, métricas no Painel do sistema e em `GET /api/agentes/status`. Usa o modelo configurado para a triagem (`AGENTE_TRIAGEM_MODELO` no Claude; `OLLAMA_MODELO` no local).
 
 ## Assistente DocIA agêntico (Issue #108)
 
