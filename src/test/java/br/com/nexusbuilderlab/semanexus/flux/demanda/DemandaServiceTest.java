@@ -302,6 +302,35 @@ class DemandaServiceTest {
         verify(auditoria, never()).registrar(anyString(), anyString(), any(), any());
     }
 
+    @Test
+    void detalheExpoeAreaHaEPoligonoQuandoRegistradosENullSemArea() {
+        Demanda comArea = demanda(1, StatusDemanda.PENDENTE);
+        ReflectionTestUtils.setField(comArea, "areaHa", new java.math.BigDecimal("42.35"));
+        ReflectionTestUtils.setField(comArea, "areaGeometria",
+                "{\"type\":\"Polygon\",\"coordinates\":[[[-56.1,-15.6],[-56.0,-15.6],[-56.0,-15.5],[-56.1,-15.6]]]}");
+        Demanda semArea = demanda(2, StatusDemanda.PENDENTE);
+        when(demandas.buscarDetalhe(1L)).thenReturn(Optional.of(comArea));
+        when(demandas.buscarDetalhe(2L)).thenReturn(Optional.of(semArea));
+
+        DemandaDetalhe r = service.detalhar(ator, 1L);
+        assertThat(r.areaHa()).isEqualByComparingTo("42.35");
+        assertThat(r.areaGeometria()).containsEntry("type", "Polygon").containsKey("coordinates");
+        assertThat(service.detalhar(ator, 2L).areaHa()).isNull();
+        assertThat(service.detalhar(ator, 2L).areaGeometria()).isNull();
+    }
+
+    @Test
+    void fiscalForaDoEscopoNaoRecebeAreaDaDemanda() {
+        UsuarioAutenticado fiscal = UsuarioAutenticado.de(usuario(20L, Perfil.FISCAL));
+        Demanda d = demanda(1, StatusDemanda.DISTRIBUIDA);
+        d.setEquipe(equipe(2));
+        ReflectionTestUtils.setField(d, "areaHa", new java.math.BigDecimal("10.00"));
+        when(demandas.buscarDetalhe(1L)).thenReturn(Optional.of(d));
+        when(equipes.findIdsByMembro(20L)).thenReturn(List.of(1L));
+
+        assertThatThrownBy(() -> service.detalhar(fiscal, 1L)).isInstanceOf(AccessDeniedException.class);
+    }
+
     // ---------------------------------------------------------------- escopo FISCAL
 
     @Test

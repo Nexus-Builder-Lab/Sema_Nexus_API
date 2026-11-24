@@ -7,7 +7,13 @@ import br.com.nexusbuilderlab.semanexus.intelligence.referencia.ReferenciaDto.Me
 import br.com.nexusbuilderlab.semanexus.intelligence.referencia.ReferenciaDto.Ponto;
 import br.com.nexusbuilderlab.semanexus.intelligence.referencia.ReferenciaDto.PontosResponse;
 import br.com.nexusbuilderlab.semanexus.intelligence.referencia.ReferenciaDto.PorMunicipioResponse;
+import br.com.nexusbuilderlab.semanexus.common.exception.RecursoNaoEncontradoException;
+import br.com.nexusbuilderlab.semanexus.common.geo.GeoJson;
+import br.com.nexusbuilderlab.semanexus.intelligence.referencia.ReferenciaDto.PontoDetalhe;
+import br.com.nexusbuilderlab.semanexus.intelligence.referencia.ReferenciaSateliteRepository.Registro;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.Comparator;
 import java.util.List;
 import org.springframework.stereotype.Service;
@@ -48,6 +54,55 @@ public class ReferenciaSateliteService {
         long total = itens.stream().mapToLong(ContagemMunicipio::total).sum();
         return new PorMunicipioResponse(ReferenciaDto.FONTE, false, atualizadoEm(repository.importacoes()),
                 ReferenciaDto.AVISO, total, itens);
+    }
+
+    /** Detalhe de um ponto para o painel do mapa; 404 se não existir. A área só aparece quando a fonte a informa. */
+    public PontoDetalhe detalhe(long id) {
+        Registro r = repository.registro(id)
+                .orElseThrow(() -> RecursoNaoEncontradoException.de("Ponto de satélite", id));
+        Map<String, Object> atributos = GeoJson.objeto(r.atributos());
+        Ponto p = r.ponto();
+        boolean deter = TipoReferencia.DESMATAMENTO.name().equals(p.tipo());
+        boolean informada = deter && p.areaKm2() != null;
+        String campo = informada ? campoArea(atributos) : null;
+        BigDecimal km2Fonte = informada ? valorDaFonte(atributos, campo, p.areaKm2()) : null;
+        if (km2Fonte != null) {
+            // hectares a partir do valor completo da fonte (a coluna AREA_KM2 guarda só 4 casas)
+            p = new Ponto(p.id(), p.tipo(), p.dataHora(), p.latitude(), p.longitude(), p.municipioId(),
+                    p.municipio(), p.bioma(), p.satelite(), p.classe(), p.areaKm2(), GeoJson.km2ParaHectares(km2Fonte));
+        }
+        String observacao;
+        if (!deter) {
+            observacao = ReferenciaDto.AREA_FOCO_NAO_INFORMADA;
+        } else if (informada) {
+            observacao = "Área do polígono do alerta informada pelo INPE/TerraBrasilis (campo " + campo
+                    + ", em km²), convertida para hectares (1 km² = 100 ha).";
+        } else {
+            observacao = "Área afetada: não informada pela fonte para este alerta.";
+        }
+        return new PontoDetalhe(ReferenciaDto.FONTE, false, ReferenciaDto.AVISO, p, informada, campo, km2Fonte,
+                observacao,
+                deter ? GeoJson.geometria(r.geometria()) : null, atributos, r.importacao());
+    }
+
+    private static BigDecimal valorDaFonte(Map<String, Object> atributos, String campo, BigDecimal coluna) {
+        Object v = atributos == null ? null : atributos.get(campo);
+        if (v instanceof Number || v instanceof String) {
+            try {
+                return new BigDecimal(v.toString());
+            } catch (NumberFormatException e) {
+                return coluna;
+            }
+        }
+        return coluna;
+    }
+
+    /** areatotalkm (Cerrado) ou areamunkm (Amazônia e snapshot antigo, que só guardava esse campo). */
+    static String campoArea(Map<String, Object> atributos) {
+        if (atributos != null && atributos.get("areatotalkm") != null) {
+            return "areatotalkm";
+        }
+        return "areamunkm";
     }
 
     private static void validar(ReferenciaFiltro f) {

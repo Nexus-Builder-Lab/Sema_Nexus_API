@@ -1,14 +1,18 @@
 package br.com.nexusbuilderlab.semanexus.intelligence.referencia;
 
+import br.com.nexusbuilderlab.semanexus.common.geo.GeoJson;
 import br.com.nexusbuilderlab.semanexus.intelligence.referencia.ReferenciaDto.ContagemMunicipio;
 import br.com.nexusbuilderlab.semanexus.intelligence.referencia.ReferenciaDto.Importacao;
 import br.com.nexusbuilderlab.semanexus.intelligence.referencia.ReferenciaDto.Ponto;
 import java.math.BigDecimal;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -19,7 +23,11 @@ public class ReferenciaSateliteRepository {
     /** Linha pronta para inserção. */
     public record Linha(TipoReferencia tipo, LocalDateTime dataHora, BigDecimal latitude, BigDecimal longitude,
                         int municipioId, String bioma, String satelite, String classe, BigDecimal areaKm2,
-                        String atributos) {
+                        String atributos, String geometria) {
+    }
+
+    /** Registro completo de um ponto, com a importação de origem (detalhe no mapa). */
+    public record Registro(Ponto ponto, String atributos, String geometria, Importacao importacao) {
     }
 
     private final JdbcTemplate jdbc;
@@ -34,6 +42,13 @@ public class ReferenciaSateliteRepository {
         return n != null && n > 0;
     }
 
+    /** Remove as importações (e seus pontos) do tipo; devolve quantas importações foram removidas. */
+    public int removerImportacoes(TipoReferencia tipo) {
+        jdbc.update("DELETE FROM REFERENCIA_SATELITE WHERE IMPORTACAO_ID IN "
+                + "(SELECT ID FROM IMPORTACAO_REFERENCIA WHERE TIPO = ?)", tipo.name());
+        return jdbc.update("DELETE FROM IMPORTACAO_REFERENCIA WHERE TIPO = ?", tipo.name());
+    }
+
     /** Grava a importação e seus pontos; devolve o ID da importação. */
     public long gravar(String fonte, TipoReferencia tipo, LocalDate de, LocalDate ate, String url, String licenca,
                        String arquivo, String sha256, List<Linha> linhas) {
@@ -43,8 +58,8 @@ public class ReferenciaSateliteRepository {
                 licenca, arquivo, sha256);
         Long id = jdbc.queryForObject("SELECT ID FROM IMPORTACAO_REFERENCIA WHERE SHA256 = ?", Long.class, sha256);
         jdbc.batchUpdate("INSERT INTO REFERENCIA_SATELITE (IMPORTACAO_ID, TIPO, DATA_HORA, LATITUDE, LONGITUDE, "
-                        + "MUNICIPIO_ID, BIOMA, SATELITE, CLASSE, AREA_KM2, ATRIBUTOS) "
-                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        + "MUNICIPIO_ID, BIOMA, SATELITE, CLASSE, AREA_KM2, ATRIBUTOS, GEOMETRIA) "
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 linhas, 1000, (ps, l) -> {
                     ps.setLong(1, id);
                     ps.setString(2, l.tipo().name());
@@ -57,6 +72,7 @@ public class ReferenciaSateliteRepository {
                     ps.setString(9, l.classe());
                     ps.setBigDecimal(10, l.areaKm2());
                     ps.setString(11, l.atributos());
+                    ps.setString(12, l.geometria());
                 });
         return id;
     }
@@ -79,11 +95,31 @@ public class ReferenciaSateliteRepository {
                         + "r.BIOMA, r.SATELITE, r.CLASSE, r.AREA_KM2 FROM REFERENCIA_SATELITE r "
                         + "JOIN MUNICIPIO m ON m.ID = r.MUNICIPIO_ID" + where
                         + " ORDER BY r.DATA_HORA DESC, r.ID FETCH FIRST ? ROWS ONLY",
-                (rs, i) -> new Ponto(rs.getLong("ID"), rs.getString("TIPO"),
-                        rs.getTimestamp("DATA_HORA").toLocalDateTime(), rs.getBigDecimal("LATITUDE"),
-                        rs.getBigDecimal("LONGITUDE"), rs.getInt("MUNICIPIO_ID"), rs.getString("NOME"),
-                        rs.getString("BIOMA"), rs.getString("SATELITE"), rs.getString("CLASSE"),
-                        rs.getBigDecimal("AREA_KM2")), args.toArray());
+                (rs, i) -> ponto(rs), args.toArray());
+    }
+
+    /** Ponto pelo ID, com atributos, geometria e a importação de origem. */
+    public Optional<Registro> registro(long id) {
+        return jdbc.query("SELECT r.ID, r.TIPO, r.DATA_HORA, r.LATITUDE, r.LONGITUDE, r.MUNICIPIO_ID, m.NOME, "
+                        + "r.BIOMA, r.SATELITE, r.CLASSE, r.AREA_KM2, r.ATRIBUTOS, r.GEOMETRIA, i.ID AS IMP_ID, "
+                        + "i.FONTE, i.TIPO AS IMP_TIPO, i.PERIODO_DE, i.PERIODO_ATE, i.IMPORTADO_EM, i.REGISTROS, "
+                        + "i.URL_ORIGEM, i.LICENCA, i.ARQUIVO FROM REFERENCIA_SATELITE r "
+                        + "JOIN MUNICIPIO m ON m.ID = r.MUNICIPIO_ID "
+                        + "JOIN IMPORTACAO_REFERENCIA i ON i.ID = r.IMPORTACAO_ID WHERE r.ID = ?",
+                (rs, i) -> new Registro(ponto(rs), rs.getString("ATRIBUTOS"), rs.getString("GEOMETRIA"),
+                        new Importacao(rs.getLong("IMP_ID"), rs.getString("FONTE"), rs.getString("IMP_TIPO"),
+                                rs.getDate("PERIODO_DE").toLocalDate(), rs.getDate("PERIODO_ATE").toLocalDate(),
+                                rs.getTimestamp("IMPORTADO_EM").toLocalDateTime(), rs.getLong("REGISTROS"),
+                                rs.getString("URL_ORIGEM"), rs.getString("LICENCA"), rs.getString("ARQUIVO"))),
+                id).stream().findFirst();
+    }
+
+    private static Ponto ponto(ResultSet rs) throws SQLException {
+        BigDecimal areaKm2 = rs.getBigDecimal("AREA_KM2");
+        return new Ponto(rs.getLong("ID"), rs.getString("TIPO"), rs.getTimestamp("DATA_HORA").toLocalDateTime(),
+                rs.getBigDecimal("LATITUDE"), rs.getBigDecimal("LONGITUDE"), rs.getInt("MUNICIPIO_ID"),
+                rs.getString("NOME"), rs.getString("BIOMA"), rs.getString("SATELITE"), rs.getString("CLASSE"),
+                areaKm2, GeoJson.km2ParaHectares(areaKm2));
     }
 
     public List<ContagemMunicipio> porMunicipio(ReferenciaFiltro f) {
