@@ -21,7 +21,9 @@ FROM eclipse-temurin:21-jre-alpine AS runtime
 ARG APP_UID=10001
 ARG APP_GID=10001
 
-RUN addgroup -S -g ${APP_GID} semanexus \
+# OCR opcional (Issue #140): Tesseract (Apache 2.0) + dados do idioma português. Sem o binário a API degrada com aviso.
+RUN apk add --no-cache tesseract-ocr tesseract-ocr-data-por \
+    && addgroup -S -g ${APP_GID} semanexus \
     && adduser -S -D -H -u ${APP_UID} -G semanexus -s /sbin/nologin semanexus \
     && mkdir -p /app /data/uploads \
     && chown -R ${APP_UID}:${APP_GID} /app /data
@@ -32,6 +34,8 @@ COPY --from=build --chown=${APP_UID}:${APP_GID} /workspace/app.jar /app/app.jar
 # Valores não sensíveis; podem ser sobrescritos pelo compose/.env.
 ENV JAVA_OPTS="-XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError" \
     STORAGE_DIR=/data/uploads \
+    TESSERACT_CMD=tesseract \
+    TESSERACT_LANG=por \
     SERVER_PORT=8080
 
 USER ${APP_UID}:${APP_GID}
