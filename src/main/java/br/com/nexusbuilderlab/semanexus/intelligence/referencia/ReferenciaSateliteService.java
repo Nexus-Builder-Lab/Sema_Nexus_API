@@ -33,6 +33,18 @@ public class ReferenciaSateliteService {
         this.repository = repository;
     }
 
+    /** Pontos mais próximos do centro na caixa e no período (pré-filtro espacial; refinamento é do chamador). */
+    public java.util.List<ReferenciaSateliteRepository.PontoEspacial> maisProximosNaCaixa(TipoReferencia tipo,
+            double latMin, double latMax, double lonMin, double lonMax, java.time.LocalDateTime de,
+            java.time.LocalDateTime ate, double latCentro, double lonCentro, int limite) {
+        return repository.maisProximosNaCaixa(tipo, latMin, latMax, lonMin, lonMax, de, ate, latCentro, lonCentro,
+                limite);
+    }
+
+    public String geometria(long id) {
+        return repository.geometria(id);
+    }
+
     public Metadados metadados() {
         List<Importacao> imp = repository.importacoes();
         return new Metadados(ReferenciaDto.FONTE, false, atualizadoEm(imp), ReferenciaDto.AVISO, imp);

@@ -46,6 +46,9 @@ final class RegrasTriagem {
     private static final List<String> AGRAVANTES = List.of("urgente", "em andamento", "neste momento", "agora",
             "grande", "extensa", "hectares", "risco", "reincid");
 
+    /** Focos + alertas DETER no raio de 10 km, nos 90 dias anteriores ao recebimento, a partir dos quais a prioridade sobe um nível. */
+    static final long LIMIAR_RAIO = 10;
+
     private RegrasTriagem() {
     }
 
@@ -75,13 +78,19 @@ final class RegrasTriagem {
 
     /** Base pela categoria; sobe um nível com agravante no texto ou muitos focos/alertas do INPE no município. */
     static Prioridade prioridade(CategoriaFiscalizacao categoria, String titulo, String descricao, long alertasInpe) {
+        return prioridade(categoria, titulo, descricao, alertasInpe, false);
+    }
+
+    /** Com {@code espacial}, a contagem é a do raio em torno da coordenada (limiar menor: 5) e não a do município (50). */
+    static Prioridade prioridade(CategoriaFiscalizacao categoria, String titulo, String descricao, long alertasInpe,
+                                 boolean espacial) {
         Prioridade base = switch (categoria) {
             case QUEIMADA_INCENDIO, DESMATAMENTO_ILEGAL, MINERACAO_IRREGULAR -> Prioridade.ALTA;
             case null -> Prioridade.MEDIA;
             default -> Prioridade.MEDIA;
         };
         String t = normalizar(titulo + " " + descricao);
-        boolean agravante = AGRAVANTES.stream().anyMatch(t::contains) || alertasInpe >= 50;
+        boolean agravante = AGRAVANTES.stream().anyMatch(t::contains) || alertasInpe >= (espacial ? LIMIAR_RAIO : 50);
         if (!agravante) {
             return base;
         }

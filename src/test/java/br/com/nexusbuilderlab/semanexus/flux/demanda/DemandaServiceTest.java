@@ -121,6 +121,35 @@ class DemandaServiceTest {
         return d;
     }
 
+    @Test
+    @SuppressWarnings("unchecked")
+    void proximasFiltraPorHaversineEOrdena() {
+        Demanda perto = comCoordenada(11L, "-15.6000", "-56.1000");
+        Demanda medio = comCoordenada(12L, "-15.6300", "-56.1000");   // cerca de 3,3 km
+        Demanda longe = comCoordenada(13L, "-15.7000", "-56.1000");   // cerca de 11 km: fora do raio de 10 km
+        when(demandas.findAll(any(org.springframework.data.jpa.domain.Specification.class)))
+                .thenReturn(List.of(longe, medio, perto));
+        var r = service.proximas(ator, -15.6, -56.1, 10, 1L, 8);
+        assertThat(r).extracting(p -> p.demanda().id()).containsExactly(11L, 12L);
+        assertThat(r.get(1).distanciaKm()).isBetween(3.2, 3.4);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void proximasDoFiscalConsultaSuasEquipes() {
+        UsuarioAutenticado fiscal = UsuarioAutenticado.de(usuario(20L, Perfil.FISCAL));
+        when(demandas.findAll(any(org.springframework.data.jpa.domain.Specification.class))).thenReturn(List.of());
+        assertThat(service.proximas(fiscal, -15.6, -56.1, 5, null, 8)).isEmpty();
+        verify(equipes).findIdsByMembro(20L);
+    }
+
+    private Demanda comCoordenada(long id, String lat, String lon) {
+        Demanda d = demanda(id, StatusDemanda.PENDENTE);
+        d.setLatitude(new java.math.BigDecimal(lat));
+        d.setLongitude(new java.math.BigDecimal(lon));
+        return d;
+    }
+
     private Equipe equipe(long id) {
         Equipe e = new Equipe("Equipe " + id, mock(Setor.class));
         ReflectionTestUtils.setField(e, "id", id);

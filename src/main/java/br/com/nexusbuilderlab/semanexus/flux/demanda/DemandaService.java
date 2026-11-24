@@ -9,6 +9,7 @@ import br.com.nexusbuilderlab.semanexus.common.exception.DadosInvalidosException
 import br.com.nexusbuilderlab.semanexus.common.exception.GlobalExceptionHandler.ErroCampo;
 import br.com.nexusbuilderlab.semanexus.common.exception.RecursoNaoEncontradoException;
 import br.com.nexusbuilderlab.semanexus.common.geo.GeoJson;
+import br.com.nexusbuilderlab.semanexus.common.geo.Geodesia;
 import br.com.nexusbuilderlab.semanexus.core.auditoria.AuditService;
 import br.com.nexusbuilderlab.semanexus.core.catalogo.StatusDemanda;
 import br.com.nexusbuilderlab.semanexus.core.equipe.Equipe;
@@ -22,6 +23,7 @@ import br.com.nexusbuilderlab.semanexus.core.usuario.Usuario;
 import br.com.nexusbuilderlab.semanexus.core.usuario.UsuarioRepository;
 import br.com.nexusbuilderlab.semanexus.flux.demanda.dto.DemandaDetalhe;
 import br.com.nexusbuilderlab.semanexus.flux.demanda.dto.DemandaFiltro;
+import br.com.nexusbuilderlab.semanexus.flux.demanda.dto.DemandaProxima;
 import br.com.nexusbuilderlab.semanexus.flux.demanda.dto.DemandaRequest;
 import br.com.nexusbuilderlab.semanexus.flux.demanda.dto.DemandaResumo;
 import br.com.nexusbuilderlab.semanexus.flux.demanda.dto.FiscalizacaoDetalhe;
@@ -177,6 +179,29 @@ public class DemandaService {
         var especificacao = DemandaSpecification.listagem(filtro, hoje, equipesDoFiscal, fiscal ? ator.id() : null, ordenacao);
         Page<Demanda> pagina = demandas.findAll(especificacao, PageRequest.of(paginacao.getPageNumber(), paginacao.getPageSize()));
         return PageResponse.of(pagina, d -> resumo(d, hoje));
+    }
+
+    /**
+     * Demandas não finalizadas num raio (km) em torno de uma coordenada, da mais próxima à mais distante (no máximo
+     * {@code limite}). Pré-filtro por caixa envolvente em SQL e Haversine em Java; não restringe por município
+     * (duplicatas na divisa), mas respeita o escopo do FISCAL. Somente leitura.
+     */
+    @Transactional(readOnly = true)
+    public List<DemandaProxima> proximas(UsuarioAutenticado ator, double lat, double lon, double raioKm,
+                                         Long excluirId, int limite) {
+        boolean fiscal = ator.perfil() == Perfil.FISCAL;
+        List<Long> equipesDoFiscal = fiscal ? equipes.findIdsByMembro(ator.id()) : List.of();
+        var caixa = Geodesia.caixa(lat, lon, raioKm, 0);
+        var espec = DemandaSpecification.naCaixa(caixa.latMin(), caixa.latMax(), caixa.lonMin(), caixa.lonMax(),
+                excluirId, equipesDoFiscal, fiscal ? ator.id() : null);
+        LocalDate hoje = hoje();
+        return demandas.findAll(espec).stream()
+                .map(d -> new DemandaProxima(resumo(d, hoje), Geodesia.haversineKm(lat, lon,
+                        d.getLatitude().doubleValue(), d.getLongitude().doubleValue())))
+                .filter(p -> p.distanciaKm() <= raioKm)
+                .sorted(java.util.Comparator.comparingDouble(DemandaProxima::distanciaKm))
+                .limit(limite)
+                .toList();
     }
 
     /** Demandas atribuídas a uma equipe (404 se a equipe não existe), opcionalmente filtradas por status. */

@@ -509,6 +509,13 @@
 - **Correções da revisão (sem bloqueios, 4 itens):** `X-Forwarded-For` só de proxies configurados (`LIMITE_PROXY_CONFIAVEL`, padrão `web` no compose; vazio = loopback) e porta da API publicada só em `127.0.0.1`; teto de chaves vivas (`LIMITE_MAX_CHAVES`) com descarte amortizado das vencidas, sem varredura por requisição; logouts simultâneos sem 500 (`MERGE` em `REQUIRES_NEW`, auditoria uma vez); aquecimento do modelo pela `FilaGpu`. Trade-offs registrados em `docs/API.md` (custo da consulta de revogação por requisição; cache antes do commit como falha segura).
 - **Pendências / observações:** Web#152 trata o 429 na interface; com mais de uma instância da API o limite precisaria de armazenamento compartilhado.
 
+## 2026-11-24 · GH-132 · Ferramentas geoespaciais por raio/polígono no Agente de Triagem
+- **Status:** PR solicitado (subagente implementador, pacote de evoluções de 24/11/2026, frente 1). Web#136 consome o novo campo `espacial`.
+- **O que foi feito:** ferramentas `alertas_inpe_raio_coordenada`, `demandas_proximas_coordenada` e `documentos_mesma_localidade` no `AgenteTriagemService`; `AnaliseEspacial` (focos/DETER/demandas/documentos), `common/geo/Geodesia` (Haversine, caixa, ponto em polígono e distância ao polígono), `DemandaService.proximas` (escopo do FISCAL), consulta por caixa em `REFERENCIA_SATELITE`; `RegrasTriagem` usa proximidade quando há coordenada; `SugestaoTriagem.espacial` e `Duplicata.distanciaKm` (campos novos, nulos quando não aplicável).
+- **Decisões técnicas:** pré-filtro por caixa envolvente em SQL e refinamento em Java (centroide DETER com margem de 30 km); sem migration; a evidência espacial é calculada pela API com raio padrão (10 km), não pelo que o modelo pedir; documentos não têm coordenada, então a proximidade vem das demandas vinculadas.
+- **Testes:** novos `GeodesiaTest` (5), `AnaliseEspacialTest` (7), 2 em `DemandaServiceTest`, 2 em `AgenteTriagemServiceTest` (sem Oracle: 0 falhas). SQL novo não exercitado em Oracle real (sem Docker): a confirmar pelo validador.
+- **Pendências:** teste `oracle` das consultas por caixa e `FETCH FIRST ? ROWS ONLY`; mocks/OpenAPI da Web#136.
+
 ## 2026-11-24 — GH-133 · Assistente DocIA contextualizado na demanda e multi-turno
 - **PR:** (este PR) · **Status:** aguardando validação
 - **Executado por:** agente implementador (Claude Code)

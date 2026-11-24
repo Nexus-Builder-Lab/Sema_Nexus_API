@@ -67,6 +67,29 @@ final class DemandaSpecification {
         return Specification.allOf(partes);
     }
 
+    /**
+     * Pré-filtro espacial das demandas não finalizadas (caixa envolvente em graus, só com coordenada), com o escopo
+     * do FISCAL; a distância exata (Haversine) é aplicada em Java pelo chamador.
+     */
+    static Specification<Demanda> naCaixa(double latMin, double latMax, double lonMin, double lonMax, Long excluirId,
+                                          Collection<Long> equipesDoFiscal, Long fiscalId) {
+        List<Specification<Demanda>> partes = new ArrayList<>();
+        partes.add(carregarAssociacoes());
+        partes.add((r, q, cb) -> cb.and(
+                cb.between(r.<java.math.BigDecimal>get("latitude"), java.math.BigDecimal.valueOf(latMin),
+                        java.math.BigDecimal.valueOf(latMax)),
+                cb.between(r.<java.math.BigDecimal>get("longitude"), java.math.BigDecimal.valueOf(lonMin),
+                        java.math.BigDecimal.valueOf(lonMax)),
+                cb.notEqual(r.get("status"), StatusDemanda.FINALIZADA)));
+        if (excluirId != null) {
+            partes.add((r, q, cb) -> cb.notEqual(r.get("id"), excluirId));
+        }
+        if (fiscalId != null) {
+            partes.add(escopoDoFiscal(fiscalId, equipesDoFiscal));
+        }
+        return Specification.allOf(partes);
+    }
+
     /** Município, equipe e fiscal já carregados na consulta de dados (não na contagem), evitando N+1. */
     private static Specification<Demanda> carregarAssociacoes() {
         return (root, query, cb) -> {
