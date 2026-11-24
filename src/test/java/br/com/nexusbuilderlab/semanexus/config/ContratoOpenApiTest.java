@@ -51,7 +51,7 @@ class ContratoOpenApiTest {
             "POST /api/documentos", "POST /api/documentos/pre-analise", "GET /api/documentos", "GET /api/documentos/{id}", "GET /api/documentos/{id}/arquivo",
             "POST /api/docia/perguntas",
             // Agentes de IA (Issue #106)
-            "GET /api/agentes/status", "POST /api/demandas/{id}/triagem/sugestao", "GET /api/sistema/painel",
+            "GET /api/agentes/status", "POST /api/demandas/{id}/triagem/sugestao", "POST /api/demandas/{id}/distribuicao/sugestao", "GET /api/sistema/painel",
             "POST /api/documentos/comparacao",
             "POST /api/docia/comparacao/explicar",
             "POST /api/demandas/{id}/minuta-vistoria",

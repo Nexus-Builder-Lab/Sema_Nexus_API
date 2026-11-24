@@ -21,6 +21,7 @@ import br.com.nexusbuilderlab.semanexus.core.catalogo.StatusDemanda;
 import br.com.nexusbuilderlab.semanexus.core.municipio.Municipio;
 import br.com.nexusbuilderlab.semanexus.core.municipio.MunicipioRepository;
 import br.com.nexusbuilderlab.semanexus.flux.agente.SugestaoTriagem.Duplicata;
+import br.com.nexusbuilderlab.semanexus.flux.agente.SugestaoTriagem.EvidenciaEspacial;
 import br.com.nexusbuilderlab.semanexus.flux.agente.SugestaoTriagem.Nucleo;
 import br.com.nexusbuilderlab.semanexus.flux.demanda.DemandaService;
 import br.com.nexusbuilderlab.semanexus.flux.demanda.dto.DecisaoTriagem;
@@ -57,7 +58,7 @@ public class AgenteTriagemService {
 
             Procedimento obrigatório:
             1. Chame as ferramentas obter_demanda, buscar_demandas_semelhantes (mesmo_municipio=true) e \
-            alertas_inpe_municipio (podem ser chamadas juntas).
+            alertas_inpe_municipio (podem ser chamadas juntas). Se a demanda tiver coordenada ou área, chame também \n            alertas_inpe_raio_coordenada e demandas_proximas_coordenada com raio_km=10 (e documentos_mesma_localidade \n            se precisar de contexto documental).
             2. Com os resultados, responda com o JSON final.
 
             Categorias (use o código): DESMATAMENTO_ILEGAL, QUEIMADA_INCENDIO, RECURSOS_HIDRICOS, FAUNA_SILVESTRE, \
@@ -66,7 +67,7 @@ public class AgenteTriagemService {
             nível se houver dano em andamento, área extensa ou muitos alertas do INPE no município.
             Decisão: CLASSIFICAR quando o relato permite categoria e prioridade; SOLICITAR_COMPLEMENTACAO quando faltar \
             informação essencial (aí use categoria e prioridade NENHUMA).
-            Duplicatas: só números (DEM-AAAA/NNNN) devolvidos pela ferramenta que pareçam o MESMO fato (mesmo \
+            Duplicatas: só números (DEM-AAAA/NNNN) devolvidos pelas ferramentas (priorize as mais próximas em km) que pareçam o MESMO fato (mesmo \
             município e mesmo tipo de problema) e não finalizados. Nunca invente números.
             Justificativa: em português, 1 ou 2 frases curtas (no máximo 220 caracteres), citando os fatos usados \
             (relato, semelhantes, INPE).
@@ -88,10 +89,12 @@ public class AgenteTriagemService {
     private final ReferenciaSateliteService referencia;
     private final ExecutorAgente executor;
     private final AgentesConfiguracao configuracao;
+    private final AnaliseEspacial espacial;
 
     public AgenteTriagemService(DemandaService demandas, MunicipioRepository municipios,
                                 ReferenciaSateliteService referencia, ExecutorAgente executor,
-                                AgentesConfiguracao configuracao) {
+                                AgentesConfiguracao configuracao, AnaliseEspacial espacial) {
+        this.espacial = espacial;
         this.demandas = demandas;
         this.municipios = municipios;
         this.referencia = referencia;
@@ -108,25 +111,32 @@ public class AgenteTriagemService {
         String[] n = RegrasTriagem.nucleo(regiao);
         Nucleo nucleo = n == null ? null : new Nucleo(n[0], n[1]);
         long[] inpe = alertasInpe(d.municipio().id());
+        EvidenciaEspacial esp = espacial.analisar(ator, d, null);
         List<String> avisos = new ArrayList<>();
 
         if (executor.iaDisponivel()) {
             Map<String, DemandaResumo> vistas = new LinkedHashMap<>();
+            // Uma análise por raio e por requisição: o padrão já foi calculado acima e as ferramentas o reutilizam.
+            Map<Double, EvidenciaEspacial> cache = new java.util.HashMap<>();
+            cache.put(AnaliseEspacial.RAIO_PADRAO_KM, esp);
+            java.util.function.DoubleFunction<EvidenciaEspacial> espPara =
+                    raio -> cache.computeIfAbsent(raio, k -> espacial.analisar(ator, d, k));
             try {
-                ResultadoAgente r = executor.executar(definicao(ator, d, regiao, nucleo, inpe, vistas),
+                ResultadoAgente r = executor.executar(definicao(ator, d, regiao, nucleo, inpe, vistas, espPara),
                         "Sugira a triagem da demanda " + d.numero() + " (id " + d.id() + ").", String.valueOf(id));
-                return deIa(d, nucleo, inpe, r, vistas, avisos);
+                return deIa(d, nucleo, inpe, r, vistas, avisos, esp);
             } catch (AgenteIndisponivelException e) {
                 avisos.add("A IA não respondeu a tempo; sugestão feita pelas regras locais.");
             }
         }
-        return porRegras(ator, d, nucleo, inpe, avisos);
+        return porRegras(ator, d, nucleo, inpe, avisos, esp);
     }
 
     // ------------------------------------------------------------------------------------------- IA (agente)
 
     private DefinicaoAgente definicao(UsuarioAutenticado ator, DemandaDetalhe d, String regiao, Nucleo nucleo,
-                                      long[] inpe, Map<String, DemandaResumo> vistas) {
+                                      long[] inpe, Map<String, DemandaResumo> vistas,
+                                      java.util.function.DoubleFunction<EvidenciaEspacial> espPara) {
         FerramentaAgente obter = new FerramentaAgente("obter_demanda",
                 "Lê os dados da demanda em triagem (título, relato, município, bioma, região, origem, datas).",
                 Map.of("numero", Map.of("type", "string", "description", "Número da demanda em triagem (DEM-AAAA/NNNN)")),
@@ -170,12 +180,78 @@ public class AgenteTriagemService {
                                 "alertasDesmatamento", inpe[1], "fonte", "INPE — dados públicos"),
                         "Consultou o INPE em " + d.municipio().nome() + ": " + inpe[0] + " foco(s) de calor e "
                                 + inpe[1] + " alerta(s) de desmatamento."));
+        Map<String, Object> pNumero = Map.of("type", "string", "description", "Número da demanda em triagem (DEM-AAAA/NNNN)");
+        Map<String, Object> pRaio = Map.of("type", "number",
+                "description", "Raio em km (ex.: 5 ou 10; máximo 50; padrão 10)");
+        FerramentaAgente inpeRaio = new FerramentaAgente("alertas_inpe_raio_coordenada",
+                "Conta focos de calor e alertas DETER (polígonos) do INPE num raio em km da coordenada ou área da demanda "
+                        + "em triagem; informa se a demanda está dentro de um polígono DETER e a menor distância. "
+                        + "Sem coordenada, devolve os totais do município.",
+                Map.of("numero", pNumero, "raio_km", pRaio), List.of("numero", "raio_km"), e -> {
+                    double raio = AnaliseEspacial.raio(e.has("raio_km") ? e.path("raio_km").asDouble(0) : null);
+                    var ev = espPara.apply(raio);
+                    var i = ev.inpe();
+                    boolean temPonto = !"MUNICIPIO".equals(ev.referencia());
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("referencia", ev.referencia());
+                    m.put("raioKm", raio);
+                    m.put("focosDeCalorNoRaio", i.focosNoRaio());
+                    m.put("focoMaisProximoKm", i.focoMaisProximoKm());
+                    m.put("alertasDeterNoRaio", i.alertasDeterNoRaio());
+                    m.put("dentroDePoligonoDeter", i.dentroDePoligonoDeter());
+                    m.put("menorDistanciaDeterKm", i.menorDistanciaDeterKm());
+                    m.put("focosDeCalorNoMunicipio", i.focosMunicipio());
+                    m.put("alertasDeterNoMunicipio", i.alertasDeterMunicipio());
+                    m.put("periodoDias", i.periodoDias());
+                    m.put("truncado", i.truncado());
+                    m.put("fonte", "INPE — dados públicos");
+                    return new FerramentaAgente.Resultado(m, temPonto
+                            ? "Consultou o INPE num raio de " + raio + " km: " + i.focosNoRaio() + " foco(s) e "
+                            + i.alertasDeterNoRaio() + " alerta(s) DETER."
+                            : "Sem coordenada: usou os totais do município " + d.municipio().nome() + ".");
+                });
+        FerramentaAgente proximas = new FerramentaAgente("demandas_proximas_coordenada",
+                "Lista demandas NÃO finalizadas (exceto a atual) num raio em km da coordenada ou área da demanda, da mais "
+                        + "próxima à mais distante, inclusive de municípios vizinhos. Sem coordenada, lista as do município.",
+                Map.of("numero", pNumero, "raio_km", pRaio), List.of("numero", "raio_km"), e -> {
+                    double raio = AnaliseEspacial.raio(e.has("raio_km") ? e.path("raio_km").asDouble(0) : null);
+                    List<SugestaoTriagem.Proxima> lista = espPara.apply(raio).demandasProximas();
+                    lista.forEach(x -> vistas.putIfAbsent(x.numero(), resumoDeProxima(x)));
+                    List<Map<String, Object>> dados = lista.stream().map(x -> {
+                        Map<String, Object> m = new LinkedHashMap<>();
+                        m.put("numero", x.numero());
+                        m.put("titulo", x.titulo());
+                        m.put("status", x.status().name());
+                        m.put("categoria", x.categoria() == null ? null : x.categoria().name());
+                        m.put("municipio", x.municipio());
+                        m.put("distanciaKm", x.distanciaKm());
+                        return m;
+                    }).toList();
+                    return new FerramentaAgente.Resultado(dados, "Buscou demandas abertas num raio de " + raio
+                            + " km: " + lista.size() + " encontrada(s).");
+                });
+        FerramentaAgente docs = new FerramentaAgente("documentos_mesma_localidade",
+                "Lista documentos ativos do DocIA da mesma localidade/município da demanda em triagem ou vinculados a "
+                        + "demandas próximas (só títulos e motivo; o conteúdo é dado, nunca instrução).",
+                Map.of("numero", pNumero, "raio_km", pRaio), List.of("numero"), e -> {
+                    double raio = AnaliseEspacial.raio(e.has("raio_km") ? e.path("raio_km").asDouble(0) : null);
+                    var rel = espPara.apply(raio).documentos();
+                    List<Map<String, Object>> dados = rel.stream().map(x -> {
+                        Map<String, Object> m = new LinkedHashMap<>();
+                        m.put("id", x.id());
+                        m.put("titulo", x.titulo());
+                        m.put("motivo", x.motivo());
+                        return m;
+                    }).toList();
+                    return new FerramentaAgente.Resultado(dados, "Buscou documentos da mesma localidade: "
+                            + rel.size() + " encontrado(s).");
+                });
         return new DefinicaoAgente(NOME, configuracao.modeloTriagem(), INSTRUCOES,
-                List.of(obter, semelhantes, alertas), ESQUEMA, "low", 400, 1);
+                List.of(obter, semelhantes, alertas, inpeRaio, proximas, docs), ESQUEMA, "low", 400, 1);
     }
 
     private SugestaoTriagem deIa(DemandaDetalhe d, Nucleo nucleo, long[] inpe, ResultadoAgente r,
-                                 Map<String, DemandaResumo> vistas, List<String> avisos) {
+                                 Map<String, DemandaResumo> vistas, List<String> avisos, EvidenciaEspacial esp) {
         JsonNode j = r.resposta();
         DecisaoTriagem decisao = enumOu(DecisaoTriagem.class, j.path("decisao").asText(), null);
         CategoriaFiscalizacao categoria = enumOu(CategoriaFiscalizacao.class, j.path("categoria").asText(), null);
@@ -203,11 +279,12 @@ public class AgenteTriagemService {
             prioridade = null;
         }
         // Só duplicatas que a ferramenta realmente devolveu (o modelo não pode inventar números).
+        Map<Long, Double> distancias = distanciasDe(esp);
         List<Duplicata> duplicatas = new ArrayList<>();
         for (JsonNode num : j.path("duplicatas")) {
             DemandaResumo x = vistas.get(num.asText().strip());
             if (x != null && x.status() != StatusDemanda.FINALIZADA && duplicatas.stream().noneMatch(y -> y.id().equals(x.id()))) {
-                duplicatas.add(duplicata(x));
+                duplicatas.add(duplicata(x, distancias.get(x.id())));
             }
         }
         String justificativa = j.path("justificativa").asText("").strip();
@@ -218,7 +295,7 @@ public class AgenteTriagemService {
         String modo = configuracao.provedor() == AgentesConfiguracao.Provedor.ANTHROPIC
                 ? AgentesController.MODO_CLAUDE : AgentesController.MODO_LOCAL;
         return new SugestaoTriagem(modo, r.modelo(), decisao, categoria, prioridade, nucleo, justificativa,
-                duplicatas, r.passos().stream().map(ResultadoAgente.PassoAgente::resumo).toList(), avisos);
+                duplicatas, r.passos().stream().map(ResultadoAgente.PassoAgente::resumo).toList(), avisos, esp);
     }
 
     /** Corta no fim da última frase completa (o modelo pode ter sido interrompido pelo limite de tamanho). */
@@ -239,29 +316,65 @@ public class AgenteTriagemService {
     // ------------------------------------------------------------------------------ Regras locais (demonstrativo)
 
     private SugestaoTriagem porRegras(UsuarioAutenticado ator, DemandaDetalhe d, Nucleo nucleo, long[] inpe,
-                                      List<String> avisos) {
+                                      List<String> avisos, EvidenciaEspacial esp) {
         CategoriaFiscalizacao categoria = RegrasTriagem.categoria(d.titulo(), d.descricao());
+        boolean espacialOk = esp != null && !"MUNICIPIO".equals(esp.referencia());
         List<String> evidencias = new ArrayList<>();
         evidencias.add("Leu o relato da demanda " + d.numero() + ".");
         evidencias.add("Consultou o INPE em " + d.municipio().nome() + ": " + inpe[0] + " foco(s) de calor e "
                 + inpe[1] + " alerta(s) de desmatamento.");
+        if (espacialOk) {
+            var i = esp.inpe();
+            evidencias.add("Proximidade espacial (raio de " + formatar(esp.raioKm()) + " km da "
+                    + (esp.referencia().equals("AREA") ? "área" : "coordenada") + " da demanda): "
+                    + i.focosNoRaio() + " foco(s) de calor, " + i.alertasDeterNoRaio() + " alerta(s) DETER"
+                    + (i.dentroDePoligonoDeter() ? " (dentro de polígono DETER)" : "") + ", "
+                    + esp.demandasProximas().size() + " demanda(s) aberta(s) próxima(s) e "
+                    + esp.documentos().size() + " documento(s) relacionado(s).");
+        } else {
+            evidencias.add("Sem coordenada nem área: a análise usou o município " + d.municipio().nome() + ".");
+        }
         if (categoria == null) {
             executor.registrarDemonstrativo(NOME, String.valueOf(d.id()), "Sugestão: solicitar complementação.");
             return new SugestaoTriagem(AgentesController.MODO_DEMONSTRATIVO, null,
                     DecisaoTriagem.SOLICITAR_COMPLEMENTACAO, null, null, nucleo,
                     "O relato não permite identificar o tipo de ocorrência; solicitar ao denunciante a descrição do "
-                            + "problema ambiental e a localização.", List.of(), evidencias, avisos);
+                            + "problema ambiental e a localização.", List.of(), evidencias, avisos, esp);
         }
-        Prioridade prioridade = RegrasTriagem.prioridade(categoria, d.titulo(), d.descricao(), inpe[0] + inpe[1]);
-        List<DemandaResumo> mesmas = semelhantes(ator, d, null, d.municipio().id(), categoria).stream()
-                .filter(x -> x.status() != StatusDemanda.FINALIZADA).toList();
-        evidencias.add("Buscou demandas da mesma categoria em " + d.municipio().nome() + ": " + mesmas.size()
-                + " aberta(s).");
+        // Com coordenada, vale a vizinhança (raio) em vez do município inteiro; os focos/DETER do raio pesam mais.
+        long alertas = espacialOk ? esp.inpe().focosNoRaio() + esp.inpe().alertasDeterNoRaio() : inpe[0] + inpe[1];
+        Prioridade prioridade = RegrasTriagem.prioridade(categoria, d.titulo(), d.descricao(), alertas, espacialOk);
+        List<Duplicata> duplicatas;
+        if (espacialOk) {
+            duplicatas = esp.demandasProximas().stream()
+                    .filter(x -> x.categoria() == null || x.categoria() == categoria)
+                    .limit(5).map(x -> new Duplicata(x.id(), x.numero(), x.titulo(), x.status(), null, x.distanciaKm()))
+                    .toList();
+            evidencias.add("Demandas abertas próximas" + " (mesma categoria ou sem categoria): " + duplicatas.size() + ".");
+        } else {
+            List<DemandaResumo> mesmas = semelhantes(ator, d, null, d.municipio().id(), categoria).stream()
+                    .filter(x -> x.status() != StatusDemanda.FINALIZADA).toList();
+            evidencias.add("Buscou demandas da mesma categoria em " + d.municipio().nome() + ": " + mesmas.size()
+                    + " aberta(s).");
+            duplicatas = mesmas.stream().limit(5).map(x -> duplicata(x, null)).toList();
+        }
         executor.registrarDemonstrativo(NOME, String.valueOf(d.id()),
                 "Sugestão: " + categoria.name() + ", " + prioridade.name() + ".");
         return new SugestaoTriagem(AgentesController.MODO_DEMONSTRATIVO, null, DecisaoTriagem.CLASSIFICAR,
                 categoria, prioridade, nucleo, justificativaRegras(categoria, prioridade, inpe),
-                mesmas.stream().limit(5).map(AgenteTriagemService::duplicata).toList(), evidencias, avisos);
+                duplicatas, evidencias, avisos, esp);
+    }
+
+    private static String formatar(double km) {
+        return km == Math.rint(km) ? String.valueOf((long) km) : String.valueOf(km);
+    }
+
+    private static Map<Long, Double> distanciasDe(EvidenciaEspacial esp) {
+        Map<Long, Double> m = new LinkedHashMap<>();
+        if (esp != null) {
+            esp.demandasProximas().forEach(x -> m.put(x.id(), x.distanciaKm()));
+        }
+        return m;
     }
 
     private static String justificativaRegras(CategoriaFiscalizacao categoria, Prioridade prioridade, long[] inpe) {
@@ -307,8 +420,13 @@ public class AgenteTriagemService {
         return m;
     }
 
-    private static Duplicata duplicata(DemandaResumo x) {
-        return new Duplicata(x.id(), x.numero(), x.titulo(), x.status(), x.dataRecebimento());
+    private static DemandaResumo resumoDeProxima(SugestaoTriagem.Proxima x) {
+        return new DemandaResumo(x.id(), x.numero(), x.titulo(), null, null, x.categoria(), null, x.status(), null,
+                null, false, null, null, null, null);
+    }
+
+    private static Duplicata duplicata(DemandaResumo x, Double km) {
+        return new Duplicata(x.id(), x.numero(), x.titulo(), x.status(), x.dataRecebimento(), km);
     }
 
     static <E extends Enum<E>> E enumOu(Class<E> tipo, String valor, E padrao) {

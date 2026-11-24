@@ -38,8 +38,9 @@ Em qualquer falha (Ollama parado, modelo não baixado, erro, resposta inválida)
 
 | Agente | Módulo | Ferramentas | Issue |
 |---|---|---|---|
-| Agente de Triagem | SEMA Flux | `obter_demanda`, `buscar_demandas_semelhantes`, `alertas_inpe_municipio` | #107 (implementado) |
+| Agente de Triagem | SEMA Flux | `obter_demanda`, `buscar_demandas_semelhantes`, `alertas_inpe_municipio`, `alertas_inpe_raio_coordenada`, `demandas_proximas_coordenada`, `documentos_mesma_localidade` | #107, #132 (implementados) |
 | Assistente DocIA | SEMA DocIA | `buscar_documentos`, `ler_documento` | #108 (implementado) |
+| Agente de Distribuição | SEMA Flux | `carga_trabalho_fiscais`, `demandas_ativas_na_regiao`, `tempo_medio_categoria` | #130 (implementado) |
 | Agente Copiloto de Minuta | SEMA Flux | `obter_dossie_demanda`, `ler_registro_fiscalizacao`, `resumo_documentos_vinculados`, `alertas_inpe_area` | #137 (implementado) |
 
 ## Preparar a IA local (uma vez)
@@ -64,6 +65,16 @@ Medido em 13/11/2026 (GTX 1660 SUPER, `qwen3:4b-instruct`): **7–11 s** por sug
 
 Lições com modelo pequeno: ferramentas **sem parâmetros** confundem o modelo (ele fica raciocinando sobre como passar o número) — toda ferramenta tem um parâmetro, e o servidor usa sempre a demanda em triagem; o `qwen3:4b` (com raciocínio) gastava ~1.000 tokens por etapa (15–20 s), por isso o padrão é a versão *instruct*; sem limite de tamanho no esquema o modelo pode se repetir até o limite de tokens.
 
+## Agente de Distribuição (Issue #130)
+
+`POST /api/demandas/{id}/distribuicao/sugestao` (ADMIN, GESTOR — os mesmos da distribuição; demanda em Aguardando distribuição, senão 409 — o fluxo não tem redistribuição). Não grava nada: a pessoa aplica pelo `POST /api/demandas/{id}/distribuicao`.
+
+1. Ferramentas somente leitura, todas com parâmetro explícito: `carga_trabalho_fiscais(nucleo)` — equipes ativas do núcleo regional (setor `NR-*` da região do município; `TODOS` ou núcleo sem equipe = todas as ativas) com ids dos fiscais e demandas ativas, atrasadas e com prazo nos próximos 7 dias por equipe e por fiscal; `demandas_ativas_na_regiao(abrangencia = MUNICIPIO|REGIAO)` — vistorias Distribuída/Em andamento no município ou na região, com a equipe (logística); `tempo_medio_categoria(categoria)` — média histórica (recebimento → conclusão) das finalizadas e um `prazoReferencia`. Parâmetro fora do enum → `PARAMETRO_INVALIDO` do catálogo `ErroFerramenta`.
+2. A tarefa enviada ao modelo leva só campos estruturados (número, categoria, prioridade, município, núcleo, data de hoje) — título e relato não entram (menos superfície de *prompt injection*).
+3. Resposta no esquema `{equipeId, fiscalId, prazo, justificativa}`. **O servidor valida** contra as mesmas candidatas das regras: equipe ativa, com membro ativo e do núcleo da demanda (ou de qualquer núcleo quando o da demanda não tem equipe utilizável), fiscal elegível dela (perfil FISCAL quando a equipe tem algum), prazo é data válida entre hoje e hoje + 180 dias. Quando o núcleo não tem equipe utilizável e a busca é ampliada, a ferramenta, os passos e a justificativa dizem isso explicitamente. O GESTOR não é restrito ao próprio setor (o endpoint de distribuição também não restringe). Consultas em JPQL com projeções/agregações (sem carregar entidades nem N+1). Qualquer falha — inclusive erro inesperado ao processar a resposta — → a sugestão inteira vem das **regras locais** (`RegrasDistribuicao`), com `modo` DEMONSTRATIVO, aviso com o motivo e auditoria `AGENTE_DEMONSTRATIVO` (a execução da IA fica em `AGENTE_EXECUCAO`).
+4. Regras locais (também sem IA): fiscal com menor pontuação `ativas + 2×próximas do vencimento + 3×atrasadas`, com 1 ponto de desconto se a equipe já tem vistoria em campo no mesmo município; empate por carga da equipe e nome. Prefere membros com perfil FISCAL (senão, qualquer membro ativo — mesma regra do endpoint de distribuição). Prazo = hoje + tempo médio da categoria arredondado para cima (15 dias sem histórico), no máximo 7 dias se URGENTE e 15 se ALTA, entre 3 e 90 dias.
+5. Mesmas proteções dos demais agentes: `ExecutorAgente` (fila da GPU, orçamento, catálogo de erros), categoria `IA` do limite de requisições, métricas no Painel do sistema e em `GET /api/agentes/status`. Usa o modelo configurado para a triagem (`AGENTE_TRIAGEM_MODELO` no Claude; `OLLAMA_MODELO` no local).
+
 ## Assistente DocIA agêntico (Issue #108)
 
 Mesmo endpoint `POST /api/docia/perguntas`. Com IA disponível, o agente decide o que buscar (`buscar_documentos`) e se precisa ler outro documento (`ler_documento`, até 4.000 caracteres), em até 3 rodadas de ferramentas, e responde **em texto livre** (ou no esquema curto `{resposta, suficiente}`); sem base nos documentos responde `NAO_ENCONTRADO`.
@@ -87,9 +98,10 @@ Medido em 13/11/2026 (`qwen3:4b-instruct`, GTX 1660 SUPER): 3–12 s por pergunt
 `POST /api/demandas/{id}/minuta-vistoria` (ADMIN, GESTOR, ANALISTA e FISCAL designado; CONSULTA e fiscal não designado → 403). `AgenteMinutaService` lê antes da IA, com o perfil e o escopo do usuário (`DemandaService.detalhar/historico`, `DocumentoService.listarDaDemanda/detalhar`, `ReferenciaSateliteService.porMunicipio`), e oferece ao agente `minuta` (modelo do DocIA) quatro ferramentas **somente leitura e com parâmetro explícito** (`numero` da demanda; `resumo_documentos_vinculados` também `max_documentos` 1–5). Número de outra demanda → `PARAMETRO_INVALIDO` pelo catálogo `ErroFerramenta`.
 - **Fatos pela API, texto pela IA:** identificação, eventos do histórico, registro de fiscalização, documentos e contagens do INPE são montados de forma determinística; o modelo devolve só `historico`, `constatacoes`, `contextoInpe` e `conclusoes` (JSON com esquema).
 - **Conferência de números:** todo número do texto do modelo (formatos pt-BR ou com ponto; marcadores de lista ignorados) precisa existir nos campos **estruturados** das ferramentas que ele chamou (área, contagens, coordenadas, datas, prazo, número da demanda) — números que só aparecem em texto livre (relato, histórico, fiscalização, documentos) não valem, pois podem ter sido plantados. Se não existir, ou se o texto trouxer sanção, valor em dinheiro, juízo de culpa ou eco de instrução (`multa`, `R$`, `reais`, `sanção`, `penalidade`, `embargo`, `responsabiliz…`, `culpado`, `autuado`, `auto de infração` — barrado mesmo se constar no histórico, pois a minuta não sugere autuação —, `ignore`), a minuta inteira vem do **template** (`modo` DEMONSTRATIVO, aviso e auditoria `AGENTE_DEMONSTRATIVO`). Sem IA ou após falha, o mesmo template.
-- **Injeção:** relato, histórico, fiscalização e trechos de documentos vão ao modelo entre `[INICIO_DADO]`/`[FIM_DADO]` (marcadores internos removidos) e as instruções mandam ignorar ordens neles; na minuta esses textos aparecem em uma linha, sem `#`, HTML ou crases, com URLs removidas e `[ ] ( ) !` escapados (sem links/imagens Markdown).
+- **Injeção:** relato, histórico, fiscalização e trechos de documentos vão ao modelo entre `[INICIO_DADO]`/`[FIM_DADO]` (marcadores internos removidos) e as instruções mandam ignorar ordens neles; na minuta esses textos aparecem em uma linha, sem `#`, HTML ou crases, com URLs removidas e `[ ] !` escapados (sem links/imagens Markdown).
 - **Aviso fixo** na primeira linha: **MINUTA GERADA PARA REVISÃO HUMANA — AMBIENTE DEMONSTRATIVO**. Nada é gravado; a Web (#141) envia o texto revisado como documento.
-- INPE: contagem por município (a análise espacial por raio/polígono do #132 ainda não estava na `main`).
+- INPE: com coordenada ou área, `alertas_inpe_area` usa a `AnaliseEspacial` do #132 (raio padrão de 10 km da coordenada ou da borda da área, janela até o recebimento: focos e DETER no raio, distâncias, dentro de polígono); sem coordenada nem área, ou em falha, só a contagem por município (sempre exibida como contexto).
+- **Datas-chave:** o dossiê traz `datasChave` (recebimento, fiscalização, conclusão, prazo). Data citada pela IA logo após "concluída/finalizada", "fiscalização/vistoria", "recebida" ou "prazo/vence" precisa ser a registrada (marco sem data registrada reprova); senão, template.
 
 ## Desempenho (Issue #120, 16/11/2026)
 
@@ -164,3 +176,10 @@ A busca da biblioteca é **textual** (sem embeddings). Cada documento recebe pon
 - Sem placa NVIDIA o modelo roda só no processador (perfil `ia-cpu`): estimativa de 30–90 s por triagem e 1–3 min por pergunta, com o processador a 100% — para uso real, a IA deve ficar num servidor com GPU (os usuários só usam o navegador).
 - Uso real por um órgão público: o modelo local é uma boa base (dados não saem da rede); com provedor externo, exige contrato, análise de LGPD e governança de IA.
 - Futuro (P2): Agente de Prazos (agendado), Analista Ambiental (Intelligence) e Assistente SEMA ALERTA (multiagente).
+
+### Ferramentas geoespaciais do Agente de Triagem (Issue #132, Implementado)
+Somente leitura, com o perfil/escopo do usuário, parâmetros explícitos (`numero`, `raio_km`; raio padrão 10 km, máximo 50):
+- `alertas_inpe_raio_coordenada`: focos de calor num raio (pré-filtro por caixa no SQL + Haversine em Java), alertas DETER cujo polígono toca o raio (distância ponto→polígono em Java; `dentroDePoligonoDeter`, `menorDistanciaDeterKm`) a partir da coordenada ou do centroide de `areaGeometria`; sem ambos, devolve os totais do município (fallback).
+- `demandas_proximas_coordenada`: demandas não finalizadas no raio, da mais próxima à mais distante, **sem restringir por município** (duplicatas na divisa), respeitando o escopo do FISCAL; sem coordenada lista as do município.
+- `documentos_mesma_localidade`: documentos ativos do DocIA que citam a localidade (no município), vinculados a demandas próximas ou do mesmo município (documentos não têm coordenada própria).
+A resposta da sugestão traz `espacial` (referência COORDENADA/AREA/MUNICIPIO, raio, contagens INPE, demandas próximas com `distanciaKm`, documentos relacionados) calculada pela API com raio padrão, independentemente do que o modelo chamar. No modo demonstrativo, com coordenadas, as duplicatas e a prioridade usam a proximidade (limiar de 10 focos+alertas no raio, nos 90 dias anteriores ao recebimento; janela configurável por `sema.triagem.espacial.janela-dias`) e a evidência "Proximidade espacial" identifica isso.
