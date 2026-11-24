@@ -72,6 +72,11 @@ public class BuscaDocumentos {
     }
 
     public List<Achado> buscar(String consulta, int limite) {
+        return buscar(consulta, limite, null);
+    }
+
+    /** {@code idsPermitidos} não nulo restringe o resultado a esses documentos (ex.: vinculados à demanda). */
+    public List<Achado> buscar(String consulta, int limite, java.util.Set<Long> idsPermitidos) {
         List<String> termos = radicais(consulta);
         List<Achado> r = new ArrayList<>();
         if (termos.isEmpty()) {
@@ -87,6 +92,9 @@ public class BuscaDocumentos {
             for (Long id : jdbc.queryForList(DocumentoSpecification.SQL_BUSCA_TITULO, Long.class, padrao)) {
                 pontos.merge(id, 2, Integer::sum);
             }
+        }
+        if (idsPermitidos != null) {
+            pontos.keySet().retainAll(idsPermitidos);
         }
         int maximo = pontos.values().stream().mapToInt(Integer::intValue).max().orElse(0);
         pontos.entrySet().stream()
