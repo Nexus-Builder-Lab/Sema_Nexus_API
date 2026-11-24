@@ -508,3 +508,13 @@
 - **Testes:** novos `FilaGpuTest` (5), `LimitadorRequisicoesTest` (4), `LimiteRequisicoesWebMvcTest` (1), `RevogacaoTokenServiceTest` (5), casos em `JwtServiceTest` (2), `AuthControllerWebMvcTest` (token revogado → 401) e `AuthOracleTest` (logout revoga; mesmo token → 401). Suíte completa: a confirmar pelo validador.
 - **Correções da revisão (sem bloqueios, 4 itens):** `X-Forwarded-For` só de proxies configurados (`LIMITE_PROXY_CONFIAVEL`, padrão `web` no compose; vazio = loopback) e porta da API publicada só em `127.0.0.1`; teto de chaves vivas (`LIMITE_MAX_CHAVES`) com descarte amortizado das vencidas, sem varredura por requisição; logouts simultâneos sem 500 (`MERGE` em `REQUIRES_NEW`, auditoria uma vez); aquecimento do modelo pela `FilaGpu`. Trade-offs registrados em `docs/API.md` (custo da consulta de revogação por requisição; cache antes do commit como falha segura).
 - **Pendências / observações:** Web#152 trata o 429 na interface; com mais de uma instância da API o limite precisaria de armazenamento compartilhado.
+
+## 2026-11-24 — GH-133 · Assistente DocIA contextualizado na demanda e multi-turno
+- **PR:** (este PR) · **Status:** aguardando validação
+- **Executado por:** agente implementador (Claude Code)
+- **O que foi feito:** `POST /api/docia/perguntas` ganhou `demandaId` e `historico` opcionais (compatível). `demandaId`: autorização pelo escopo da demanda (403/404) e busca/leitura restritas aos documentos vinculados (também no modo extrativo). `historico`: sanitizado e limitado (`HistoricoConversa`), enviado em bloco delimitado de dados; instruções do agente proíbem obedecê-lo.
+- **Decisões técnicas:** restrição estrita (não só priorização) por ser verificável; histórico ignorado no modo extrativo; citações seguem conferidas só nos documentos lidos; sem migration.
+- **Arquivos principais:** `docia/assistente/{AssistenteService,AgenteDocia,BuscaDocumentos,AssistenteController,HistoricoConversa}.java`, `dto/{PerguntaRequest,TurnoHistorico}.java`, `AssistenteContextoTest`, `docs/API.md`, `docs/AGENTES_IA.md`.
+- **Testes:** `mvn -Dtest=AssistenteContextoTest,AgenteDociaTest,AssistenteServiceTest,BuscaDocumentosTest test` → verde (7 novos: contexto da demanda, leitura fora da demanda, 403/404, demanda sem documentos, compatibilidade, injeção no histórico, truncamento). Suíte completa: a confirmar pelo validador.
+- **Docker:** não se aplica nesta etapa (validador).
+- **Pendências:** Web#137 consome os campos novos; contrato OpenAPI atualizado por anotações.

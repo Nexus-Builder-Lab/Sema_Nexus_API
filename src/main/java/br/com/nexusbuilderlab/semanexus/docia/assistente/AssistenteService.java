@@ -1,6 +1,11 @@
 package br.com.nexusbuilderlab.semanexus.docia.assistente;
 
+import br.com.nexusbuilderlab.semanexus.docia.assistente.dto.PerguntaRequest;
 import br.com.nexusbuilderlab.semanexus.docia.assistente.dto.ReferenciaDocumento;
+import br.com.nexusbuilderlab.semanexus.docia.assistente.dto.TurnoHistorico;
+import br.com.nexusbuilderlab.semanexus.flux.demanda.DemandaService;
+import br.com.nexusbuilderlab.semanexus.security.UsuarioAutenticado;
+import java.util.LinkedHashSet;
 import br.com.nexusbuilderlab.semanexus.docia.assistente.dto.RespostaAssistente;
 import br.com.nexusbuilderlab.semanexus.docia.documento.Documento;
 import br.com.nexusbuilderlab.semanexus.docia.documento.DocumentoRepository;
@@ -38,13 +43,22 @@ public class AssistenteService {
     private final BuscaDocumentos busca;
     private final AssistenteProvider provider;
     private final AgenteDocia agente;
+    private final DemandaService demandas;
+    private final JdbcTemplate jdbc;
 
     /** {@code agente} nulo = só o modo extrativo/provider (testes e configuração sem agentes). */
     @Autowired
-    public AssistenteService(BuscaDocumentos busca, AssistenteProvider provider, AgenteDocia agente) {
+    public AssistenteService(BuscaDocumentos busca, AssistenteProvider provider, AgenteDocia agente,
+                             DemandaService demandas, JdbcTemplate jdbc) {
         this.busca = busca;
         this.provider = provider;
         this.agente = agente;
+        this.demandas = demandas;
+        this.jdbc = jdbc;
+    }
+
+    public AssistenteService(BuscaDocumentos busca, AssistenteProvider provider, AgenteDocia agente) {
+        this(busca, provider, agente, null, null);
     }
 
     public AssistenteService(JdbcTemplate jdbc, DocumentoRepository documentos, AssistenteProvider provider) {
@@ -55,14 +69,32 @@ public class AssistenteService {
      * Com IA disponível, o Agente DocIA (#108) busca e lê os documentos e responde com citações; sem IA ou em falha,
      * recuperação textual + provider (extrativo por padrão). Sem transação própria: a auditoria do agente grava.
      */
+    public RespostaAssistente perguntar(UsuarioAutenticado ator, PerguntaRequest pedido) {
+        Set<Long> permitidos = null;
+        if (pedido.demandaId() != null) {
+            // 404 se a demanda não existe; 403 se o fiscal está fora do escopo (mesma regra do detalhe da demanda).
+            demandas.detalhar(ator, pedido.demandaId());
+            permitidos = new LinkedHashSet<>(jdbc.queryForList(
+                    "SELECT DOCUMENTO_ID FROM DOCUMENTO_DEMANDA WHERE DEMANDA_ID = ?", Long.class, pedido.demandaId()));
+            if (permitidos.isEmpty()) {
+                return semInformacao(); // nada vinculado: não gasta a IA
+            }
+        }
+        return perguntar(pedido.pergunta(), permitidos, HistoricoConversa.sanitizar(pedido.historico()));
+    }
+
     public RespostaAssistente perguntar(String pergunta) {
+        return perguntar(pergunta, null, List.of());
+    }
+
+    RespostaAssistente perguntar(String pergunta, Set<Long> permitidos, List<TurnoHistorico> historico) {
         String normalizada = DocumentoSpecification.normalizar(pergunta.strip());
         if (RECUSAVEL.matcher(normalizada).find()) {
             return new RespostaAssistente(RECUSA, modo(), List.of());
         }
         if (agente != null && agente.disponivel()) {
             try {
-                return agente.responder(pergunta.strip());
+                return agente.responder(pergunta.strip(), permitidos, historico);
             } catch (AgenteIndisponivelException e) {
                 // segue no modo extrativo, que já identifica o próprio modo
             }
@@ -70,10 +102,11 @@ public class AssistenteService {
         if (agente != null) {
             agente.contarModoExtrativo();
         }
-        if (termos(normalizada).isEmpty()) {
+        if (termos(normalizada).isEmpty() || (permitidos != null && permitidos.isEmpty())) {
             return semInformacao();
         }
-        List<ReferenciaDocumento> contexto = busca.buscar(pergunta, MAX_DOCUMENTOS).stream()
+        List<ReferenciaDocumento> contexto = (permitidos == null ? busca.buscar(pergunta, MAX_DOCUMENTOS)
+                : busca.buscar(pergunta, MAX_DOCUMENTOS, permitidos)).stream()
                 .map(a -> new ReferenciaDocumento(a.documento().getId(), a.documento().getTitulo(), a.trecho(),
                         a.aderencia()))
                 .toList();
