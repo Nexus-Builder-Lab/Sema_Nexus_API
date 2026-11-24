@@ -58,10 +58,10 @@ public final class ReferenciaDto {
                                @Schema(description = "Explicação da área exibida (origem ou motivo de não haver área)")
                                String areaObservacao,
                                @Schema(description = "Polígono GeoJSON (WGS84) do alerta como a fonte o fornece; "
-                                       + "null para focos de calor (a fonte entrega ponto)", nullable = true,
-                                       type = "object") Map<String, Object> geometria,
+                                       + "null para focos de calor (a fonte entrega ponto)",
+                                       types = {"object", "null"}) Map<String, Object> geometria,
                                @Schema(description = "Todos os atributos originais da fonte (nomes da fonte)",
-                                       nullable = true, type = "object") Map<String, Object> atributos,
+                                       types = {"object", "null"}) Map<String, Object> atributos,
                                @Schema(description = "Importação (snapshot) de origem: fonte, período, URL e licença")
                                Importacao importacao) {
     }

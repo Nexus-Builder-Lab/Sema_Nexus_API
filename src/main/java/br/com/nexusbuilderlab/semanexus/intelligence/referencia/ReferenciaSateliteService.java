@@ -97,9 +97,9 @@ public class ReferenciaSateliteService {
         return coluna;
     }
 
-    /** areatotalkm (Cerrado) ou areamunkm (Amazônia e snapshot antigo, que só guardava esse campo). */
+    /** areamunkm (área do recorte desenhado; Amazônia e Cerrado) ou, na falta dela, areatotalkm. */
     static String campoArea(Map<String, Object> atributos) {
-        if (atributos != null && atributos.get("areatotalkm") != null) {
+        if (atributos != null && atributos.get("areamunkm") == null && atributos.get("areatotalkm") != null) {
             return "areatotalkm";
         }
         return "areamunkm";

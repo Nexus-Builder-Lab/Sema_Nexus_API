@@ -178,9 +178,23 @@ class ReferenciaSateliteLoaderTest {
         // Sem código IBGE na camada Cerrado: município pelo nome da fonte (sem acento/caixa).
         assertThat(cer.municipioId()).isEqualTo(5103403);
         assertThat(cer.bioma()).isEqualTo("CERRADO");
-        // Cerrado tem areatotalkm: ela prevalece sobre areamunkm.
-        assertThat(cer.areaKm2()).isEqualByComparingTo("0.0876");
+        // Cerrado: areamunkm (recorte desenhado) prevalece; areatotalkm é a área do alerta inteiro.
+        assertThat(cer.areaKm2()).isEqualByComparingTo("0.0500");
         assertThat(cer.geometria()).contains("MultiPolygon");
+    }
+
+    @Test
+    void snapshotSemRegistrosValidosNaoApagaOAnterior() throws Exception {
+        when(repo.existeImportacao(anyString())).thenReturn(false);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                        loader.importar(new Fonte("deter.geojson.gz", TipoReferencia.DESMATAMENTO, "INPE",
+                                LocalDate.parse("2026-09-01"), LocalDate.parse("2026-11-01"), "https://exemplo",
+                                "CC BY-SA 4.0"), gz("{\"formato\":\"inesperado\"}")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("snapshot anterior foi mantido");
+        verify(repo, never()).removerImportacoes(any());
+        verify(repo, never()).gravar(any(), any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test

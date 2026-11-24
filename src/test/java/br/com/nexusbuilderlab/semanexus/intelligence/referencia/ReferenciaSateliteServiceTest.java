@@ -129,11 +129,11 @@ class ReferenciaSateliteServiceTest {
     }
 
     @Test
-    void detalheDeterDoCerradoUsaAreatotalkm() {
+    void detalheDeterDoCerradoUsaAreaDoRecorte() {
         when(repo.registro(9L)).thenReturn(java.util.Optional.of(registro("DESMATAMENTO", "0.0876",
                 "{\"areatotalkm\":0.0876,\"areamunkm\":0.05}", POLIGONO)));
 
-        assertThat(service.detalhe(9L).areaCampoFonte()).isEqualTo("areatotalkm");
+        assertThat(service.detalhe(9L).areaCampoFonte()).isEqualTo("areamunkm");
     }
 
     @Test

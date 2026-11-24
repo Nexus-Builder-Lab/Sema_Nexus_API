@@ -32,8 +32,7 @@ public record DemandaDetalhe(
         @Schema(description = "Área afetada em hectares, quando registrada. Na demonstração só a massa do seed tem "
                 + "área (fictícia)", nullable = true, example = "42.35") BigDecimal areaHa,
         @Schema(description = "Polígono GeoJSON (WGS84, Polygon/MultiPolygon) da área afetada, quando registrado. "
-                + "Na demonstração é FICTÍCIO (AMBIENTE DEMONSTRATIVO — DADOS FICTÍCIOS)", nullable = true,
-                type = "object") Map<String, Object> areaGeometria,
+                + "Na demonstração é FICTÍCIO (AMBIENTE DEMONSTRATIVO — DADOS FICTÍCIOS)", types = {"object", "null"}) Map<String, Object> areaGeometria,
         LocalDate dataRecebimento,
         @Schema(nullable = true) Prioridade prioridade,
         @Schema(description = "Prazo sugerido no cadastro (>= data de recebimento)", nullable = true) LocalDate prazoSugerido,

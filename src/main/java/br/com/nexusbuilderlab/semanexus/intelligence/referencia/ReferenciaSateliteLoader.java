@@ -159,6 +159,11 @@ public class ReferenciaSateliteLoader {
             log.warn("Referência INPE {}: {} registro(s) descartado(s) (fora de MT ou inválidos).", fonte.arquivo(),
                     descartados[0]);
         }
+        if (linhas.isEmpty()) {
+            // Arquivo vazio ou em formato inesperado: não apaga o snapshot bom que já está no banco.
+            throw new IllegalStateException("Referência INPE " + fonte.arquivo()
+                    + ": nenhum registro válido; o snapshot anterior foi mantido.");
+        }
         int substituidas = repository.removerImportacoes(fonte.tipo());
         if (substituidas > 0) {
             log.info("Referência INPE {}: snapshot anterior do tipo {} substituído ({} importação(ões)).",
@@ -253,8 +258,7 @@ public class ReferenciaSateliteLoader {
 
     /**
      * Um alerta DETER: polígono da fonte (GeoJSON), centroide aproximado para o marcador (média dos vértices do 1º
-     * anel) e área da fonte em km² — {@code areatotalkm} quando existe (camada Cerrado), senão {@code areamunkm}
-     * (camada Amazônia, que não traz {@code areatotalkm}).
+     * anel) e área da fonte em km² — {@code areamunkm} (recorte por município), ver {@link #campoArea}.
      */
     static Linha deterFeature(JsonNode feature, String bioma, Municipios mun) {
         JsonNode geom = feature.path("geometry");
@@ -269,9 +273,13 @@ public class ReferenciaSateliteLoader {
                 bioma, texto(p, "classname"), area, p.isObject() ? p.toString() : null, geom.toString(), mun);
     }
 
-    /** Campo de área (km²) da fonte usado no alerta DETER, ou {@code null} se a fonte não informou área. */
+    /**
+     * Campo de área (km²) da fonte usado no alerta DETER, ou {@code null} se a fonte não informou área.
+     * {@code areamunkm} vem primeiro: é a área do recorte por município, o mesmo polígono desenhado no mapa.
+     * No Cerrado, {@code areatotalkm} é a área do alerta inteiro (repetida em cada recorte) e só fica nos atributos.
+     */
     static String campoArea(JsonNode propriedades) {
-        for (String campo : List.of("areatotalkm", "areamunkm")) {
+        for (String campo : List.of("areamunkm", "areatotalkm")) {
             if (texto(propriedades, campo) != null) {
                 return campo;
             }
