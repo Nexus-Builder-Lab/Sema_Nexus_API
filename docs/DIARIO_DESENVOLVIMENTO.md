@@ -485,3 +485,9 @@
 - **Status:** PR aberto (subagente Claude Code, a pedido do proprietário).
 - **O que foi feito:** `.claude/hooks/proteger.mjs` + registro em `.claude/settings.json`; bloqueia `down -v/--volumes`, `docker volume rm/prune`, `docker system prune`, leitura do `.env` (não `.env.example`) e edição de migration já existente na `origin/main` (nova continua permitida); `docs/AGENTES.md` atualizado.
 - **Testes:** `node .claude/hooks/testar-hooks.mjs` → 39/39 (bloqueio e caso permitido por regra, Bash e PowerShell).
+
+## 2026-11-24 · GH-140 · DOCX/OCR/tabelas e pré-análise no upload (PE-09A-API)
+- **Status:** PR solicitado (subagente Claude Code, a pedido do proprietário).
+- **O que foi feito:** `TextExtractor` extrai texto e tabelas (Markdown) de `.docx` (Apache POI 5.3.0, Apache 2.0) e tabelas de PDF (PDFBox, por lacunas de posição entre colunas); OCR opcional por Tesseract para PDF sem camada de texto (`TESSERACT_CMD`/`TESSERACT_LANG`, detecção em tempo de execução, até 10 páginas, 60 s por página); sem o binário devolve aviso e o upload segue normalmente. `POST /api/documentos/pre-analise` (multipart `arquivo`; mesmos perfis do upload, CONSULTA recebe 403) devolve título, município (maior citação), data, palavras-chave e vínculos `DEM-AAAA/NNNN` sugeridos por regras determinísticas (`PreAnaliseRegras`) e avisos; nada é gravado. Dockerfile instala `tesseract-ocr` + `tesseract-ocr-data-por` (Apache 2.0) no runtime.
+- **Decisões técnicas:** a API não tinha motor de análise a reaproveitar (a Web tem `analiseEngine.js`), então as regras ficaram no backend, pequenas e testadas; OCR nunca derruba o upload; migration: nenhuma.
+- **Testes:** `TextExtractorTest` (DOCX, tabela de PDF, caminho sem Tesseract, regras da pré-análise) e contrato 200/403/401 do endpoint; `mvn verify` local: 406 testes, 0 falhas (eram 400). OCR real com o binário a confirmar no Docker (validador).

@@ -53,6 +53,7 @@ A ordem de avaliação é **autenticação (401) → perfil (403) → validaçã
 | POST | `/api/demandas/{id}/conclusao` · `/devolucao` | Gestor, Admin | #13 | ✅ |
 | GET | `/api/auditoria` | Admin | #14 | Implementado |
 | POST · GET | `/api/documentos` (multipart; Admin, Gestor, Fiscal, Analista) · `/api/documentos/{id}/arquivo` | ver ARCHITECTURE §6 | #15 | ✅ |
+| POST | `/api/documentos/pre-analise` (multipart `arquivo`; Admin, Gestor, Fiscal, Analista; nada é salvo) | título, município, data, palavras-chave, vínculos `DEM-AAAA/NNNN` e avisos (ex.: OCR indisponível) | #140 | ✅ |
 | GET | `/api/documentos` (biblioteca com filtros) · `/api/documentos/{id}` | qualquer autenticado | #16 | ✅ |
 | GET · POST · DELETE | `/api/demandas/{id}/documentos[/{documentoId}]` | ver ARCHITECTURE §6 | #16 | ✅ |
 | GET | `/api/intelligence/{resumo,serie-mensal,por-municipio,por-bioma,por-categoria,por-situacao,mapa}` | qualquer autenticado | #17 | ✅ |

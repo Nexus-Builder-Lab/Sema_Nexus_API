@@ -17,6 +17,7 @@ import br.com.nexusbuilderlab.semanexus.docia.documento.dto.DocumentoDetalhe;
 import br.com.nexusbuilderlab.semanexus.docia.documento.dto.DocumentoFiltro;
 import br.com.nexusbuilderlab.semanexus.docia.documento.dto.DocumentoResumo;
 import br.com.nexusbuilderlab.semanexus.docia.documento.dto.DocumentoUploadRequest;
+import br.com.nexusbuilderlab.semanexus.docia.documento.dto.PreAnaliseDocumento;
 import br.com.nexusbuilderlab.semanexus.docia.storage.StorageService;
 import br.com.nexusbuilderlab.semanexus.flux.demanda.DemandaService;
 import br.com.nexusbuilderlab.semanexus.security.UsuarioAutenticado;
@@ -123,6 +124,23 @@ public class DocumentoService {
             removerSilencioso(chave);
             throw e;
         }
+    }
+
+    /** Sugere metadados a partir do arquivo sem gravar nada (nem arquivo, nem banco). */
+    @Transactional(readOnly = true)
+    public PreAnaliseDocumento preAnalisar(MultipartFile arquivo) {
+        if (arquivo == null || arquivo.getSize() > LIMITE_BYTES) {
+            throw new ArquivoMuitoGrandeException("O arquivo excede o limite de 10 MB.");
+        }
+        String nome = sanearNome(arquivo.getOriginalFilename());
+        TipoArquivo tipo = TipoArquivo.porNome(nome).orElseThrow(() -> new ArquivoNaoSuportadoException(
+                "Extensão não permitida. Use pdf, txt, md, csv ou docx."));
+        byte[] bytes = ler(arquivo);
+        if (bytes.length == 0 || !tipo.conteudoValido(bytes)) {
+            throw new ArquivoNaoSuportadoException("O conteúdo do arquivo não corresponde à extensão informada.");
+        }
+        TextExtractor.Extracao e = extrator.extrairCompleto(tipo, bytes);
+        return PreAnaliseRegras.analisar(nome, e.texto(), e.avisos(), municipios.findAllByOrderByNomeAsc());
     }
 
     @Transactional(readOnly = true)
