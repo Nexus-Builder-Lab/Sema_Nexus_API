@@ -70,6 +70,7 @@ Cada operação do contrato publicado traz no OpenAPI `x-implementado: false` e 
 | GET · POST · PUT · PATCH | `/api/usuarios[/{id}[/ativacao]]` e cadastro/edição de `/api/setores` e `/api/equipes[/{id}/membros]` (a consulta já existe, Issue #7) | #24 |
 | GET · PATCH | `/api/notificacoes[/{id}/lida]` | #25 |
 | POST | `/api/documentos/comparacao` | #26 |
+| POST | `/api/docia/comparacao/explicar` | #142 |
 
 ## Catálogos e estrutura (Implementado — Issue #7)
 
@@ -152,7 +153,7 @@ Janela fixa em memória (uma instância da API), configurável por variáveis de
 | Categoria | Endpoints (só `POST`) | Conta por | Padrão |
 |---|---|---|---|
 | `LOGIN` | `/api/auth/login`, `/api/auth/demo/{perfil}` | IP do cliente | `LIMITE_LOGIN_POR_JANELA=20` |
-| `IA` | `/api/demandas/{id}/triagem/sugestao`, `/api/docia/perguntas` | usuário autenticado | `LIMITE_IA_POR_JANELA=10` |
+| `IA` | `/api/demandas/{id}/triagem/sugestao`, `/api/docia/perguntas`, `/api/docia/comparacao/explicar` | usuário autenticado | `LIMITE_IA_POR_JANELA=10` |
 | `UPLOAD` | `/api/documentos` (multipart) | usuário autenticado | `LIMITE_UPLOAD_POR_JANELA=20` |
 
 Janela: `LIMITE_JANELA_SEGUNDOS=60`; `LIMITE_REQUISICOES_ATIVO=false` desliga. Acima do limite: `429` com `Retry-After` (segundos até a próxima janela). O IP vem do último endereço de `X-Forwarded-For` **só** quando a conexão chega de um proxy configurado em `LIMITE_PROXY_CONFIAVEL` (IPs, CIDR ou nomes de host; no compose, `web` — o Nginx do Web, resolvido pela rede interna a cada 30 s) ou do loopback; vazio = só loopback. De qualquer outra origem o cabeçalho é ignorado e vale o IP da conexão. No compose a porta da API é publicada só em `127.0.0.1`. Memória limitada: no máximo `LIMITE_MAX_CHAVES` (10.000) contadores vivos — as janelas vencidas saem em custo amortizado e, acima do teto, a mais antiga é descartada. Os contadores zeram a cada reinício da API. O `429` aparece no OpenAPI dessas operações.
@@ -183,6 +184,8 @@ Dados **públicos reais** do INPE (focos de calor do Programa Queimadas e alerta
 
 ## Comparação documental (Implementado — Issue #26)
 
+
+`POST /api/docia/comparacao/explicar` com `{"aId": 1, "bId": 2}` (#142; mesma autorização da comparação). Reaproveita o diff do `ComparacaoService` e devolve `grandezas[]` (`categoria` AREA/VAZAO/VALOR/DATA/PRAZO/PERCENTUAL/CONCLUSAO, `situacao` ALTERADO/REMOVIDO/ADICIONADO, `valorA`/`valorB`, `variacaoAbsoluta`, `variacaoPercentual`, `unidade`), `grandezasIguais`, `similaridade` e `resumo` curto. A tabela vem sempre de extração determinística (regex), nunca do modelo. `modo`: LOCAL (Ollama) ou CLAUDE (resumo escrito pelo agente `comparacao`, somente leitura, com orçamento, auditoria `AGENTE_EXECUCAO` e erros de ferramenta pelo catálogo `ErroFerramenta`) ou DEMONSTRATIVO (resumo por regras, sem IA; auditoria `AGENTE_DEMONSTRATIVO`). Nada é gravado. 404/400 como na comparação; `aId` igual a `bId` → 400 ("Escolha dois documentos diferentes para comparar.").
 `POST /api/documentos/comparacao` com `{"aId": 1, "bId": 2}` (qualquer perfil autenticado). Comparação **determinística** (LCS e Jaccard), **não é IA**: a resposta traz `geradoPorIa=false`, `aviso` e `metodo`. Campos: `a`/`b` (id, título), `metadados[]` (`campo`, `valorA`, `valorB`, `igual`), `similaridade` (0 a 100, 2*LCS/(nA+nB) por palavras), `similaridadeTermos` (Jaccard), `diffLinhas[]` e `diffPalavras[]` (`tipo` = `IGUAL`/`REMOVIDO` só em A/`ADICIONADO` só em B, `texto`), `trechosSemelhantes[]` (sentenças com similaridade >= 50%, até 20), `termosExclusivosA/B` (até 50) e `truncado` (textos limitados a 2000 palavras / 1500 linhas). Comparação ignora caixa, acentos e pontuação nas pontas. Documento inexistente/excluído → 404; documento sem texto extraído → 400 (`problem+json`, `erros[].campo` = `aId`/`bId`, mensagem com o título).
 
 ## Notificações (Implementado — Issue #25)

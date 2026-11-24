@@ -75,6 +75,10 @@ Resposta ganhou `agente` (LOCAL/CLAUDE/DEMONSTRATIVO/EXTERNO), `modelo` e `passo
 
 Medido em 13/11/2026 (`qwen3:4b-instruct`, GTX 1660 SUPER): 3–12 s por pergunta.
 
+## Resumo das diferenças da comparação (Issue #142)
+
+`POST /api/docia/comparacao/explicar`: agente `comparacao` sem ferramentas; a tabela de grandezas (extração determinística, `GrandezasExtrator`) vai na mensagem como dado e o modelo escreve só o `resumo` (até 3 frases). Sem IA ou após falha, resumo por regras com `modo` DEMONSTRATIVO e auditoria `AGENTE_DEMONSTRATIVO`. Os números da tabela nunca vêm do modelo; nada é gravado.
+
 ## Desempenho (Issue #120, 16/11/2026)
 
 Mesmo modelo e mesma placa (GTX 1660 SUPER, 100% na GPU, Flash Attention ligado). Pedido do proprietário: mais rápido mantendo a qualidade.
