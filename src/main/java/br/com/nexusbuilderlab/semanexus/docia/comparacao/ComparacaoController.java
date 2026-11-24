@@ -42,7 +42,7 @@ public class ComparacaoController {
                     + "alteradas (áreas em ha, vazões, valores R$, datas, prazos, percentuais e conclusões) extraída "
                     + "de forma determinística, mais resumo curto escrito pelo agente local (`modo` LOCAL/CLAUDE) ou "
                     + "por regras (`modo` DEMONSTRATIVO). Os números nunca vêm do modelo; nada é gravado. "
-                    + "Documento inexistente → 404; sem texto extraído → 400.")
+                    + "Documento inexistente → 404; sem texto extraído ou aId igual a bId → 400.")
     @PostMapping("/api/docia/comparacao/explicar")
     public ExplicacaoComparacaoResponse explicar(@Valid @RequestBody ComparacaoRequest pedido) {
         return explicacao.explicar(pedido.aId(), pedido.bId());

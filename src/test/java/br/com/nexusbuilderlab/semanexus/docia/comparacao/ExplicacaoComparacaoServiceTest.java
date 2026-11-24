@@ -129,10 +129,19 @@ class ExplicacaoComparacaoServiceTest {
     }
 
     @Test
-    void documentosIguaisNaoTemGrandezasAlteradas() {
-        ExplicacaoComparacaoResponse r = servico(new Roteiro()).explicar(1L, 1L);
-        assertThat(r.grandezas()).isEmpty();
+    void mesmoDocumentoNosDoisLadosEhRejeitado() {
+        ExplicacaoComparacaoService s = servico(new Roteiro());
+        assertThatThrownBy(() -> s.explicar(1L, 1L)).isInstanceOf(DadosInvalidosException.class)
+                .satisfies(e -> assertThat(((DadosInvalidosException) e).getErros().get(0).mensagem()).contains("dois documentos diferentes"));
+    }
+
+    @Test
+    void resumoEmInglesCaiNasRegras() {
+        Roteiro m = new Roteiro();
+        m.resposta = "{\"resumo\":\"The area had a decrease from 120 to 95 hectares.\"}";
+        ExplicacaoComparacaoResponse r = servico(m).explicar(1L, 2L);
         assertThat(r.modo()).isEqualTo("DEMONSTRATIVO");
+        assertThat(r.resumo()).doesNotContain("decrease");
     }
 
     private static List<ExplicacaoComparacaoResponse.Grandeza> alterados(String a, String b) {
