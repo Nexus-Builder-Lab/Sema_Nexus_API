@@ -86,6 +86,15 @@ class AuthOracleTest {
                 .andExpect(content().string(not(containsString("senha"))));
         mvc.perform(post("/api/auth/logout").header(HttpHeaders.AUTHORIZATION, bearer))
                 .andExpect(status().isNoContent());
+        // Issue #134: o token foi revogado na hora (jti em TOKEN_REVOGADO) e deixa de valer, inclusive para novo logout.
+        mvc.perform(get("/api/auth/me").header(HttpHeaders.AUTHORIZATION, bearer))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(post("/api/auth/logout").header(HttpHeaders.AUTHORIZATION, bearer))
+                .andExpect(status().isUnauthorized());
+        Integer revogados = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM TOKEN_REVOGADO WHERE USUARIO_ID = ? AND EXPIRA_EM > REVOGADO_EM",
+                Integer.class, u.getId());
+        assertThat(revogados).isEqualTo(1);
 
         Integer logins = jdbc.queryForObject(
                 "SELECT COUNT(*) FROM AUDITORIA WHERE USUARIO_ID = ? AND ACAO = 'LOGIN'", Integer.class, u.getId());

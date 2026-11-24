@@ -113,7 +113,7 @@ A autorização é aplicada no backend; o Web apenas oculta o que o perfil não 
 
 ## 7. Autenticação e usuário de teste
 
-- `POST /api/auth/login` → JWT HS256 (`JWT_SECRET` por ambiente, ≥ 32 bytes, obrigatório fora de `dev`/`openapi`), validade 8 h. Logout registrado na auditoria; o token é descartado no cliente (lista de revogação é P2). **Implementado (Issue #4):** o usuário é relido do banco a cada requisição — desativar o usuário invalida os tokens dele na hora; 401/403 em `problem+json`.
+- `POST /api/auth/login` → JWT HS256 (`JWT_SECRET` por ambiente, ≥ 32 bytes, obrigatório fora de `dev`/`openapi`), validade 8 h. Logout revoga o token na hora (`jti` em `TOKEN_REVOGADO`, Issue #134) e é registrado na auditoria. Login, IA e upload têm limite de requisições (429 com `Retry-After`) e as chamadas ao modelo passam pela fila da GPU (Issue #134). **Implementado (Issue #4):** o usuário é relido do banco a cada requisição — desativar o usuário invalida os tokens dele na hora; 401/403 em `problem+json`.
 - O Web guarda o token em memória + `sessionStorage`. Nenhum dado de negócio em LocalStorage.
 - `DemoSeedRunner` (`@Profile` demo/dev, excluindo `openapi`) cria `admin@admin.com` (ADMIN) e os demais usuários fictícios com **hash BCrypt pré-calculado** — o texto puro das senhas não existe em `src/main`. **Implementado (Issue #5).**
 - `TestUserProfileGuard` (`security`, `ApplicationRunner` com `@Order(HIGHEST_PRECEDENCE)`, todos os profiles exceto `openapi`): fora de `demo`/`dev`, se `admin@admin.com` existir em `USUARIO`, a aplicação **não sobe** — log `ERROR` com o motivo e a orientação (sem senha) e `IllegalStateException`. Somente leitura. **Implementado (Issue #6).**

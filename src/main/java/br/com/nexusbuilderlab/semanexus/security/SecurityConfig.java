@@ -63,6 +63,10 @@ public class SecurityConfig {
             JwtService jwtService,
             UsuarioRepository usuarios,
             ObjectMapper mapper,
+            // Revogação (Oracle) e limite de requisições sempre existem na aplicação; ficam opcionais só para as
+            // fatias de teste web (@WebMvcTest), que não carregam banco nem estas configurações.
+            ObjectProvider<RevogacaoTokenService> revogacao,
+            ObjectProvider<LimitadorRequisicoes> limitador,
             // O Spring MVC também expõe um CorsConfigurationSource (introspector): pegar só o do profile dev, pelo nome.
             @Qualifier("corsConfigurationSource") ObjectProvider<CorsConfigurationSource> cors) throws Exception {
         ProblemDetailSecurityHandlers problemas = new ProblemDetailSecurityHandlers(mapper);
@@ -79,10 +83,15 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/auth/config").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/demo/*").permitAll()
                         .anyRequest().authenticated())
-                .addFilterBefore(new JwtAuthFilter(jwtService, usuarios), UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(new JwtAuthFilter(jwtService, usuarios, revogacao.getIfAvailable()),
+                        UsernamePasswordAuthenticationFilter.class)
                 .exceptionHandling(e -> e
                         .authenticationEntryPoint(problemas)
                         .accessDeniedHandler(problemas));
+        LimitadorRequisicoes limites = limitador.getIfAvailable();
+        if (limites != null) {
+            http.addFilterAfter(new LimiteRequisicoesFilter(limites, mapper), JwtAuthFilter.class);
+        }
         if (fonteCors != null) {
             http.cors(c -> c.configurationSource(fonteCors));
         } else {

@@ -1,5 +1,6 @@
 package br.com.nexusbuilderlab.semanexus.agentes;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -39,15 +40,24 @@ public class ExecutorAgente {
     private final AuditService auditoria;
     private final ObjectMapper json;
     private final MetricasAgentes metricas;
+    private final FilaGpu filaGpu;
 
     @Autowired
     public ExecutorAgente(ClienteModelo cliente, AgentesConfiguracao configuracao, AuditService auditoria,
-                          ObjectMapper json, MetricasAgentes metricas) {
+                          ObjectMapper json, MetricasAgentes metricas, FilaGpu filaGpu) {
         this.cliente = cliente;
         this.configuracao = configuracao;
         this.auditoria = auditoria;
         this.json = json;
         this.metricas = metricas;
+        this.filaGpu = filaGpu;
+    }
+
+    /** Fila da GPU padrão (testes). */
+    public ExecutorAgente(ClienteModelo cliente, AgentesConfiguracao configuracao, AuditService auditoria,
+                          ObjectMapper json, MetricasAgentes metricas) {
+        this(cliente, configuracao, auditoria, json, metricas,
+                new FilaGpu(FilaGpu.CONCORRENCIA_PADRAO, FilaGpu.ESPERA_PADRAO_SEGUNDOS));
     }
 
     /** Sem métricas compartilhadas (testes). */
@@ -102,7 +112,7 @@ public class ExecutorAgente {
                 // Esgotadas as rodadas de ferramentas, o pedido vai sem ferramentas: resposta final no esquema.
                 List<FerramentaAgente> disponiveis = rodadas < agente.maxRodadasFerramentas()
                         ? agente.ferramentas() : List.of();
-                RespostaModelo resposta = chamar(new PedidoModelo(modelo, agente.instrucoes(), disponiveis,
+                RespostaModelo resposta = chamar(prazo, new PedidoModelo(modelo, agente.instrucoes(), disponiveis,
                         List.copyOf(mensagens), agente.esquemaResposta(), agente.esforco(), agente.maxTokens(),
                         agente.campoTexto() != null));
                 entrada += resposta.tokensEntrada();
@@ -168,9 +178,14 @@ public class ExecutorAgente {
         }
     }
 
-    private RespostaModelo chamar(PedidoModelo pedido) {
+    /**
+     * Chama o modelo pela fila da GPU (Issue #134): no máximo {@code AGENTES_GPU_CONCORRENCIA} chamadas simultâneas, em
+     * ordem de chegada; a espera por vaga não passa do timeout da fila nem do orçamento restante da execução.
+     */
+    private RespostaModelo chamar(long prazo, PedidoModelo pedido) {
         try {
-            return cliente.criar(pedido);
+            return filaGpu.executar(Duration.ofMillis(Math.max(0, prazo - System.currentTimeMillis())),
+                    () -> cliente.criar(pedido));
         } catch (AgenteIndisponivelException e) {
             throw e;
         } catch (RuntimeException e) {

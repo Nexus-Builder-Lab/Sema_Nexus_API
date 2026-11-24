@@ -14,7 +14,9 @@ import br.com.nexusbuilderlab.semanexus.core.usuario.Perfil;
 import br.com.nexusbuilderlab.semanexus.core.usuario.Usuario;
 import br.com.nexusbuilderlab.semanexus.core.usuario.UsuarioRepository;
 import br.com.nexusbuilderlab.semanexus.security.JwtService;
+import br.com.nexusbuilderlab.semanexus.security.RevogacaoTokenService;
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -52,17 +54,19 @@ public class AuthService {
     private final AuditService auditoria;
     private final Environment ambiente;
     private final Clock clock;
+    private final RevogacaoTokenService revogacao;
     /** Hash descartável para gastar o mesmo tempo de BCrypt quando o e-mail não existe (evita enumeração por tempo). */
     private final String hashFalso;
 
     public AuthService(UsuarioRepository usuarios, PasswordEncoder encoder, JwtService jwtService,
-                       AuditService auditoria, Environment ambiente, Clock clock) {
+                       AuditService auditoria, Environment ambiente, Clock clock, RevogacaoTokenService revogacao) {
         this.usuarios = usuarios;
         this.encoder = encoder;
         this.jwtService = jwtService;
         this.auditoria = auditoria;
         this.ambiente = ambiente;
         this.clock = clock;
+        this.revogacao = revogacao;
         this.hashFalso = encoder.encode("senha-descartavel-sem-uso");
     }
 
@@ -84,9 +88,13 @@ public class AuthService {
         return new LoginResponse(jwtService.gerar(usuario), jwtService.expiresInSegundos(), UsuarioResumo.de(usuario));
     }
 
-    /** O token é descartado no cliente; aqui só se registra a saída na auditoria. */
+    /**
+     * Revoga o token na hora (Issue #134: o {@code jti} vai para TOKEN_REVOGADO e o mesmo token passa a receber 401) e
+     * registra a saída na auditoria. O cliente também descarta o token.
+     */
     @Transactional
-    public void logout(Long usuarioId) {
+    public void logout(Long usuarioId, String jti, Instant expiraEm) {
+        revogacao.revogar(jti, usuarioId, expiraEm);
         auditoria.registrarComo(usuarioId, "LOGOUT", ENTIDADE, String.valueOf(usuarioId), "Logout realizado.");
     }
 
