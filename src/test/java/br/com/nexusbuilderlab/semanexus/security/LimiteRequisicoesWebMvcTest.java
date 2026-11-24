@@ -85,4 +85,12 @@ class LimiteRequisicoesWebMvcTest {
                         .contentType(MediaType.APPLICATION_JSON).content(CORPO))
                 .andExpect(status().isOk());
     }
+
+    @Test
+    void preAnaliseUsaOMesmoLimiteDoUpload() {
+        org.assertj.core.api.Assertions.assertThat(LimiteRequisicoesFilter.categoria("POST", "/api/documentos/pre-analise"))
+                .isEqualTo(LimiteRequisicoesFilter.categoria("POST", "/api/documentos"))
+                .isNotNull();
+        org.assertj.core.api.Assertions.assertThat(LimiteRequisicoesFilter.categoria("GET", "/api/documentos/pre-analise")).isNull();
+    }
 }

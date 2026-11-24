@@ -30,7 +30,7 @@ public class LimiteRequisicoesFilter extends OncePerRequestFilter {
     private static final Pattern LOGIN = Pattern.compile("^/api/auth/(login|demo/[^/]+)/?$");
     private static final Pattern IA = Pattern.compile(
             "^/api/(demandas/[^/]+/triagem/sugestao|docia/perguntas|docia/comparacao/explicar)/?$");
-    private static final Pattern UPLOAD = Pattern.compile("^/api/documentos/?$");
+    private static final Pattern UPLOAD = Pattern.compile("^/api/documentos(/pre-analise)?/?$");
 
     private final LimitadorRequisicoes limitador;
     private final ProxiesConfiaveis proxies;

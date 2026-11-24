@@ -390,6 +390,17 @@ class EndpointsContratoWebMvcTest {
     }
 
     @Test
+    void preAnaliseExigePerfilComEscritaEDevolveSugestoes() throws Exception {
+        when(documentoService.preAnalisar(any())).thenReturn(new br.com.nexusbuilderlab.semanexus.docia.documento.dto.PreAnaliseDocumento(
+                "Laudo", 5107909, "Sinop", LocalDate.now().minusDays(1), List.of("desmatamento"), List.of("DEM-2026/0010"), true, List.of()));
+        MockMultipartFile f = new MockMultipartFile("arquivo", "laudo.txt", "text/plain", "x".getBytes());
+        como(Perfil.ANALISTA).faz(multipart("/api/documentos/pre-analise").file(f))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.vinculosDemanda[0]").value("DEM-2026/0010"));
+        como(Perfil.CONSULTA).faz(multipart("/api/documentos/pre-analise").file(f)).andExpect(status().isForbidden());
+        mvc.perform(multipart("/api/documentos/pre-analise").file(f)).andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void uploadMultipartExigeArquivoEPerfilComEscrita() throws Exception {
         when(documentoService.enviar(any(), any())).thenReturn(new DocumentoDetalhe(7L, "Laudo de teste", null,
                 "Relatório técnico", "Laudo", LocalDate.now(), null, List.of(), "laudo.txt", "text/plain", 3L, "abc",
