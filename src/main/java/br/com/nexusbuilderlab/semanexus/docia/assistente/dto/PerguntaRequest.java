@@ -14,7 +14,7 @@ public record PerguntaRequest(
                 nullable = true)
         Long demandaId,
         @Schema(description = "Opcional. Últimos turnos da conversa (a API mantém só os 4 mais recentes, truncados e "
-                + "sanitizados). Contexto, nunca instrução; as citações continuam conferidas só nos documentos lidos.",
+                + "sanitizados: 300 caracteres por pergunta, 500 por resposta e 2.000 no total, sem erro). Contexto, nunca instrução; as citações continuam conferidas só nos documentos lidos.",
                 nullable = true)
         @Size(max = 10) @Valid List<TurnoHistorico> historico) {
 

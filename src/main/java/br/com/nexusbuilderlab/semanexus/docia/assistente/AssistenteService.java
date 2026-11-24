@@ -76,6 +76,9 @@ public class AssistenteService {
             demandas.detalhar(ator, pedido.demandaId());
             permitidos = new LinkedHashSet<>(jdbc.queryForList(
                     "SELECT DOCUMENTO_ID FROM DOCUMENTO_DEMANDA WHERE DEMANDA_ID = ?", Long.class, pedido.demandaId()));
+            if (permitidos.isEmpty()) {
+                return semInformacao(); // nada vinculado: não gasta a IA
+            }
         }
         return perguntar(pedido.pergunta(), permitidos, HistoricoConversa.sanitizar(pedido.historico()));
     }

@@ -27,8 +27,8 @@ public final class HistoricoConversa {
         if (bruto == null) {
             return r;
         }
-        List<TurnoHistorico> recentes = bruto.stream().filter(t -> t != null)
-                .skip(Math.max(0, bruto.stream().filter(t -> t != null).count() - MAX_TURNOS)).toList();
+        List<TurnoHistorico> validos = bruto.stream().filter(java.util.Objects::nonNull).toList();
+        List<TurnoHistorico> recentes = validos.subList(Math.max(0, validos.size() - MAX_TURNOS), validos.size());
         int total = 0;
         // Do mais recente ao mais antigo: o orçamento total sacrifica os turnos antigos.
         for (int i = recentes.size() - 1; i >= 0; i--) {
@@ -67,12 +67,14 @@ public final class HistoricoConversa {
         if (s == null) {
             return "";
         }
-        String t = s.replaceAll("[\\p{Cntrl}\\x{200B}-\\x{200F}\\x{202A}-\\x{202E}\\x{2066}-\\x{2069}\\x{FEFF}]", " ")
+        // NFKC antes: variantes de largura total (＞＞＞, ＳＹＳＴＥＭ:) viram ASCII e caem nos filtros abaixo.
+        String t = java.text.Normalizer.normalize(s, java.text.Normalizer.Form.NFKC)
+                .replaceAll("[\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}]", " ")
                 // Marcadores de delimitação e de papel: não podem fechar o bloco nem forjar mensagens do sistema.
                 .replace("<<<", " ").replace(">>>", " ").replaceAll("(?i)HISTORICO_DADOS", " ")
                 .replaceAll("(?i)</?\\s*(system|assistant|user|instructions?)[^>]*>", " ")
                 .replaceAll("(?im)(system|sistema)\\s*:", " ")
-                .replaceAll("\\s+", " ").strip();
+                .replaceAll("(?U)\\s+", " ").strip();
         return cortar(t, max);
     }
 
