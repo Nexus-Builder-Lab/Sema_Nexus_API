@@ -227,9 +227,9 @@ public class AgenteMinutaService {
                 } else if (!numerosConferem(t, consultados, d.numero())) {
                     LOG.warn("Minuta da demanda {} por template: a IA citou número ausente dos dados consultados", id);
                     avisos.add("A IA citou número que não consta nos dados consultados; usada a minuta por template.");
-                } else if (!datasConferem(t, d)) {
-                    LOG.warn("Minuta da demanda {} por template: data de recebimento/fiscalização/conclusão/prazo "
-                            + "divergente", id);
+                } else if (dataDivergente(t, d, dossie.historico()) != null) {
+                    LOG.warn("Minuta da demanda {} por template: data divergente ({})", id,
+                            dataDivergente(t, d, dossie.historico()));
                     avisos.add("A IA atribuiu a recebimento, fiscalização, conclusão ou prazo uma data diferente da "
                             + "registrada; usada a minuta por template.");
                 } else {
@@ -428,10 +428,11 @@ public class AgenteMinutaService {
 
     private static final List<String> MESES = List.of("janeiro", "fevereiro", "março", "abril", "maio", "junho",
             "julho", "agosto", "setembro", "outubro", "novembro", "dezembro");
-    private static final Pattern DATA_TEXTO = Pattern.compile("(?iu)(\\d{4})-(\\d{1,2})-(\\d{1,2})"
+    /** Data escrita por extenso ou numérica, isolada (não casa pedaços de "DEM-2026/0118", horas ou decimais). */
+    private static final Pattern DATA_TEXTO = Pattern.compile("(?iu)(?<![\\d/.,-])(?:(\\d{4})-(\\d{1,2})-(\\d{1,2})"
             + "|(\\d{1,2})/(\\d{1,2})(?:/(\\d{4}))?"
             + "|(\\d{1,2})º? de (janeiro|fevereiro|março|marco|abril|maio|junho|julho|agosto|setembro|outubro"
-            + "|novembro|dezembro)(?: de (\\d{4}))?");
+            + "|novembro|dezembro)(?: de (\\d{4}))?)(?![\\d/])");
     private static final Pattern EVENTO_CHAVE = Pattern.compile("(?iu)conclu|finaliz|fiscaliz|vistori|receb|prazo"
             + "|venc");
 
@@ -441,6 +442,16 @@ public class AgenteMinutaService {
      * registrada (ex.: demanda não concluída) com data citada também reprova. Ano omitido: compara dia e mês.
      */
     static boolean datasConferem(Textos t, DemandaDetalhe d) {
+        return dataDivergente(t, d, List.of()) == null;
+    }
+
+    /**
+     * Descrição curta da primeira data divergente (trecho, marco, data registrada), para o log; nula se conferem.
+     * Medição de 24/11 (Ollama real): o modelo copia datas de eventos do histórico ("triagem concluída em 14 de
+     * novembro"), que são corretas mas não são a conclusão da demanda. Por isso a data também vale quando é a de um
+     * evento do histórico que cita o mesmo marco (tipo ou texto do evento).
+     */
+    static String dataDivergente(Textos t, DemandaDetalhe d, List<HistoricoItem> eventos) {
         String texto = String.join("\n", t.historico(), t.constatacoes(), t.contextoInpe(), t.conclusoes());
         Matcher m = DATA_TEXTO.matcher(texto);
         int fimAnterior = 0;
@@ -449,25 +460,52 @@ public class AgenteMinutaService {
             int ponto = Math.max(trecho.lastIndexOf(". "), trecho.lastIndexOf('\n'));
             trecho = ponto >= 0 ? trecho.substring(ponto + 1) : trecho;
             fimAnterior = m.end();
+            // Marcos citados no trecho desde a data anterior ("conclusão da vistoria em ..." cita dois): a data vale
+            // se for a registrada de algum deles ou a de um evento do histórico que cita o mesmo marco.
             Matcher k = EVENTO_CHAVE.matcher(trecho);
-            String chave = null;
+            List<String> chaves = new ArrayList<>();
             while (k.find()) {
-                chave = k.group().toLowerCase(java.util.Locale.ROOT);
+                chaves.add(k.group().toLowerCase(java.util.Locale.ROOT));
             }
-            if (chave == null) {
+            if (chaves.isEmpty()) {
                 continue;
             }
-            LocalDate esperado = switch (chave) {
-                case "conclu", "finaliz" -> d.concluidaEm() == null ? null : d.concluidaEm().toLocalDate();
-                case "fiscaliz", "vistori" -> d.fiscalizacao() == null ? null : d.fiscalizacao().data();
-                case "receb" -> d.dataRecebimento();
-                default -> d.prazo();
-            };
-            if (esperado == null || !mesmaData(m, esperado)) {
-                return false;
+            boolean confere = false;
+            for (String chave : chaves) {
+                LocalDate esperado = registrada(chave, d);
+                confere |= esperado != null && mesmaData(m, esperado);
+                for (HistoricoItem h : eventos) {
+                    String desc = (h.tipo().name() + " " + (h.texto() == null ? "" : h.texto()))
+                            .toLowerCase(java.util.Locale.ROOT);
+                    confere |= h.data() != null && mesmoMarco(chave, desc) && mesmaData(m, h.data().toLocalDate());
+                }
+            }
+            if (!confere) {
+                String chave = chaves.get(chaves.size() - 1);
+                return "trecho=\"" + trecho.strip() + " " + m.group() + "\" marco=" + chave + " registrada="
+                        + registrada(chave, d);
             }
         }
-        return true;
+        return null;
+    }
+
+    private static LocalDate registrada(String chave, DemandaDetalhe d) {
+        return switch (chave) {
+            case "conclu", "finaliz" -> d.concluidaEm() == null ? null : d.concluidaEm().toLocalDate();
+            case "fiscaliz", "vistori" -> d.fiscalizacao() == null ? null : d.fiscalizacao().data();
+            case "receb" -> d.dataRecebimento();
+            default -> d.prazo();
+        };
+    }
+
+    /** O evento (tipo + texto, em minúsculas) cita o mesmo marco da palavra-chave? */
+    private static boolean mesmoMarco(String chave, String evento) {
+        return switch (chave) {
+            case "conclu", "finaliz" -> evento.contains("conclu") || evento.contains("finaliz");
+            case "fiscaliz", "vistori" -> evento.contains("fiscaliz") || evento.contains("vistori");
+            case "receb" -> evento.contains("receb") || evento.startsWith("cadastro");
+            default -> evento.contains("prazo") || evento.contains("venc");
+        };
     }
 
     private static boolean mesmaData(Matcher m, LocalDate esperado) {
@@ -559,7 +597,9 @@ public class AgenteMinutaService {
         }
         m.appendTail(r);
         // Marcador desconhecido inventado pelo modelo não aparece cru na minuta.
-        return r.toString().replaceAll("\\{[a-z_]{1,30}\\}", "não consta");
+        // Datas ISO copiadas do dossiê (já conferidas) no formato da minuta.
+        return r.toString().replaceAll("\\{[a-z_]{1,30}\\}", "não consta")
+                .replaceAll("(?<![\\d/-])(\\d{4})-(\\d{2})-(\\d{2})(?![\\d-])", "$3/$2/$1");
     }
 
     /** Remove HTML, títulos Markdown, links, URLs e controles; limita o tamanho. */

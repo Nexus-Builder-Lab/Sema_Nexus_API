@@ -148,6 +148,35 @@ class AgenteMinutaServiceTest {
     }
 
     @Test
+    void dataDeEventoDoHistoricoComOMesmoMarcoEhAceita() {
+        // Saída real do qwen3:4b (24/11): "triagem concluída em 14 de novembro" numa demanda concluída em 19/11.
+        concluidaEm = LocalDateTime.of(2026, 11, 19, 15, 0);
+        DemandaDetalhe d = demanda(true);
+        List<HistoricoItem> eventos = List.of(
+                new HistoricoItem(3L, TipoHistorico.TRIAGEM, null, null, "Triagem concluída: categoria definida.", null,
+                        LocalDateTime.of(2026, 11, 14, 9, 0)),
+                new HistoricoItem(4L, TipoHistorico.DOCUMENTO, null, null, "Documento vinculado.", null,
+                        LocalDateTime.of(2026, 11, 24, 9, 0)));
+        AgenteMinutaService.Textos triagem = new AgenteMinutaService.Textos("Recebida em 30/10/2026, com triagem "
+                + "concluída em 14 de novembro e fiscalização da DEM-2026/0004 registrada.", "", "", "");
+        assertThat(AgenteMinutaService.dataDivergente(triagem, d, eventos)).isNull();
+        AgenteMinutaService.Textos documento = new AgenteMinutaService.Textos("Finalizada pelo gestor em 24 de "
+                + "novembro.", "", "", "");
+        assertThat(AgenteMinutaService.dataDivergente(documento, d, eventos)).contains("marco=finaliz");
+        // Saída real: "conclusão da vistoria em 2026-11-19" cita dois marcos; vale a data de um deles.
+        AgenteMinutaService.Textos doisMarcos = new AgenteMinutaService.Textos("Vistoria em 2026-11-12 e conclusão "
+                + "da vistoria em 2026-11-19.", "", "", "");
+        assertThat(AgenteMinutaService.dataDivergente(doisMarcos, d, eventos)).isNull();
+    }
+
+    @Test
+    void datasIsoDaIaSaoFormatadas() {
+        AgenteMinutaService.Textos t = AgenteMinutaService.comDatas(new AgenteMinutaService.Textos(
+                "Recebida em 2026-10-30.", "", "", ""), demanda(true));
+        assertThat(t.historico()).isEqualTo("Recebida em 30/10/2026.");
+    }
+
+    @Test
     void datasChaveCorretasPassam() {
         concluidaEm = LocalDateTime.of(2026, 11, 19, 15, 0);
         DemandaDetalhe d = demanda(true);
