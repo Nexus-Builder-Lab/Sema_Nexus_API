@@ -117,6 +117,8 @@ public class DocumentoService {
                     extrator.extrair(tipo, bytes),
                     usuarios.findById(ator.id()).orElseThrow(() -> RecursoNaoEncontradoException.de("Usuário", ator.id())));
             documentos.save(documento);
+            // Busca lexical (#164): grava o texto normalizado na coluna derivada TEXTO_BUSCA (mesma transação).
+            IndiceBuscaDocumentos.atualizar(jdbc, documento.getId(), documento.getTextoExtraido());
             if (pedido.demandaId() != null) {
                 jdbc.update("INSERT INTO DOCUMENTO_DEMANDA (DOCUMENTO_ID, DEMANDA_ID, VINCULADO_POR) VALUES (?, ?, ?)",
                         documento.getId(), pedido.demandaId(), ator.id());

@@ -95,8 +95,10 @@ class DocumentoServiceTest {
             org.springframework.test.util.ReflectionTestUtils.setField((Object) i.getArgument(0), "id", 42L);
             return i.getArgument(0);
         });
-        service.enviar(ator, pedido("notas.txt", "Texto de teste".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        service.enviar(ator, pedido("notas.txt", "Texto de AÇÃO".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
         verify(eventos).publishEvent(new DocumentoTextoAlterado(42L));
+        // #164: texto normalizado gravado na coluna de busca na mesma transação
+        verify(jdbc).update(IndiceBuscaDocumentos.SQL_ATUALIZAR, "texto de acao", 42L);
     }
 
     @Test
