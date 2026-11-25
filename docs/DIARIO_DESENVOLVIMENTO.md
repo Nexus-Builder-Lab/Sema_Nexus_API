@@ -599,6 +599,13 @@
 - **Docker (demo):** V11 aplicada; "texto normalizado preenchido em 14 documento(s)"; `GET /api/documentos/busca?q=queimada` → 200 (5 resultados), `q=minuta` → 200 com o documento 41; `POST /api/docia/perguntas` (ANALISTA) → 200, agente LOCAL, referência ao documento 41, sem ORA nos logs.
 - **Pendências:** nenhuma de código.
 
+## 2026-11-25 · GH-150 · Servidor MCP local somente leitura (PE-14-MCP-API)
+- **Status:** PR solicitado (subagente implementador, pacote de evoluções de 24/11/2026, frente 14).
+- **O que foi feito:** `scripts/mcp-sema-alerta/` (SDK MCP 1.32.2 e zod 4.6.7 com versões exatas e lockfile; stdio) com 6 ferramentas de leitura que chamam a API real com o JWT do usuário; cliente com lista de caminhos permitidos (GET) e login como único POST; 401 (novo login uma vez), 403/404, 429 (`Retry-After`) e timeout tratados; sem opção de desligar TLS; README, `mcp.json.exemplo` (não ativado) e job de CI `mcp-sema-alerta`.
+- **Decisões técnicas:** sem Oracle direto nem escrita; segredos só em variáveis de ambiente e nunca em log/erro; saída limitada a 20.000 caracteres; Java intocado (sem migration).
+- **Testes:** `node --test` → 5 testes, 0 falhas (endpoints e Bearer corretos por ferramenta, apenas GET + login, entrada inválida e caminho fora da lista recusados, 403 exibido, 401 refaz login, 429, token/senha ausentes da saída). `npm audit`: 0 vulnerabilidades. Smoke contra a API local não executado (API não respondeu em 127.0.0.1:18081).
+- **Pendências:** smoke com o perfil demo no Docker (validador).
+
 ## 2026-11-25 · GH-143 · Área afetada no cadastro/edição de demanda (PE-10A-API)
 - **Status:** PR solicitado (subagente implementador, pacote de evoluções de 24/11/2026).
 - **O que foi feito:** `DemandaRequest` ganhou `areaHa?` e `areaGeometria?`; `GeometriaArea` (common/geo) valida o GeoJSON (tipo, anéis fechados, >= 4 pontos, NaN, caixa de MT das constantes do `ReferenciaSateliteLoader`, <= 2000 vértices, <= 200 KB) e calcula a área em ha (esfera, Chamberlain-Duquette, furos subtraídos); `DemandaService` grava área/geometria (colunas V7, entidade agora gravável) e preenche lat/lon com o centroide quando ausentes; histórico/auditoria incluem "área afetada".

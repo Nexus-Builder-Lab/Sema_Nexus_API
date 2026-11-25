@@ -40,3 +40,5 @@ data/
 
 # Claude Code — configurações locais
 .claude/settings.local.json
+
+scripts/mcp-sema-alerta/node_modules/
