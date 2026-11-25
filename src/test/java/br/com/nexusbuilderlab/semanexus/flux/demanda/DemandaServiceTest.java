@@ -209,6 +209,7 @@ class DemandaServiceTest {
         assertThat(e.getErros()).extracting("campo").containsExactly("municipioId");
         verify(demandas, never()).save(any());
         verify(auditoria, never()).registrar(anyString(), anyString(), any(), any());
+        verify(auditoria, never()).registrarAlteracao(anyString(), anyString(), any(), any(), any());
     }
 
     @Test
@@ -258,7 +259,11 @@ class DemandaServiceTest {
             assertThat(x.getTipo()).isEqualTo(TipoHistorico.EDICAO);
             assertThat(x.getTexto()).contains("título");
         });
-        verify(auditoria, times(2)).registrar(eq("EDITAR"), eq("DEMANDA"), any(), anyString());
+        var alteracoes = ArgumentCaptor.forClass(br.com.nexusbuilderlab.semanexus.core.auditoria.Alteracoes.class);
+        verify(auditoria, times(2)).registrarAlteracao(eq("EDITAR"), eq("DEMANDA"), any(), anyString(),
+                alteracoes.capture());
+        assertThat(alteracoes.getValue().depois()).containsEntry("titulo", "Novo título");
+        assertThat(alteracoes.getValue().antes()).containsKey("titulo").doesNotContainKey("origem");
     }
 
     @Test

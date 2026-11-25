@@ -139,6 +139,18 @@ class AuthServiceTest {
     }
 
     @Test
+    void logoutEncerraStreamsDeNotificacaoDoToken() {
+        var canal = org.mockito.Mockito.mock(br.com.nexusbuilderlab.semanexus.core.notificacao.CanalNotificacoes.class);
+        servico.setCanalNotificacoes(canal);
+        Instant expira = Instant.parse("2026-11-10T20:00:00Z");
+        when(revogacao.revogar("jti-de-teste", 5L, expira)).thenReturn(true);
+
+        servico.logout(5L, "jti-de-teste", expira);
+
+        verify(canal).encerrarDoToken("jti-de-teste");
+    }
+
+    @Test
     void meRetornaResumoOuNaoEncontrado() {
         when(usuarios.findById(5L)).thenReturn(Optional.of(usuario));
         when(usuarios.findById(99L)).thenReturn(Optional.empty());

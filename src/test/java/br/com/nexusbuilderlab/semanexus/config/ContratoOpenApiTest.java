@@ -35,7 +35,7 @@ class ContratoOpenApiTest {
             "GET /api/catalogos/municipios", "GET /api/catalogos/biomas", "GET /api/catalogos/categorias",
             "GET /api/catalogos/origens", "GET /api/catalogos/prioridades", "GET /api/catalogos/status",
             "GET /api/setores", "GET /api/equipes", "GET /api/equipes/{id}/membros",
-            "GET /api/notificacoes", "GET /api/notificacoes/nao-lidas/contagem", "PATCH /api/notificacoes/{id}/lida",
+            "GET /api/notificacoes", "GET /api/notificacoes/stream", "GET /api/notificacoes/nao-lidas/contagem", "PATCH /api/notificacoes/{id}/lida",
             // Flux (contrato)
             "POST /api/demandas", "PUT /api/demandas/{id}", "GET /api/demandas", "GET /api/demandas/{id}",
             "DELETE /api/demandas/{id}", "GET /api/demandas/{id}/historico",
@@ -69,7 +69,7 @@ class ContratoOpenApiTest {
             // Assistente Global (Issue #139)
             "POST /api/agentes/assistente-global",
             // Core — auditoria (implementado)
-            "GET /api/auditoria",
+            "GET /api/auditoria", "GET /api/auditoria/integridade",
             // Core — gestão de usuários, setores e equipes (Issue #24)
             "GET /api/usuarios", "POST /api/usuarios", "GET /api/usuarios/{id}", "PUT /api/usuarios/{id}",
             "PATCH /api/usuarios/{id}/ativacao", "POST /api/setores", "PUT /api/setores/{id}",
@@ -188,6 +188,21 @@ class ContratoOpenApiTest {
                 .isEqualTo("#/components/schemas/LoginResponse");
         assertThat(contrato().path("components").path("schemas").path("LoginResponse").path("properties").fieldNames())
                 .toIterable().contains("token", "expiresIn", "usuario");
+    }
+
+    @Test
+    void auditoriaEncadeadaENotificacoesSseNoContrato() throws Exception {
+        JsonNode stream = operacao("GET /api/notificacoes/stream");
+        assertThat(stream.path("responses").path("200").path("content").has("text/event-stream")).isTrue();
+        assertThat(stream.path("responses").path("503").path("content").has("application/problem+json")).isTrue();
+        assertThat(stream.path("description").asText()).contains("conectado").contains("notificacao")
+                .contains("Authorization");
+        JsonNode integridade = operacao("GET /api/auditoria/integridade");
+        assertThat(integridade.path("responses").has("200")).isTrue();
+        assertThat(contrato().path("components").path("schemas").path("IntegridadeAuditoria").path("properties")
+                .has("primeiraFalha")).isTrue();
+        assertThat(contrato().path("components").path("schemas").path("AuditoriaDto").path("properties")
+                .has("valorAnterior")).isTrue();
     }
 
     @Test

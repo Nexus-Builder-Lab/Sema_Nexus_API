@@ -10,6 +10,7 @@ import br.com.nexusbuilderlab.semanexus.common.exception.GlobalExceptionHandler.
 import br.com.nexusbuilderlab.semanexus.common.exception.RecursoNaoEncontradoException;
 import br.com.nexusbuilderlab.semanexus.common.geo.GeoJson;
 import br.com.nexusbuilderlab.semanexus.common.geo.Geodesia;
+import br.com.nexusbuilderlab.semanexus.core.auditoria.Alteracoes;
 import br.com.nexusbuilderlab.semanexus.core.auditoria.AuditService;
 import br.com.nexusbuilderlab.semanexus.core.catalogo.StatusDemanda;
 import br.com.nexusbuilderlab.semanexus.core.equipe.Equipe;
@@ -36,7 +37,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import org.springframework.data.domain.Page;
@@ -124,13 +127,15 @@ public class DemandaService {
         Usuario autor = usuario(ator);
 
         List<String> alterados = camposAlterados(demanda, pedido);
+        Map<String, Object> antes = retrato(demanda);
         aplicar(demanda, pedido, municipio);
         demandas.saveAndFlush(demanda);
         if (!alterados.isEmpty()) {
             String texto = "Campos alterados: " + String.join(", ", alterados) + ".";
             registrarHistorico(demanda, TipoHistorico.EDICAO, demanda.getStatus(), demanda.getStatus(), texto, autor);
-            auditoria.registrar("EDITAR", ENTIDADE, String.valueOf(demanda.getId()),
-                    "Demanda " + demanda.getNumero() + " editada. " + texto);
+            auditoria.registrarAlteracao("EDITAR", ENTIDADE, String.valueOf(demanda.getId()),
+                    "Demanda " + demanda.getNumero() + " editada. " + texto,
+                    Alteracoes.entre(antes, retrato(demanda)));
         }
         return detalhe(demanda, hoje);
     }
@@ -302,6 +307,24 @@ public class DemandaService {
         demanda.setPrioridade(pedido.prioridade());
         demanda.setPrazoSugerido(pedido.prazoSugerido());
         demanda.setObservacoes(vazioParaNulo(pedido.observacoes()));
+    }
+
+    /** Valores editáveis da demanda, para o antes → depois da auditoria (Issue #148). */
+    private static Map<String, Object> retrato(Demanda d) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("titulo", d.getTitulo());
+        m.put("descricao", d.getDescricao());
+        m.put("origem", d.getOrigem());
+        m.put("categoria", d.getCategoria());
+        m.put("municipioId", d.getMunicipio() == null ? null : d.getMunicipio().getId());
+        m.put("localidade", d.getLocalidade());
+        m.put("latitude", d.getLatitude());
+        m.put("longitude", d.getLongitude());
+        m.put("dataRecebimento", d.getDataRecebimento());
+        m.put("prioridade", d.getPrioridade());
+        m.put("prazoSugerido", d.getPrazoSugerido());
+        m.put("observacoes", d.getObservacoes());
+        return m;
     }
 
     private static List<String> camposAlterados(Demanda d, DemandaRequest p) {

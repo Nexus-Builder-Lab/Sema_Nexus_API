@@ -4,6 +4,7 @@ import br.com.nexusbuilderlab.semanexus.common.dto.PageResponse;
 import br.com.nexusbuilderlab.semanexus.common.exception.ConflitoException;
 import br.com.nexusbuilderlab.semanexus.common.exception.DadosInvalidosException;
 import br.com.nexusbuilderlab.semanexus.common.exception.RecursoNaoEncontradoException;
+import br.com.nexusbuilderlab.semanexus.core.auditoria.Alteracoes;
 import br.com.nexusbuilderlab.semanexus.core.auditoria.AuditService;
 import br.com.nexusbuilderlab.semanexus.core.setor.Setor;
 import br.com.nexusbuilderlab.semanexus.core.setor.SetorRepository;
@@ -86,18 +87,25 @@ public class UsuarioService {
         if (u.getPerfil() == Perfil.ADMIN && u.isAtivo() && req.perfil() != Perfil.ADMIN) {
             exigirOutroAdminAtivo(u);
         }
+        Alteracoes alteracoes = Alteracoes.nova();
+        String nome = req.nome().trim();
+        Long setorAnterior = u.getSetor() == null ? null : u.getSetor().getId();
+        alteracoes.campo("nome", u.getNome(), nome).campo("email", u.getEmail(), email)
+                .campo("perfil", u.getPerfil(), req.perfil()).campo("setorId", setorAnterior, req.setorId());
         boolean novaSenha = req.senha() != null;
         if (novaSenha) {
+            // Nunca o valor: só a indicação de que houve redefinição.
+            alteracoes.campo("senha", "(mantida)", "(redefinida)");
             validarSenha(req.senha());
             u.setSenhaHash(encoder.encode(req.senha()));
         }
-        u.setNome(req.nome().trim());
+        u.setNome(nome);
         u.setEmail(email);
         u.setPerfil(req.perfil());
         u.setSetor(setor(req.setorId()));
         usuarios.save(u);
-        auditoria.registrar("ATUALIZAR", ENTIDADE, String.valueOf(id),
-                "Usuário atualizado: perfil " + u.getPerfil() + (novaSenha ? "; senha redefinida." : "."));
+        auditoria.registrarAlteracao("ATUALIZAR", ENTIDADE, String.valueOf(id),
+                "Usuário atualizado: perfil " + u.getPerfil() + (novaSenha ? "; senha redefinida." : "."), alteracoes);
         return UsuarioDto.de(u);
     }
 
@@ -107,10 +115,11 @@ public class UsuarioService {
         if (!ativo && u.isAtivo() && u.getPerfil() == Perfil.ADMIN) {
             exigirOutroAdminAtivo(u);
         }
+        Alteracoes alteracoes = Alteracoes.nova().campo("ativo", u.isAtivo(), ativo);
         u.setAtivo(ativo);
         usuarios.save(u);
-        auditoria.registrar(ativo ? "ATIVAR" : "DESATIVAR", ENTIDADE, String.valueOf(id),
-                ativo ? "Usuário ativado." : "Usuário desativado.");
+        auditoria.registrarAlteracao(ativo ? "ATIVAR" : "DESATIVAR", ENTIDADE, String.valueOf(id),
+                ativo ? "Usuário ativado." : "Usuário desativado.", alteracoes);
         return UsuarioDto.de(u);
     }
 

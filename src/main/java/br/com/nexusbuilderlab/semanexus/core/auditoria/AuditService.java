@@ -5,9 +5,13 @@ import br.com.nexusbuilderlab.semanexus.core.auditoria.dto.AuditoriaDto;
 import br.com.nexusbuilderlab.semanexus.core.auditoria.dto.AuditoriaFiltro;
 import br.com.nexusbuilderlab.semanexus.core.usuario.UsuarioRepository;
 import br.com.nexusbuilderlab.semanexus.security.UsuarioAutenticado;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -25,6 +29,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * Gravação centralizada de auditoria (versão mínima da Issue #4, ampliada na Issue #14).
@@ -34,6 +40,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuditService {
 
     static final int LIMITE_DETALHE = 4000;
+    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final TypeReference<LinkedHashMap<String, String>> MAPA = new TypeReference<>() { };
 
     private static final Set<String> CAMPOS_ORDENAVEIS = Set.of("id", "data", "usuarioId", "acao", "entidade");
     private static final Sort ORDEM_PADRAO = Sort.by(Sort.Order.desc("data"), Sort.Order.desc("id"));
@@ -45,10 +53,12 @@ public class AuditService {
 
     private final AuditoriaRepository repositorio;
     private final UsuarioRepository usuarios;
+    private final SeladorAuditoria selador;
 
-    public AuditService(AuditoriaRepository repositorio, UsuarioRepository usuarios) {
+    public AuditService(AuditoriaRepository repositorio, UsuarioRepository usuarios, SeladorAuditoria selador) {
         this.repositorio = repositorio;
         this.usuarios = usuarios;
+        this.selador = selador;
     }
 
     /** Consulta paginada com filtros opcionais; sem {@code sort}, mais recentes primeiro. */
@@ -117,7 +127,19 @@ public class AuditService {
     private static AuditoriaDto paraDto(Auditoria a, Map<Long, String> nomes) {
         return new AuditoriaDto(a.getId(), a.getData(), a.getUsuarioId(),
                 a.getUsuarioId() == null ? null : nomes.get(a.getUsuarioId()),
-                a.getAcao(), a.getEntidade(), a.getEntidadeId(), a.getDetalhe());
+                a.getAcao(), a.getEntidade(), a.getEntidadeId(), a.getDetalhe(),
+                lerJson(a.getValorAnterior()), lerJson(a.getValorNovo()), a.getSeqCadeia(), a.getHashRegistro());
+    }
+
+    private static Map<String, String> lerJson(String json) {
+        if (json == null || json.isBlank()) {
+            return null;
+        }
+        try {
+            return JSON.readValue(json, MAPA);
+        } catch (JsonProcessingException e) {
+            return Map.of("_bruto", json);
+        }
     }
 
     static String sanear(String detalhe) {
@@ -138,11 +160,42 @@ public class AuditService {
     /** Registra a ação em nome do usuário informado (ex.: login, quando o contexto ainda está vazio). */
     @Transactional
     public void registrarComo(Long usuarioId, String acao, String entidade, String entidadeId, String detalhe) {
-        String limpo = sanear(detalhe);
-        String texto = limpo != null && limpo.length() > LIMITE_DETALHE
-                ? limpo.substring(0, LIMITE_DETALHE)
-                : limpo;
-        repositorio.save(new Auditoria(usuarioId, acao, entidade, entidadeId, texto));
+        gravar(new Auditoria(usuarioId, acao, entidade, entidadeId, limitar(sanear(detalhe))));
+    }
+
+    /**
+     * Registra uma edição com os valores antes → depois dos campos alterados (Issue #148), em nome do usuário do
+     * contexto de segurança. Sem campos alterados, registra só o detalhe.
+     */
+    @Transactional
+    public void registrarAlteracao(String acao, String entidade, String entidadeId, String detalhe,
+                                   Alteracoes alteracoes) {
+        boolean vazia = alteracoes == null || alteracoes.vazia();
+        gravar(new Auditoria(usuarioAtualId(), acao, entidade, entidadeId, limitar(sanear(detalhe)),
+                vazia ? null : sanear(alteracoes.antesJson()), vazia ? null : sanear(alteracoes.depoisJson())));
+    }
+
+    private static String limitar(String texto) {
+        return texto != null && texto.length() > LIMITE_DETALHE ? texto.substring(0, LIMITE_DETALHE) : texto;
+    }
+
+    /**
+     * Insere na transação corrente e pede a selagem na cadeia SHA-256 depois do commit (num rollback o registro some
+     * e nada é selado). Fora de transação, pede na hora.
+     */
+    private void gravar(Auditoria auditoria) {
+        repositorio.save(auditoria);
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            // Pedidos repetidos na mesma transação são agrupados pelo selador.
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    selador.solicitarSelagem();
+                }
+            });
+        } else {
+            selador.solicitarSelagem();
+        }
     }
 
     private static Long usuarioAtualId() {
