@@ -59,7 +59,11 @@ public class AgentesController {
                         "Sugere equipe, fiscal e prazo pela carga de trabalho, logística e tempo médio da categoria."),
                 new AgenteInfo("minuta", "Agente Copiloto de Minuta", "SEMA Flux",
                         ia ? executor.modelo(configuracao.modeloDocia()) : SEM_IA,
-                        "Redige a minuta do relatório de vistoria a partir dos dados da demanda, para revisão humana.")));
+                        "Redige a minuta do relatório de vistoria a partir dos dados da demanda, para revisão humana."),
+                new AgenteInfo("sentinela", "Sentinela Territorial", "SEMA Intelligence",
+                        ia ? executor.modelo(configuracao.modeloTriagem()) : SEM_IA,
+                        "Detecta anomalias (INPE sem demanda, filas acumuladas, equipes sobrecarregadas) e escreve o "
+                                + "briefing executivo.")));
     }
 
     private String modo() {

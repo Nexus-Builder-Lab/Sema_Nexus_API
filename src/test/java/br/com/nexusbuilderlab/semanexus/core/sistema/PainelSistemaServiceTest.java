@@ -120,6 +120,8 @@ class PainelSistemaServiceTest {
         assertThat(p.agentes().get(1).metricas().demonstrativo()).isEqualTo(1);
         assertThat(p.agentes()).anyMatch(a -> a.id().equals("minuta")
                 && a.ferramentas().contains("alertas_inpe_area"));
+        assertThat(p.agentes()).anyMatch(a -> a.id().equals("sentinela")
+                && a.ferramentas().contains("anomalias_sentinela"));
         assertThat(p.sistema().perfilAtivo()).isEqualTo("demo");
     }
 
