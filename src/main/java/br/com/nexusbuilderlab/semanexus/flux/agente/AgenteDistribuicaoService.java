@@ -115,6 +115,26 @@ public class AgenteDistribuicaoService {
     }
 
     public SugestaoDistribuicao sugerir(UsuarioAutenticado ator, Long id) {
+        SugestaoDistribuicao s = sugerirSemRegistro(ator, id);
+        if (governanca != null && ator != null && s != null) {
+            governanca.registrarSugestao(br.com.nexusbuilderlab.semanexus.agentes.governanca.GovernancaIaService
+                    .AGENTE_DISTRIBUICAO, id, ator.id(), s.modo(),
+                    br.com.nexusbuilderlab.semanexus.flux.demanda.CamposAvaliacao.distribuicao(
+                            s.equipe() == null ? null : s.equipe().id(), s.fiscal() == null ? null : s.fiscal().id(),
+                            s.prazo()));
+        }
+        return s;
+    }
+
+    /** Governança de IA (Issue #131), opcional: registra a sugestão/decisão para a concordância Humano × IA. */
+    private br.com.nexusbuilderlab.semanexus.agentes.governanca.GovernancaIaService governanca;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setGovernanca(br.com.nexusbuilderlab.semanexus.agentes.governanca.GovernancaIaService governanca) {
+        this.governanca = governanca;
+    }
+
+    private SugestaoDistribuicao sugerirSemRegistro(UsuarioAutenticado ator, Long id) {
         DemandaDetalhe d = demandas.detalhar(ator, id); // 404/403 conforme o escopo do usuário
         // Mesma regra do endpoint de distribuição: o fluxo não tem redistribuição, só AGUARDANDO_DISTRIBUICAO.
         if (!maquina.permitida(d.status(), DemandaStateMachine.Acao.DISTRIBUIR)) {
