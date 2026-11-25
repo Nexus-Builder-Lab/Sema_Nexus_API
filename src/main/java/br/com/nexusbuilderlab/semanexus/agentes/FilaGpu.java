@@ -3,6 +3,7 @@ package br.com.nexusbuilderlab.semanexus.agentes;
 import java.time.Duration;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,7 +46,18 @@ public class FilaGpu {
      * @throws AgenteIndisponivelException fila cheia além do tempo de espera ou espera interrompida
      */
     public <T> T executar(Duration esperaMaxima, Supplier<T> chamada) {
-        return executarComEspera(Math.max(0, Math.min(espera.toMillis(), esperaMaxima.toMillis())), chamada);
+        return executar(esperaMaxima, chamada, NUNCA);
+    }
+
+    /**
+     * Como {@link #executar(Duration, Supplier)}, mas desiste da espera assim que {@code cancelado} ficar verdadeiro
+     * (cliente SSE desconectado, Issue #135) — a vaga não chega a ser ocupada por quem já foi embora.
+     *
+     * @throws ExecucaoCanceladaException cancelado durante a espera
+     */
+    public <T> T executar(Duration esperaMaxima, Supplier<T> chamada, BooleanSupplier cancelado) {
+        return executarComEspera(Math.max(0, Math.min(espera.toMillis(), esperaMaxima.toMillis())), chamada,
+                cancelado);
     }
 
     /**
@@ -53,13 +65,34 @@ public class FilaGpu {
      * aquecimento do modelo ao iniciar, que não têm usuário esperando.
      */
     public <T> T executarAguardando(Duration espera, Supplier<T> chamada) {
-        return executarComEspera(Math.max(0, espera.toMillis()), chamada);
+        return executarComEspera(Math.max(0, espera.toMillis()), chamada, NUNCA);
     }
 
-    private <T> T executarComEspera(long esperaMs, Supplier<T> chamada) {
-        boolean obteve;
+    /** Fatia da espera entre verificações de cancelamento. */
+    static final long FATIA_ESPERA_MS = 200;
+    /**
+     * Sem cancelamento: uma única espera, que preserva a ordem de chegada do semáforo justo. Com cancelamento, a espera
+     * é fatiada (cada fatia volta ao fim da fila — custo aceito para liberar logo quem desconectou).
+     */
+    private static final BooleanSupplier NUNCA = () -> false;
+
+    private <T> T executarComEspera(long esperaMs, Supplier<T> chamada, BooleanSupplier cancelado) {
+        boolean obteve = false;
+        long limite = System.currentTimeMillis() + esperaMs;
         try {
-            obteve = semaforo.tryAcquire(esperaMs, TimeUnit.MILLISECONDS);
+            if (cancelado == NUNCA) {
+                obteve = semaforo.tryAcquire(esperaMs, TimeUnit.MILLISECONDS);
+            }
+            while (cancelado != NUNCA) {
+                if (cancelado.getAsBoolean()) {
+                    throw new ExecucaoCanceladaException();
+                }
+                long resta = limite - System.currentTimeMillis();
+                obteve = semaforo.tryAcquire(Math.max(0, Math.min(FATIA_ESPERA_MS, resta)), TimeUnit.MILLISECONDS);
+                if (obteve || resta <= FATIA_ESPERA_MS) {
+                    break;
+                }
+            }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new AgenteIndisponivelException("Espera pela GPU interrompida.");
