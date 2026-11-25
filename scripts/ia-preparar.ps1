@@ -4,6 +4,8 @@
 .DESCRIPTION
   Usa COMPOSE_PROFILES do .env: "ia" (GPU NVIDIA) ou "ia-cpu" (sem GPU). Baixa OLLAMA_MODELO (padrão qwen3:4b-instruct,
   licença Apache 2.0, ~2,5 GB) para o volume "ollama" do projeto sema-nexus. Não mexe em outros projetos.
+  Também baixa o modelo de embeddings EMBEDDINGS_MODELO (padrão nomic-embed-text, Apache 2.0, ~0,3 GB) da busca
+  híbrida do DocIA (Issue #141); se EMBEDDINGS_ATIVO=false, pula. Falha nele não impede os agentes (a busca fica lexical).
   Sem custo: o modelo roda na própria máquina e nenhum dado sai dela. Ver docs/AGENTES_IA.md.
   AMBIENTE DEMONSTRATIVO — DADOS FICTÍCIOS.
 #>
@@ -19,6 +21,11 @@ else {
 }
 $modelo = Get-EnvValor 'OLLAMA_MODELO' 'qwen3:4b-instruct'
 if ($modelo -notmatch '^[a-z0-9][a-z0-9._-]{1,60}(:[a-z0-9._-]{1,40})?$') { Stop-Demo "OLLAMA_MODELO inválido: '$modelo'." }
+$embeddingsAtivo = (Get-EnvValor 'EMBEDDINGS_ATIVO' 'true') -ne 'false'
+$modeloEmbeddings = Get-EnvValor 'EMBEDDINGS_MODELO' 'nomic-embed-text'
+if ($modeloEmbeddings -notmatch '^[a-z0-9][a-z0-9._/-]{1,60}(:[a-z0-9._-]{1,40})?$') {
+    Stop-Demo "EMBEDDINGS_MODELO inválido: '$modeloEmbeddings'."
+}
 
 Test-Docker
 Push-Location $script:RootDir
@@ -38,6 +45,12 @@ try {
     if ((Invoke-Nativo 'docker' @('compose', 'exec', '-T', $servico, 'ollama', 'pull', $modelo)) -ne 0) {
         Stop-Demo "falha ao baixar '$modelo' (verifique a internet)."
     }
+    if ($embeddingsAtivo) {
+        Write-Host "Baixando o modelo de embeddings '$modeloEmbeddings' da busca híbrida (~0,3 GB, só na primeira vez)..."
+        if ((Invoke-Nativo 'docker' @('compose', 'exec', '-T', $servico, 'ollama', 'pull', $modeloEmbeddings)) -ne 0) {
+            Write-Warning "falha ao baixar '$modeloEmbeddings': a busca do DocIA segue só lexical até ele ser baixado."
+        }
+    }
     Write-Host 'Aquecendo o modelo (primeira resposta)...'
     Invoke-Nativo 'docker' @('compose', 'exec', '-T', $servico, 'ollama', 'run', $modelo, '/no_think Responda apenas: pronto') | Out-Null
 }
@@ -47,3 +60,7 @@ Write-Host ''
 Write-Host "IA local pronta: modelo '$modelo' no serviço '$servico'."
 Write-Host 'Os agentes passam a usar a IA local em até 20 segundos (sem reiniciar a API).'
 Write-Host 'Conferir: GET /api/agentes/status deve indicar o modo LOCAL.'
+if ($embeddingsAtivo) {
+    Write-Host "Busca híbrida: a API indexa os documentos com '$modeloEmbeddings' em até 2 minutos;"
+    Write-Host 'GET /api/documentos/busca?q=... passa a responder recuperacao=HIBRIDA.'
+}

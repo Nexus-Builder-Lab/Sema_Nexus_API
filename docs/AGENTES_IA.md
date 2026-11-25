@@ -88,6 +88,31 @@ Resposta ganhou `agente` (LOCAL/CLAUDE/DEMONSTRATIVO/EXTERNO), `modelo` e `passo
 
 Medido em 13/11/2026 (`qwen3:4b-instruct`, GTX 1660 SUPER): 3–12 s por pergunta.
 
+## Busca híbrida Oracle 23ai VECTOR (Issue #141)
+
+A recuperação de `buscar_documentos`, do modo extrativo e de `GET /api/documentos/busca` passou a ser **híbrida** quando há embeddings: o ranking textual (radicais, título vale mais, corte de 1/3) e o ranking vetorial (cosseno entre a pergunta e o trecho mais próximo de cada documento, `VECTOR_DISTANCE` no Oracle 23ai, tabela `DOCUMENTO_TRECHO`) são fundidos por **RRF** (`Σ 1/(k + posição)`, `BUSCA_RRF_K` = 60). Usa só as posições, porque as pontuações têm escalas diferentes. Documento encontrado **só** pela parte vetorial precisa de similaridade ≥ `EMBEDDINGS_SIMILARIDADE_MINIMA` (0,55), senão toda pergunta "acharia" o vizinho mais próximo e a abstenção se perderia.
+
+- **Modelo:** `nomic-embed-text` (Apache 2.0, ~0,3 GB, 768 dimensões) no mesmo Ollama dos agentes, baixado por `scripts/ia-preparar.*`; prefixos `search_query:`/`search_document:`. Não usa a fila da GPU (chamadas de milissegundos). `EMBEDDINGS_MODELO` aceita outro modelo de 768 dimensões; outra dimensão desliga a parte vetorial com aviso no log.
+- **Indexação:** no upload (após o commit, thread própria) e preenchimento idempotente ao iniciar (15 s) e a cada `EMBEDDINGS_REINDEXAR_SEGUNDOS`; falha = tenta no próximo ciclo. Nunca bloqueia a subida nem o upload.
+- **Degradação:** `EMBEDDINGS_ATIVO=false`, modelo não baixado, Ollama fora do ar (pausa de 30 s após falha, timeout de 4 s na consulta), nada indexado ou erro de SQL → busca só lexical, **sem erro**.
+- **Transparência:** `recuperacao` (`LEXICAL` | `HIBRIDA`) na resposta do Assistente e da pesquisa; `similaridadeSemantica` em cada referência/resultado (cosseno, proximidade de sentido — **não** é confiança). `aderenciaTextual` mantém o significado (relativa ao melhor documento da busca textual) e fica nula quando o documento não tem nenhum termo da consulta.
+- **Instruções e ferramentas do agente não mudaram** (mesmo texto para o modelo); muda só quais documentos a busca devolve.
+
+### Benchmark textual × híbrida
+
+Conjunto fixo: `src/test/resources/benchmark/perguntas-busca.json` — 18 perguntas sobre o acervo fictício do seed (14 respondíveis, incluindo 4 paráfrases sem as palavras do texto, e 4 fora do acervo, em que o certo é se abster). Métricas: precisão@3 (fração do que voltou no top-3 que é relevante), acerto@1, recall@3, abstenção correta (fora do acervo → nada) e abstenção indevida (respondível → nada).
+
+**Offline (teste `BenchmarkBuscaTest`, `mvn test`, 24/11/2026)** — código de produção da busca com o SQL emulado em memória e embeddings **falsos determinísticos** (trigramas + uma tabela pequena de sinônimos de teste, limiar 0,30). Prova a mecânica (fusão, limiar, abstenção, degradação), **não** a qualidade do nomic-embed-text:
+
+| Recuperação | Precisão@3 | Acerto@1 | Recall@3 | Abstenção correta | Abstenção indevida |
+|---|---|---|---|---|---|
+| LEXICAL | 0,80 | 0,93 | 0,96 | 0,75 | 0,00 |
+| HIBRIDA (embeddings falsos) | 0,71 | 1,00 | 0,92 | 0,75 | 0,00 |
+
+Leitura honesta: a híbrida pôs o documento certo em 1º na paráfrase "Derrubada da floresta detectada por satélite" (a textual punha o Parecer de Cáceres, por causa de "satélite"), mas trouxe mais documentos ao top-3 (ex.: a Instrução Normativa em "Incêndio no pantanal durante a seca"), o que baixou a precisão@3. A abstenção não mudou: "Resultado das eleições municipais" continua com falso positivo **textual** ("resultado" e "município" existem nos documentos) — a parte vetorial não cria nem remove esse erro. O teste também garante que, sem embeddings, a busca "AUTO" devolve exatamente o resultado lexical.
+
+**Com o modelo real (pendente de execução):** o benchmark com o nomic-embed-text exige Docker (Ollama e API) e não foi rodado nesta Issue. Para medir: `scripts/ia-preparar.ps1` (baixa o modelo), aguardar ~2 min (indexação; `GET /api/documentos/busca?q=queimada` deve responder `recuperacao=HIBRIDA`) e rodar `scripts/benchmark-busca.ps1 -Saida benchmark.md` (ou `scripts/benchmark-busca.sh benchmark.md`, requer `jq`). O script só lê (login demonstrativo CONSULTA ou `SEMA_EMAIL`/`SEMA_SENHA`) e compara `modo=LEXICAL` × `modo=AUTO` com as mesmas perguntas. Calibrar `EMBEDDINGS_SIMILARIDADE_MINIMA` pelo resultado (abstenção correta sem perder acerto@1) e registrar a tabela aqui.
+
 ## Resumo das diferenças da comparação (Issue #142)
 
 `POST /api/docia/comparacao/explicar`: agente `comparacao` sem ferramentas; a tabela de grandezas (extração determinística, `GrandezasExtrator`) vai na mensagem como dado e o modelo escreve só o `resumo` (até 3 frases). Sem IA ou após falha, resumo por regras com `modo` DEMONSTRATIVO e auditoria `AGENTE_DEMONSTRATIVO`. Os números da tabela nunca vêm do modelo; nada é gravado.
@@ -133,6 +158,11 @@ A GPU chega a ~99% **durante** a geração (alguns segundos) — é o esperado: 
 | `AGENTES_MAX_CHAMADAS_FERRAMENTA` | `8` | Máximo de chamadas de ferramenta somadas na execução (1–30). |
 | `AGENTES_GPU_CONCORRENCIA` | `1` | Chamadas simultâneas ao modelo na fila da GPU (1–16; Issue #134). |
 | `AGENTES_GPU_ESPERA_SEGUNDOS` | `20` | Espera máxima por vaga na fila (1–120 s); esgotada, modo demonstrativo identificado. |
+| `EMBEDDINGS_ATIVO` | `true` | Busca híbrida do DocIA (#141); `false` = só lexical. |
+| `EMBEDDINGS_MODELO` | `nomic-embed-text` | Modelo de embeddings no Ollama (768 dimensões). |
+| `EMBEDDINGS_SIMILARIDADE_MINIMA` | `0.55` | Cosseno mínimo (0–1) para um documento entrar só pela parte vetorial. |
+| `EMBEDDINGS_REINDEXAR_SEGUNDOS` | `120` | Intervalo da indexação de documentos sem trechos (10–86400). |
+| `BUSCA_RRF_K` | `60` | Constante k da fusão RRF (1–1000). |
 
 `GET /api/agentes/status` informa o modo efetivo (`LOCAL`, `CLAUDE` ou `DEMONSTRATIVO`) e o modelo de cada agente — nunca chaves.
 
@@ -157,7 +187,7 @@ A GPU chega a ~99% **durante** a geração (alguns segundos) — é o esperado: 
 
 ### Aderência textual (DocIA) não é confiança factual
 
-A busca da biblioteca é **textual** (sem embeddings). Cada documento recebe pontos pelos termos da pergunta que contém (título vale mais) e é classificado em **aderência textual** alta (70%+ dos pontos do melhor documento da mesma busca), média (40–70%) ou baixa. A escala é **relativa**: o melhor documento de uma busca fraca também sai "alta". Ela **não é probabilidade de a resposta estar correta**. A API a devolve em cada citação (`referencias[].aderenciaTextual`) e a tela do Assistente explica o rótulo. Quando os documentos não têm a resposta, o agente responde `NAO_ENCONTRADO` e a tela mostra "não encontrei" (abstenção); citações só apontam documentos que as ferramentas devolveram ou leram, com o trecho conferido no texto do documento. Busca semântica ou híbrida fica **planejada**, só depois de comparar a qualidade com a recuperação textual atual.
+A aderência textual vem da busca **textual** (a parte vetorial da busca híbrida, Issue #141, tem medida própria, `similaridadeSemantica`, que também não é confiança). Cada documento recebe pontos pelos termos da pergunta que contém (título vale mais) e é classificado em **aderência textual** alta (70%+ dos pontos do melhor documento da mesma busca), média (40–70%) ou baixa. A escala é **relativa**: o melhor documento de uma busca fraca também sai "alta". Ela **não é probabilidade de a resposta estar correta**. A API a devolve em cada citação (`referencias[].aderenciaTextual`) e a tela do Assistente explica o rótulo. Quando os documentos não têm a resposta, o agente responde `NAO_ENCONTRADO` e a tela mostra "não encontrei" (abstenção); citações só apontam documentos que as ferramentas devolveram ou leram, com o trecho conferido no texto do documento. A busca híbrida foi implementada na Issue #141 (seção acima), com benchmark textual × híbrida.
 
 ## Limitações e futuro
 

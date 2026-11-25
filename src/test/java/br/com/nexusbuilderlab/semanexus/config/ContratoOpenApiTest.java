@@ -48,7 +48,7 @@ class ContratoOpenApiTest {
             "DELETE /api/demandas/{id}/documentos/{documentoId}",
             "GET /api/flux/prazos", "GET /api/flux/prazos/resumo", "GET /api/flux/produtividade",
             // DocIA (contrato)
-            "POST /api/documentos", "POST /api/documentos/pre-analise", "GET /api/documentos", "GET /api/documentos/{id}", "GET /api/documentos/{id}/arquivo",
+            "POST /api/documentos", "POST /api/documentos/pre-analise", "GET /api/documentos", "GET /api/documentos/busca", "GET /api/documentos/{id}", "GET /api/documentos/{id}/arquivo",
             "POST /api/docia/perguntas",
             // Agentes de IA (Issue #106)
             "GET /api/agentes/status", "POST /api/demandas/{id}/triagem/sugestao", "POST /api/demandas/{id}/distribuicao/sugestao", "GET /api/sistema/painel",

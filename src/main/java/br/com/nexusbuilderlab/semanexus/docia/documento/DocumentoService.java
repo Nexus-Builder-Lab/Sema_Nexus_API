@@ -37,6 +37,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -60,10 +61,12 @@ public class DocumentoService {
     private final DemandaService demandas;
     private final JdbcTemplate jdbc;
     private final NotificacaoService notificacoes;
+    private final ApplicationEventPublisher eventos;
 
     public DocumentoService(DocumentoRepository documentos, MunicipioRepository municipios, UsuarioRepository usuarios,
                             StorageService storage, TextExtractor extrator, AuditService auditoria,
-                            DemandaService demandas, JdbcTemplate jdbc, NotificacaoService notificacoes) {
+                            DemandaService demandas, JdbcTemplate jdbc, NotificacaoService notificacoes,
+                            ApplicationEventPublisher eventos) {
         this.documentos = documentos;
         this.municipios = municipios;
         this.usuarios = usuarios;
@@ -73,6 +76,7 @@ public class DocumentoService {
         this.demandas = demandas;
         this.jdbc = jdbc;
         this.notificacoes = notificacoes;
+        this.eventos = eventos;
     }
 
     /** Arquivo pronto para download (nome original já saneado). */
@@ -116,6 +120,10 @@ public class DocumentoService {
             if (pedido.demandaId() != null) {
                 jdbc.update("INSERT INTO DOCUMENTO_DEMANDA (DOCUMENTO_ID, DEMANDA_ID, VINCULADO_POR) VALUES (?, ?, ?)",
                         documento.getId(), pedido.demandaId(), ator.id());
+            }
+            // Busca híbrida (#141): indexa os trechos depois do commit, em segundo plano.
+            if (documento.getId() != null) {
+                eventos.publishEvent(new DocumentoTextoAlterado(documento.getId()));
             }
             auditoria.registrar("UPLOAD", ENTIDADE, String.valueOf(documento.getId()),
                     "Upload de documento (%s, %d bytes)".formatted(tipo.mime(), bytes.length));
@@ -255,7 +263,7 @@ public class DocumentoService {
         return pedida;
     }
 
-    private static DocumentoResumo resumo(Documento d) {
+    static DocumentoResumo resumo(Documento d) {
         Municipio m = d.getMunicipio();
         return new DocumentoResumo(d.getId(), d.getTitulo(), d.getCategoria(), d.getTipo(), d.getDataDocumento(),
                 m == null ? null : new MunicipioRef(m.getId(), m.getNome(), m.getBioma()), listaPalavras(d),
