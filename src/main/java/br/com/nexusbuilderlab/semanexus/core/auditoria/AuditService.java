@@ -9,6 +9,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.criteria.Predicate;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -50,6 +51,8 @@ public class AuditService {
             "(?i)((?:senha|password|token|secret|segredo|authorization)\\w*\"?\\s*[:=]\\s*\"?)(?:Bearer\\s+)?[^\\s\",;&}]+"
                     + "|(Bearer\\s+)[A-Za-z0-9._~+/=-]+"
                     + "|eyJ[A-Za-z0-9_-]{5,}\\.[A-Za-z0-9_-]{5,}\\.[A-Za-z0-9_-]*");
+    private static final Pattern CHAVE_SENSIVEL = Pattern.compile(
+            "(?i)(?:senha|password|token|secret|segredo|authorization)\\w*");
 
     private final AuditoriaRepository repositorio;
     private final UsuarioRepository usuarios;
@@ -172,11 +175,47 @@ public class AuditService {
                                    Alteracoes alteracoes) {
         boolean vazia = alteracoes == null || alteracoes.vazia();
         gravar(new Auditoria(usuarioAtualId(), acao, entidade, entidadeId, limitar(sanear(detalhe)),
-                vazia ? null : sanear(alteracoes.antesJson()), vazia ? null : sanear(alteracoes.depoisJson())));
+                vazia ? null : sanearEJson(alteracoes.antes()),
+                vazia ? null : sanearEJson(alteracoes.depois())));
+    }
+
+    private static String sanearEJson(Map<String, String> valores) {
+        if (valores == null || valores.isEmpty()) {
+            return null;
+        }
+        Map<String, String> saneado = new LinkedHashMap<>();
+        valores.forEach((k, v) -> saneado.put(k, valorSaneado(k, v)));
+        return Alteracoes.json(saneado);
+    }
+
+    private static String valorSaneado(String chave, String valor) {
+        if (valor == null) {
+            return null;
+        }
+        if (chave != null && CHAVE_SENSIVEL.matcher(chave).find()) {
+            return "***";
+        }
+        return sanear(valor);
     }
 
     private static String limitar(String texto) {
-        return texto != null && texto.length() > LIMITE_DETALHE ? texto.substring(0, LIMITE_DETALHE) : texto;
+        if (texto == null) {
+            return null;
+        }
+        if (texto.length() <= LIMITE_DETALHE / 4) {
+            return texto;
+        }
+        if (texto.getBytes(StandardCharsets.UTF_8).length <= LIMITE_DETALHE) {
+            return texto;
+        }
+        int fim = Math.min(texto.length(), LIMITE_DETALHE);
+        while (fim > 0 && texto.substring(0, fim).getBytes(StandardCharsets.UTF_8).length > LIMITE_DETALHE) {
+            fim--;
+        }
+        if (fim > 0 && Character.isHighSurrogate(texto.charAt(fim - 1))) {
+            fim--;
+        }
+        return texto.substring(0, fim);
     }
 
     /**

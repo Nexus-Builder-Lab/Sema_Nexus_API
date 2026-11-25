@@ -73,6 +73,12 @@ public class AuthService {
         this.hashFalso = encoder.encode("senha-descartavel-sem-uso");
     }
 
+    /** Canal SSE de notificações (Issue #148); opcional para os testes unitários. */
+    @Autowired(required = false)
+    void setCanalNotificacoes(CanalNotificacoes canal) {
+        this.canalNotificacoes = canal;
+    }
+
     @Transactional
     public LoginResponse login(LoginRequest pedido) {
         Optional<Usuario> encontrado = usuarios.findByEmail(Usuario.normalizarEmail(pedido.email()));
@@ -96,12 +102,6 @@ public class AuthService {
      * registra a saída na auditoria (uma vez por token). O cliente também descarta o token.
      */
     @Transactional
-    /** Canal SSE de notificações (Issue #148); opcional para os testes unitários. */
-    @Autowired(required = false)
-    void setCanalNotificacoes(CanalNotificacoes canal) {
-        this.canalNotificacoes = canal;
-    }
-
     public void logout(Long usuarioId, String jti, Instant expiraEm) {
         // Streams de notificação abertos com este token terminam junto com ele.
         if (jti != null && canalNotificacoes != null) {

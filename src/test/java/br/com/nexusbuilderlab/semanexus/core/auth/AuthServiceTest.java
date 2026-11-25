@@ -151,6 +151,15 @@ class AuthServiceTest {
     }
 
     @Test
+    void logoutEhTransacionalESetterNaoEh() throws NoSuchMethodException {
+        var logout = AuthService.class.getDeclaredMethod("logout", Long.class, String.class, Instant.class);
+        var setter = AuthService.class.getDeclaredMethod("setCanalNotificacoes",
+                br.com.nexusbuilderlab.semanexus.core.notificacao.CanalNotificacoes.class);
+        assertThat(logout.isAnnotationPresent(org.springframework.transaction.annotation.Transactional.class)).isTrue();
+        assertThat(setter.isAnnotationPresent(org.springframework.transaction.annotation.Transactional.class)).isFalse();
+    }
+
+    @Test
     void meRetornaResumoOuNaoEncontrado() {
         when(usuarios.findById(5L)).thenReturn(Optional.of(usuario));
         when(usuarios.findById(99L)).thenReturn(Optional.empty());

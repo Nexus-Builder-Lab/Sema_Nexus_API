@@ -79,7 +79,8 @@ public final class Alteracoes {
             return null;
         }
         String s = valor instanceof BigDecimal b ? b.stripTrailingZeros().toPlainString() : valor.toString();
-        return s.length() <= LIMITE_VALOR ? s : s.substring(0, LIMITE_VALOR - 3) + "...";
+        String saneado = AuditService.sanear(s);
+        return saneado.length() <= LIMITE_VALOR ? saneado : saneado.substring(0, LIMITE_VALOR - 3) + "...";
     }
 
     /** JSON objeto; se passar do limite da coluna, encurta os valores e, no extremo, guarda só os nomes dos campos. */

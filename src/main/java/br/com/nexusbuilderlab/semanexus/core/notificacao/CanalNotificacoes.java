@@ -44,6 +44,9 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
  *   <li><b>Sessão limitada:</b> o stream dura no máximo {@code NOTIFICACOES_SSE_DURACAO_MINUTOS} (padrão 15) e nunca
  *       passa da expiração do JWT; o cliente reconecta e é autenticado de novo (perfil, situação ativa e revogação).
  *       O logout encerra na hora os streams abertos com o token revogado.</li>
+ *   <li><b>Nó local (em memória):</b> o registro de streams ativos, os limites, o envio pós-commit e o encerramento
+ *       imediato pelo logout ou por aba excedente ocorrem apenas na instância local da API (sem barramento entre
+ *       nós).</li>
  *   <li><b>Limites:</b> até {@code NOTIFICACOES_SSE_MAX_POR_USUARIO} (padrão 3) streams por usuário — o mais antigo
  *       é fechado — e {@code NOTIFICACOES_SSE_MAX_SIMULTANEOS} (padrão 200) no total; além disso, 503
  *       {@code problem+json}.</li>
@@ -117,10 +120,11 @@ public class CanalNotificacoes implements DisposableBean {
             l.add(sessao);
             return l;
         });
-        // Abas demais do mesmo usuário: fecha as mais antigas.
-        List<Sessao> excedentes = lista.size() > maxPorUsuario
-                ? new ArrayList<>(lista.subList(0, lista.size() - maxPorUsuario)) : List.of();
-        for (Sessao antiga : excedentes) {
+        // Abas demais do mesmo usuário: fecha as mais antigas a partir de snapshot seguro.
+        Sessao[] snapshot = lista.toArray(Sessao[]::new);
+        int excesso = snapshot.length - maxPorUsuario;
+        for (int i = 0; i < excesso; i++) {
+            Sessao antiga = snapshot[i];
             antiga.fechar();
             remover(antiga);
         }

@@ -199,4 +199,31 @@ class NotificacaoStreamWebMvcTest {
         assertThat(canal.abertasDoUsuario(720L)).isZero();
         assertThat(canal.abertasDoUsuario(721L)).isEqualTo(1);
     }
+
+    @Test
+    void aberturasConcorrentesRespeitamLimiteSemConcurrentModification() throws Exception {
+        CanalNotificacoes concorrente = new CanalNotificacoes(
+                Duration.ofMinutes(5), Duration.ofSeconds(30), 2, 100, Clock.systemUTC());
+        int threads = 8;
+        int porThread = 10;
+        var pool = java.util.concurrent.Executors.newFixedThreadPool(threads);
+        try {
+            List<java.util.concurrent.Future<Void>> tarefas = new ArrayList<>();
+            for (int t = 0; t < threads; t++) {
+                tarefas.add(pool.submit(() -> {
+                    for (int i = 0; i < porThread; i++) {
+                        concorrente.abrir(800L, "jti-" + i, null, 0L);
+                    }
+                    return null;
+                }));
+            }
+            for (var f : tarefas) {
+                f.get();
+            }
+            assertThat(concorrente.abertasDoUsuario(800L)).isLessThanOrEqualTo(2);
+        } finally {
+            pool.shutdownNow();
+            concorrente.destroy();
+        }
+    }
 }

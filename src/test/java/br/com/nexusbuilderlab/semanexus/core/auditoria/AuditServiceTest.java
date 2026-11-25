@@ -197,4 +197,30 @@ class AuditServiceTest {
         assertThat(dto.valorNovo()).containsEntry("titulo", "B");
         assertThat(dto.hashRegistro()).isNull();
     }
+
+    @Test
+    void alteracaoSaneiaSegredosAntesDeTruncarAoLimite() throws Exception {
+        String jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOjF9.assinaturaMuitoSecreta";
+        Alteracoes alt = Alteracoes.nova()
+                .campo("token", "a", "b")
+                .campo("observacao", "ok", "x".repeat(295) + " " + jwt);
+        for (int i = 0; i < 40; i++) {
+            alt.campo("campo" + i, "v".repeat(200), "w".repeat(200));
+        }
+
+        servico.registrarAlteracao("ATUALIZAR", "DEMANDA", "10", "ç".repeat(3000), alt);
+
+        ArgumentCaptor<Auditoria> captor = ArgumentCaptor.forClass(Auditoria.class);
+        verify(repositorio).save(captor.capture());
+        Auditoria a = captor.getValue();
+        assertThat(a.getDetalhe().getBytes(java.nio.charset.StandardCharsets.UTF_8).length)
+                .isLessThanOrEqualTo(AuditService.LIMITE_DETALHE);
+        assertThat(a.getValorAnterior()).doesNotContain("\"a\"");
+        assertThat(a.getValorNovo()).doesNotContain("\"b\"", "eyJhbGci", "assinaturaMuitoSecreta");
+        assertThat(a.getValorAnterior().getBytes(java.nio.charset.StandardCharsets.UTF_8).length)
+                .isLessThanOrEqualTo(Alteracoes.LIMITE_BYTES);
+        assertThat(a.getValorNovo().getBytes(java.nio.charset.StandardCharsets.UTF_8).length)
+                .isLessThanOrEqualTo(Alteracoes.LIMITE_BYTES);
+        new com.fasterxml.jackson.databind.ObjectMapper().readTree(a.getValorNovo());
+    }
 }

@@ -48,7 +48,8 @@ public class NotificacaoController {
                     + "enviado só depois do commit); comentário `:keepalive` a cada "
                     + "`NOTIFICACOES_SSE_BATIMENTO_SEGUNDOS` (padrão 15). O servidor encerra o stream após "
                     + "`NOTIFICACOES_SSE_DURACAO_MINUTOS` (padrão 15), na expiração do token ou no logout: o "
-                    + "cliente reconecta (e cai no polling se não conseguir). Até `NOTIFICACOES_SSE_MAX_POR_USUARIO` "
+                    + "cliente reconecta (e cai no polling se não conseguir). Controle em memória apenas no nó local "
+                    + "(o logout encerra imediatamente apenas os streams abertos nesta instância). Até `NOTIFICACOES_SSE_MAX_POR_USUARIO` "
                     + "(3) streams por usuário — o mais antigo é fechado; acima de `NOTIFICACOES_SSE_MAX_SIMULTANEOS` "
                     + "(200) no total, 503 problem+json.")
     @ApiResponse(responseCode = "200", description = "Stream text/event-stream",
