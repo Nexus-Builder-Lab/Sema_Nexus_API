@@ -66,6 +66,8 @@ class ContratoOpenApiTest {
             "GET /api/intelligence/referencia/por-municipio", "GET /api/intelligence/referencia/pontos/{id}",
             // Sentinela Territorial (Issue #138)
             "GET /api/intelligence/sentinela/briefing",
+            // Assistente Global (Issue #139)
+            "POST /api/agentes/assistente-global",
             // Core — auditoria (implementado)
             "GET /api/auditoria",
             // Core — gestão de usuários, setores e equipes (Issue #24)

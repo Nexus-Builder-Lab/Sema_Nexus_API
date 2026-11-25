@@ -122,6 +122,8 @@ class PainelSistemaServiceTest {
                 && a.ferramentas().contains("alertas_inpe_area"));
         assertThat(p.agentes()).anyMatch(a -> a.id().equals("sentinela")
                 && a.ferramentas().contains("anomalias_sentinela"));
+        assertThat(p.agentes()).anyMatch(a -> a.id().equals("assistente-global")
+                && a.ferramentas().contains("prazos_criticos") && a.ferramentas().contains("buscar_documentos"));
         assertThat(p.sistema().perfilAtivo()).isEqualTo("demo");
     }
 
