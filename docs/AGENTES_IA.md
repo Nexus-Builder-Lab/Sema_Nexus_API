@@ -198,6 +198,6 @@ A resposta da sugestão traz `espacial` (referência COORDENADA/AREA/MUNICIPIO, 
 
 ## Action Cards (Issue #136, Implementado)
 `acoesSugeridas[]` em `RespostaAssistente` e `SugestaoTriagem` (JSON e SSE `concluido`), montadas por `agentes/AcoesSugeridas` depois do agente, de forma determinística e só leitura:
-- DocIA: duas versões do mesmo documento citadas (mesmo tipo, categoria, município e título sem marca de versão, ambas com texto) → `ABRIR_COMPARACAO` (aId = a mais antiga); documento citado ainda não vinculado à demanda do contexto → `SUGERIR_VINCULO_DEMANDA` (só quem pode vincular: não CONSULTA; demanda acessível).
-- Triagem: duplicatas/proximidade → `ABRIR_DEMANDA` (até 3, sem a própria demanda); coordenada ou área da demanda → `VER_NO_MAPA` (não no fallback ao município).
+- DocIA: duas versões do mesmo documento citadas (mesmo tipo, categoria, município e título sem marca de versão, ambas com texto) → `ABRIR_COMPARACAO` (aId = a mais antiga); documento citado cujo texto menciona `DEM-AAAA/NNNN` de demanda existente, acessível ao usuário e ainda não vinculada a ele → `SUGERIR_VINCULO_DEMANDA` (só quem pode vincular: não CONSULTA; com ou sem `demandaId`).
+- Triagem: duplicatas/proximidade → `ABRIR_DEMANDA` (até 3, sem a própria demanda); coordenada ou área da demanda dentro dos limites de MT (rejeita 0,0) → `VER_NO_MAPA` (não no fallback ao município).
 - Ids vêm das citações/duplicatas já validadas e são revalidados no banco com o escopo do usuário (inacessível ou inexistente é descartado); o modelo nunca fornece parâmetros. Nenhuma gravação durante o agente. Distribuição e minuta: fora desta entrega.

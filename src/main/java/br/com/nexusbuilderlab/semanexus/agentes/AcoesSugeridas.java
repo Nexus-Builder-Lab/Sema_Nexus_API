@@ -15,6 +15,7 @@ import br.com.nexusbuilderlab.semanexus.docia.documento.DocumentoSpecification;
 import br.com.nexusbuilderlab.semanexus.flux.agente.SugestaoTriagem;
 import br.com.nexusbuilderlab.semanexus.flux.demanda.DemandaService;
 import br.com.nexusbuilderlab.semanexus.flux.demanda.dto.DemandaDetalhe;
+import br.com.nexusbuilderlab.semanexus.intelligence.referencia.ReferenciaSateliteLoader;
 import br.com.nexusbuilderlab.semanexus.security.UsuarioAutenticado;
 
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -33,6 +34,9 @@ public class AcoesSugeridas {
     static final int MAX_DEMANDAS = 3;
     static final int MAX_ROTULO = 90;
     static final int ZOOM_MAPA = 13;
+    static final int MAX_NUMEROS_POR_DOCUMENTO = 5;
+    private static final java.util.regex.Pattern NUMERO_DEMANDA =
+            java.util.regex.Pattern.compile("\\bDEM-(\\d{4})/(\\d{4})\\b");
 
     private final DocumentoRepository documentos;
     private final JdbcTemplate jdbc;
@@ -50,12 +54,18 @@ public class AcoesSugeridas {
      */
     public List<AcaoSugerida> paraDocia(UsuarioAutenticado ator, Long demandaId, List<Long> citados) {
         List<AcaoSugerida> r = new ArrayList<>();
-        List<Documento> docs = new ArrayList<>();
-        for (Long id : citados == null ? List.<Long>of() : citados) {
-            if (id != null && docs.stream().noneMatch(d -> d.getId().equals(id))) {
-                documentos.buscarAtivo(id).ifPresent(docs::add);
-            }
+        List<Long> ids = (citados == null ? List.<Long>of() : citados).stream().filter(Objects::nonNull)
+                .distinct().toList();
+        if (ids.isEmpty()) {
+            return r;
         }
+        Map<Long, Documento> porId = new LinkedHashMap<>();
+        documentos.findAllById(ids).forEach(d -> {
+            if (d.getExcluidoEm() == null) {
+                porId.put(d.getId(), d);
+            }
+        });
+        List<Documento> docs = ids.stream().map(porId::get).filter(Objects::nonNull).toList();
         // Duas versões do mesmo documento citadas: comparação (aId = a mais antiga).
         for (int i = 0; i < docs.size() && r.isEmpty(); i++) {
             for (int j = i + 1; j < docs.size() && r.isEmpty(); j++) {
@@ -68,18 +78,71 @@ public class AcoesSugeridas {
                 }
             }
         }
-        // Documento citado que ainda não está na demanda do contexto: sugerir o vínculo (quem pode vincular).
-        if (demandaId != null && ator != null && ator.perfil() != Perfil.CONSULTA) {
-            DemandaDetalhe d = demandaAcessivel(ator, demandaId);
-            if (d != null) {
-                for (Documento doc : docs) {
-                    if (r.size() < MAX_ACOES && !vinculado(doc.getId(), demandaId)) {
-                        r.add(new AcaoSugerida(Tipo.SUGERIR_VINCULO_DEMANDA,
-                                rotulo("Vincular \"" + doc.getTitulo() + "\" à demanda " + d.numero()),
-                                parametros("documentoId", doc.getId(), "demandaId", demandaId)));
+        // Documento cujo texto cita o número de uma demanda existente, acessível e à qual ainda não está vinculado.
+        if (ator != null && ator.perfil() != Perfil.CONSULTA && !docs.isEmpty()) {
+            Map<Long, List<String>> citacoes = new LinkedHashMap<>();
+            java.util.Set<String> numeros = new java.util.LinkedHashSet<>();
+            for (Documento d : docs) {
+                List<String> n = numerosDeDemanda(d.getTextoExtraido());
+                if (!n.isEmpty()) {
+                    citacoes.put(d.getId(), n);
+                    numeros.addAll(n);
+                }
+            }
+            if (!numeros.isEmpty()) {
+                Map<String, Long> demandaPorNumero = demandasPorNumero(numeros);
+                java.util.Set<String> vinculos = vinculos(citacoes.keySet());
+                for (Documento d : docs) {
+                    for (String n : citacoes.getOrDefault(d.getId(), List.of())) {
+                        Long dem = demandaPorNumero.get(n);
+                        if (r.size() >= MAX_ACOES || dem == null || vinculos.contains(d.getId() + ":" + dem)) {
+                            continue;
+                        }
+                        DemandaDetalhe det = demandaAcessivel(ator, dem);
+                        if (det != null && r.stream().noneMatch(x -> x.tipo() == Tipo.SUGERIR_VINCULO_DEMANDA
+                                && d.getId().equals(x.parametros().get("documentoId"))
+                                && dem.equals(x.parametros().get("demandaId")))) {
+                            r.add(new AcaoSugerida(Tipo.SUGERIR_VINCULO_DEMANDA,
+                                    rotulo("Vincular \"" + d.getTitulo() + "\" à demanda " + det.numero()),
+                                    parametros("documentoId", d.getId(), "demandaId", dem)));
+                        }
                     }
                 }
             }
+        }
+        return r.size() > MAX_ACOES ? new ArrayList<>(r.subList(0, MAX_ACOES)) : r;
+    }
+
+    static List<String> numerosDeDemanda(String texto) {
+        List<String> r = new ArrayList<>();
+        java.util.regex.Matcher m = NUMERO_DEMANDA.matcher(texto == null ? "" : texto);
+        while (m.find() && r.size() < MAX_NUMEROS_POR_DOCUMENTO) {
+            String n = "DEM-" + m.group(1) + "/" + m.group(2);
+            if (!r.contains(n)) {
+                r.add(n);
+            }
+        }
+        return r;
+    }
+
+    private Map<String, Long> demandasPorNumero(java.util.Collection<String> numeros) {
+        Map<String, Long> r = new LinkedHashMap<>();
+        String in = String.join(",", java.util.Collections.nCopies(numeros.size(), "?"));
+        for (Map<String, Object> l : jdbc.queryForList("SELECT ID, NUMERO FROM DEMANDA WHERE NUMERO IN (" + in + ")",
+                numeros.toArray())) {
+            r.put(String.valueOf(l.get("NUMERO")), ((Number) l.get("ID")).longValue());
+        }
+        return r;
+    }
+
+    /** Pares "documentoId:demandaId" já vinculados, numa só consulta. */
+    private java.util.Set<String> vinculos(java.util.Collection<Long> documentoIds) {
+        java.util.Set<String> r = new java.util.HashSet<>();
+        String in = String.join(",", java.util.Collections.nCopies(documentoIds.size(), "?"));
+        for (Map<String, Object> l : jdbc.queryForList(
+                "SELECT DOCUMENTO_ID, DEMANDA_ID FROM DOCUMENTO_DEMANDA WHERE DOCUMENTO_ID IN (" + in + ")",
+                documentoIds.toArray())) {
+            r.add(((Number) l.get("DOCUMENTO_ID")).longValue() + ":" + ((Number) l.get("DEMANDA_ID")).longValue());
         }
         return r;
     }
@@ -141,19 +204,17 @@ public class AcoesSugeridas {
         return t.replaceAll("\\s+", " ");
     }
 
+    private static final double LAT_MIN = ReferenciaSateliteLoader.LAT_MIN.doubleValue();
+    private static final double LAT_MAX = ReferenciaSateliteLoader.LAT_MAX.doubleValue();
+    private static final double LON_MIN = ReferenciaSateliteLoader.LON_MIN.doubleValue();
+    private static final double LON_MAX = ReferenciaSateliteLoader.LON_MAX.doubleValue();
+
     private static boolean coordenadaValida(double lat, double lon) {
-        return lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
+        return lat >= LAT_MIN && lat <= LAT_MAX && lon >= LON_MIN && lon <= LON_MAX; // 0,0 fica fora
     }
 
     private static boolean vazio(String s) {
         return s == null || s.isBlank();
-    }
-
-    private boolean vinculado(Long documentoId, Long demandaId) {
-        Integer n = jdbc.queryForObject(
-                "SELECT COUNT(*) FROM DOCUMENTO_DEMANDA WHERE DOCUMENTO_ID = ? AND DEMANDA_ID = ?", Integer.class,
-                documentoId, demandaId);
-        return n != null && n > 0;
     }
 
     /** Detalhe da demanda se ela existe e o usuário a acessa (escopo do FISCAL); {@code null} caso contrário. */
