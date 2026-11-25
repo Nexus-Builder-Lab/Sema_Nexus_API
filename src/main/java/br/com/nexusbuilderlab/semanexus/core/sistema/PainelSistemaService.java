@@ -207,7 +207,9 @@ public class PainelSistemaService {
         return List.of(
                 new AgentePainel("triagem", "Agente de Triagem", "SEMA Flux", modo,
                         ia ? executor.modelo(agentes.modeloTriagem()) : "Regras locais (sem IA generativa)",
-                        List.of("obter_demanda", "buscar_demandas_semelhantes", "alertas_inpe_municipio"),
+                        List.of("obter_demanda", "buscar_demandas_semelhantes", "alertas_inpe_municipio",
+                                "alertas_inpe_raio_coordenada", "demandas_proximas_coordenada",
+                                "documentos_mesma_localidade", "camadas_publicas_proximas"),
                         metricas.resumo("triagem")),
                 new AgentePainel("docia", "Assistente DocIA", "SEMA DocIA", modo,
                         ia ? executor.modelo(agentes.modeloDocia()) : "Busca extrativa (sem IA generativa)",

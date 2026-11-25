@@ -1,5 +1,6 @@
 package br.com.nexusbuilderlab.semanexus.intelligence.referencia;
 
+import br.com.nexusbuilderlab.semanexus.intelligence.camada.CamadaPublicaDto.SobreposicaoCamadasPublicas;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -63,7 +64,18 @@ public final class ReferenciaDto {
                                @Schema(description = "Todos os atributos originais da fonte (nomes da fonte)",
                                        types = {"object", "null"}) Map<String, Object> atributos,
                                @Schema(description = "Importação (snapshot) de origem: fonte, período, URL e licença")
-                               Importacao importacao) {
+                               Importacao importacao,
+                               @Schema(description = "Sobreposição/proximidade com camadas públicas abertas offline de MT "
+                                       + "(UCs, Terras Indígenas e hidrografia principal; oficialSema=false)",
+                                       nullable = true)
+                               SobreposicaoCamadasPublicas camadasPublicas) {
+
+        public PontoDetalhe(String fonte, boolean oficialSema, String aviso, Ponto ponto, boolean areaInformada,
+                            String areaCampoFonte, BigDecimal areaKm2Fonte, String areaObservacao,
+                            Map<String, Object> geometria, Map<String, Object> atributos, Importacao importacao) {
+            this(fonte, oficialSema, aviso, ponto, areaInformada, areaCampoFonte, areaKm2Fonte, areaObservacao,
+                    geometria, atributos, importacao, null);
+        }
     }
 
     @Schema(description = "Pontos de satélite com a atribuição da fonte")

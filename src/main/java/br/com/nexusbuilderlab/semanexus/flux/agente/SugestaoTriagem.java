@@ -9,6 +9,7 @@ import br.com.nexusbuilderlab.semanexus.core.catalogo.CategoriaFiscalizacao;
 import br.com.nexusbuilderlab.semanexus.core.catalogo.Prioridade;
 import br.com.nexusbuilderlab.semanexus.core.catalogo.StatusDemanda;
 import br.com.nexusbuilderlab.semanexus.flux.demanda.dto.DecisaoTriagem;
+import br.com.nexusbuilderlab.semanexus.intelligence.camada.CamadaPublicaDto.SobreposicaoCamadasPublicas;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -52,7 +53,15 @@ public record SugestaoTriagem(
             @Schema(description = "Raio da análise em km", example = "10") double raioKm,
             @Schema(description = "Focos de calor e alertas DETER do INPE (dados públicos)") Inpe inpe,
             @Schema(description = "Demandas não finalizadas no raio (ou no município, no fallback), da mais próxima à mais distante") List<Proxima> demandasProximas,
-            @Schema(description = "Documentos ativos da mesma localidade/município ou vinculados a demandas próximas") List<DocumentoRelacionado> documentos) {
+            @Schema(description = "Documentos ativos da mesma localidade/município ou vinculados a demandas próximas") List<DocumentoRelacionado> documentos,
+            @Schema(description = "Sobreposição/proximidade com camadas públicas abertas offline de MT (UCs, Terras "
+                    + "Indígenas e hidrografia principal; oficialSema=false)", nullable = true)
+            SobreposicaoCamadasPublicas camadasPublicas) {
+
+        public EvidenciaEspacial(String referencia, Double latitude, Double longitude, double raioKm, Inpe inpe,
+                                 List<Proxima> demandasProximas, List<DocumentoRelacionado> documentos) {
+            this(referencia, latitude, longitude, raioKm, inpe, demandasProximas, documentos, null);
+        }
     }
 
     public record Inpe(

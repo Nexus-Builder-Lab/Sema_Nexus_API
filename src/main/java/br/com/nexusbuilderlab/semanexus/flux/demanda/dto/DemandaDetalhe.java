@@ -7,6 +7,7 @@ import br.com.nexusbuilderlab.semanexus.core.catalogo.CategoriaFiscalizacao;
 import br.com.nexusbuilderlab.semanexus.core.catalogo.Origem;
 import br.com.nexusbuilderlab.semanexus.core.catalogo.Prioridade;
 import br.com.nexusbuilderlab.semanexus.core.catalogo.StatusDemanda;
+import br.com.nexusbuilderlab.semanexus.intelligence.camada.CamadaPublicaDto.SobreposicaoCamadasPublicas;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -49,5 +50,22 @@ public record DemandaDetalhe(
         @Schema(description = "Documentos associados", example = "2") int totalDocumentos,
         UsuarioRef criadoPor,
         LocalDateTime criadoEm,
-        @Schema(nullable = true) LocalDateTime atualizadoEm) {
+        @Schema(nullable = true) LocalDateTime atualizadoEm,
+        @Schema(description = "Sobreposição/proximidade com camadas públicas abertas offline de MT (UCs, Terras "
+                + "Indígenas e hidrografia principal; oficialSema=false)", nullable = true)
+        SobreposicaoCamadasPublicas camadasPublicas) {
+
+    public DemandaDetalhe(
+            Long id, String numero, String titulo, String descricao, Origem origem, CategoriaFiscalizacao categoria,
+            MunicipioRef municipio, String localidade, BigDecimal latitude, BigDecimal longitude, BigDecimal areaHa,
+            Map<String, Object> areaGeometria, LocalDate dataRecebimento, Prioridade prioridade,
+            LocalDate prazoSugerido, LocalDate prazo, StatusDemanda status, boolean atrasada, EquipeRef equipe,
+            UsuarioRef fiscal, String observacoes, String resultadoFinal, String justificativaConclusao,
+            LocalDateTime concluidaEm, FiscalizacaoDetalhe fiscalizacao, int totalDocumentos, UsuarioRef criadoPor,
+            LocalDateTime criadoEm, LocalDateTime atualizadoEm) {
+        this(id, numero, titulo, descricao, origem, categoria, municipio, localidade, latitude, longitude, areaHa,
+                areaGeometria, dataRecebimento, prioridade, prazoSugerido, prazo, status, atrasada, equipe, fiscal,
+                observacoes, resultadoFinal, justificativaConclusao, concluidaEm, fiscalizacao, totalDocumentos,
+                criadoPor, criadoEm, atualizadoEm, null);
+    }
 }

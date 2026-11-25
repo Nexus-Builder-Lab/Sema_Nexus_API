@@ -154,4 +154,23 @@ class AnaliseEspacialTest {
             throw new IllegalStateException(e);
         }
     }
+
+    @Test
+    void analisarIncluiCamadasPublicasQuandoServicoPresente() {
+        totaisDoMunicipio();
+        var camadas = mock(br.com.nexusbuilderlab.semanexus.intelligence.camada.CamadaPublicaService.class);
+        var sob = new br.com.nexusbuilderlab.semanexus.intelligence.camada.CamadaPublicaDto.SobreposicaoCamadasPublicas(
+                false, "aviso", "COORDENADA", LAT, LON, 10.0, List.of(), List.of(), List.of(),
+                new br.com.nexusbuilderlab.semanexus.intelligence.camada.CamadaPublicaDto.ResumoSobreposicao(
+                        true, 0.0, false, null, 1.2, 1, 0, 1, List.of()));
+        when(camadas.sobreposicao(eq(null), eq(LAT), eq(LON), eq(10.0))).thenReturn(sob);
+        var analiseComCamadas = new AnaliseEspacial(demandas, ref, jdbc, 90, camadas);
+
+        var e = analiseComCamadas.analisar(ator, demanda(BigDecimal.valueOf(LAT), BigDecimal.valueOf(LON), null), null);
+
+        assertThat(e.camadasPublicas()).isNotNull();
+        assertThat(e.camadasPublicas().oficialSema()).isFalse();
+        assertThat(e.camadasPublicas().resumo().dentroUc()).isTrue();
+        assertThat(e.camadasPublicas().resumo().cursoAguaMaisProximoKm()).isEqualTo(1.2);
+    }
 }

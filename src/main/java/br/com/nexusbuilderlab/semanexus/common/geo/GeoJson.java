@@ -21,6 +21,7 @@ public final class GeoJson {
 
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final Set<String> TIPOS_AREA = Set.of("Polygon", "MultiPolygon");
+    private static final Set<String> TIPOS_QUALQUER = Set.of("Polygon", "MultiPolygon", "LineString", "MultiLineString");
 
     private GeoJson() {
     }
@@ -35,12 +36,24 @@ public final class GeoJson {
      * ou se não for Polygon/MultiPolygon (o mapa só desenha áreas).
      */
     public static Map<String, Object> geometria(String texto) {
+        return lerGeometria(texto, TIPOS_AREA);
+    }
+
+    /**
+     * Converte o texto GeoJSON (Polygon, MultiPolygon, LineString ou MultiLineString) guardado no banco em objeto
+     * para a resposta de camadas geográficas. Devolve {@code null} se vazio ou inválido.
+     */
+    public static Map<String, Object> geometriaQualquer(String texto) {
+        return lerGeometria(texto, TIPOS_QUALQUER);
+    }
+
+    private static Map<String, Object> lerGeometria(String texto, Set<String> permitidos) {
         if (texto == null || texto.isBlank()) {
             return null;
         }
         try {
             Map<String, Object> g = JSON.readValue(texto, new TypeReference<LinkedHashMap<String, Object>>() { });
-            return TIPOS_AREA.contains(g.get("type")) && g.get("coordinates") != null ? g : null;
+            return permitidos.contains(g.get("type")) && g.get("coordinates") != null ? g : null;
         } catch (JsonProcessingException e) {
             return null;
         }

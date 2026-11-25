@@ -46,6 +46,39 @@ public final class Geodesia {
         return aneis(geometria, false);
     }
 
+    /** Linhas de um LineString/MultiLineString GeoJSON como listas de {lon, lat}; vazia se inválido. */
+    @SuppressWarnings("unchecked")
+    public static List<List<double[]>> linhas(Map<String, Object> geometria) {
+        List<List<double[]>> out = new ArrayList<>();
+        if (geometria == null || !(geometria.get("coordinates") instanceof List<?> coords)) {
+            return out;
+        }
+        try {
+            Object tipo = geometria.get("type");
+            if ("LineString".equals(tipo)) {
+                out.add(pontosDe((List<Object>) coords));
+            } else if ("MultiLineString".equals(tipo)) {
+                for (Object l : coords) {
+                    out.add(pontosDe((List<Object>) l));
+                }
+            }
+        } catch (ClassCastException | NullPointerException e) {
+            return new ArrayList<>();
+        }
+        out.removeIf(l -> l.size() < 2);
+        return out;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<double[]> pontosDe(List<Object> lista) {
+        List<double[]> pontos = new ArrayList<>();
+        for (Object p : lista) {
+            List<Object> c = (List<Object>) p;
+            pontos.add(new double[] {((Number) c.get(0)).doubleValue(), ((Number) c.get(1)).doubleValue()});
+        }
+        return pontos;
+    }
+
     /** Como {@link #aneis(Map)}; com {@code soExteriores}, só o primeiro anel de cada polígono (sem furos). */
     @SuppressWarnings("unchecked")
     public static List<List<double[]>> aneis(Map<String, Object> geometria, boolean soExteriores) {
@@ -117,14 +150,219 @@ public final class Geodesia {
     }
 
     /**
-     * Distância aproximada entre duas áreas: 0 se algum vértice de uma está dentro da outra; senão a menor distância
-     * de um vértice (amostrado, no máximo ~200 por área) de uma até a outra. Não detecta cruzamento de arestas sem
-     * vértice interno (raro). {@code NaN} se alguma geometria é inválida.
+     * Distância aproximada entre duas áreas: 0 se algum vértice de uma está dentro da outra ou se arestas se cruzam;
+     * senão a menor distância de um vértice (amostrado, no máximo ~200 por área) de uma até a outra. {@code NaN} se
+     * alguma geometria é inválida.
      */
     public static double distanciaEntreAreasKm(Map<String, Object> a, Map<String, Object> b) {
         double d1 = distanciaDosVertices(a, b);
         double d2 = distanciaDosVertices(b, a);
-        return Double.isNaN(d1) || Double.isNaN(d2) ? Double.NaN : Math.min(d1, d2);
+        if (Double.isNaN(d1) || Double.isNaN(d2)) {
+            return Double.NaN;
+        }
+        double min = Math.min(d1, d2);
+        if (min > 0 && arestasSeCruzam(aneis(a, true), aneis(b, true))) {
+            return 0;
+        }
+        return min;
+    }
+
+    /** Distância em km do ponto a qualquer segmento de LineString/MultiLineString; {@code NaN} se inválida. */
+    public static double distanciaALinhaKm(double lat, double lon, Map<String, Object> geometria) {
+        List<List<double[]>> linhas = linhas(geometria);
+        if (linhas.isEmpty()) {
+            return Double.NaN;
+        }
+        return menorDistanciaSegmentos(lat, lon, linhas);
+    }
+
+    /**
+     * Distância aproximada em km entre uma área (Polygon/MultiPolygon) e uma linha (LineString/MultiLineString).
+     * Retorna 0 se algum vértice da linha cai dentro da área ou se algum segmento da linha cruza uma aresta da área.
+     */
+    public static double distanciaAreaALinhaKm(Map<String, Object> area, Map<String, Object> linha) {
+        List<List<double[]>> aneisArea = aneis(area);
+        List<List<double[]>> linhas = linhas(linha);
+        if (aneisArea.isEmpty() || linhas.isEmpty()) {
+            return Double.NaN;
+        }
+        double min = Double.MAX_VALUE;
+        List<double[]> ptsLinha = new ArrayList<>();
+        linhas.forEach(ptsLinha::addAll);
+        int passoL = Math.max(1, ptsLinha.size() / 200);
+        for (int i = 0; i < ptsLinha.size(); i += passoL) {
+            double[] p = ptsLinha.get(i);
+            double d = distanciaAoPoligonoKm(p[1], p[0], area);
+            if (d == 0) {
+                return 0;
+            }
+            min = Math.min(min, d);
+        }
+        List<double[]> ptsArea = new ArrayList<>();
+        aneis(area, true).forEach(ptsArea::addAll);
+        int passoA = Math.max(1, ptsArea.size() / 200);
+        for (int i = 0; i < ptsArea.size(); i += passoA) {
+            double[] p = ptsArea.get(i);
+            min = Math.min(min, menorDistanciaSegmentos(p[1], p[0], linhas));
+        }
+        if (min > 0 && arestasSeCruzam(aneis(area, true), linhas)) {
+            return 0;
+        }
+        return min;
+    }
+
+    /** Distância do ponto a qualquer geometria suportada (Polygon, MultiPolygon, LineString, MultiLineString). */
+    public static double distanciaPontoAGeometriaKm(double lat, double lon, Map<String, Object> geometria) {
+        if (geometria == null) {
+            return Double.NaN;
+        }
+        Object tipo = geometria.get("type");
+        if ("LineString".equals(tipo) || "MultiLineString".equals(tipo)) {
+            return distanciaALinhaKm(lat, lon, geometria);
+        }
+        return distanciaAoPoligonoKm(lat, lon, geometria);
+    }
+
+    /** Distância entre uma área e outra geometria (polígono ou linha). */
+    public static double distanciaEntreGeometriasKm(Map<String, Object> area, Map<String, Object> outra) {
+        if (area == null || outra == null) {
+            return Double.NaN;
+        }
+        Object tipo = outra.get("type");
+        if ("LineString".equals(tipo) || "MultiLineString".equals(tipo)) {
+            return distanciaAreaALinhaKm(area, outra);
+        }
+        return distanciaEntreAreasKm(area, outra);
+    }
+
+    private static double menorDistanciaSegmentos(double lat, double lon, List<List<double[]>> caminhos) {
+        double kmLon = KM_POR_GRAU * Math.cos(Math.toRadians(lat));
+        double min = Double.MAX_VALUE;
+        for (List<double[]> caminho : caminhos) {
+            for (int i = 0; i + 1 < caminho.size(); i++) {
+                double[] a = caminho.get(i);
+                double[] b = caminho.get(i + 1);
+                min = Math.min(min, distanciaSegmentoKm((a[0] - lon) * kmLon, (a[1] - lat) * KM_POR_GRAU,
+                        (b[0] - lon) * kmLon, (b[1] - lat) * KM_POR_GRAU));
+            }
+        }
+        return min;
+    }
+
+    private static boolean arestasSeCruzam(List<List<double[]>> caminhosA, List<List<double[]>> caminhosB) {
+        if (caminhosA.isEmpty() || caminhosB.isEmpty()) {
+            return false;
+        }
+        Caixa caB = caixaBruta(caminhosA);
+        Caixa cbB = caixaBruta(caminhosB);
+        if (caB == null || cbB == null || caB.lonMax() < cbB.lonMin() || cbB.lonMax() < caB.lonMin()
+                || caB.latMax() < cbB.latMin() || cbB.latMax() < caB.latMin()) {
+            return false;
+        }
+        for (List<double[]> ca : caminhosA) {
+            for (int i = 0; i + 1 < ca.size(); i++) {
+                double[] p1 = ca.get(i);
+                double[] p2 = ca.get(i + 1);
+                double s1LonMin = Math.min(p1[0], p2[0]), s1LonMax = Math.max(p1[0], p2[0]);
+                double s1LatMin = Math.min(p1[1], p2[1]), s1LatMax = Math.max(p1[1], p2[1]);
+                if (s1LonMax < cbB.lonMin() || cbB.lonMax() < s1LonMin || s1LatMax < cbB.latMin()
+                        || cbB.latMax() < s1LatMin) {
+                    continue;
+                }
+                for (List<double[]> cb : caminhosB) {
+                    for (int j = 0; j + 1 < cb.size(); j++) {
+                        double[] q1 = cb.get(j);
+                        double[] q2 = cb.get(j + 1);
+                        if (Math.max(q1[0], q2[0]) < s1LonMin || s1LonMax < Math.min(q1[0], q2[0])
+                                || Math.max(q1[1], q2[1]) < s1LatMin || s1LatMax < Math.min(q1[1], q2[1])) {
+                            continue;
+                        }
+                        if (segmentosSeCruzam(p1[0], p1[1], p2[0], p2[1], q1[0], q1[1], q2[0], q2[1])) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    /** Caixa envolvente exata (sem margem) de caminhos {lon, lat}; {@code null} se vazia. */
+    public static Caixa caixaBruta(List<List<double[]>> caminhos) {
+        double latMin = 90, latMax = -90, lonMin = 180, lonMax = -180;
+        boolean algum = false;
+        for (List<double[]> c : caminhos) {
+            for (double[] p : c) {
+                latMin = Math.min(latMin, p[1]);
+                latMax = Math.max(latMax, p[1]);
+                lonMin = Math.min(lonMin, p[0]);
+                lonMax = Math.max(lonMax, p[0]);
+                algum = true;
+            }
+        }
+        return algum ? new Caixa(latMin, latMax, lonMin, lonMax) : null;
+    }
+
+    /** Caixa envolvente de qualquer geometria suportada (Polygon, MultiPolygon, LineString, MultiLineString). */
+    public static Caixa caixaDeQualquerGeometria(Map<String, Object> geometria, double raioKm) {
+        List<List<double[]>> caminhos = aneis(geometria, true);
+        if (caminhos.isEmpty()) {
+            caminhos = linhas(geometria);
+        }
+        Caixa bruta = caixaBruta(caminhos);
+        if (bruta == null) {
+            return null;
+        }
+        if (raioKm <= 0) {
+            return bruta;
+        }
+        double dLat = raioKm / KM_POR_GRAU;
+        double dLon = raioKm / (KM_POR_GRAU * Math.max(0.01,
+                Math.cos(Math.toRadians(Math.max(Math.abs(bruta.latMin()), Math.abs(bruta.latMax()))))));
+        return new Caixa(bruta.latMin() - dLat, bruta.latMax() + dLat, bruta.lonMin() - dLon, bruta.lonMax() + dLon);
+    }
+
+    /** Centroide aproximado de polígono ou ponto médio de linha; {@code null} se inválido. */
+    public static double[] centroideDeQualquerGeometria(Map<String, Object> geometria) {
+        double[] c = centroide(geometria);
+        if (c != null) {
+            return c;
+        }
+        double lat = 0;
+        double lon = 0;
+        int n = 0;
+        for (List<double[]> linha : linhas(geometria)) {
+            for (double[] p : linha) {
+                lon += p[0];
+                lat += p[1];
+                n++;
+            }
+        }
+        return n == 0 ? null : new double[] {lat / n, lon / n};
+    }
+
+    private static boolean segmentosSeCruzam(double ax, double ay, double bx, double by,
+                                             double cx, double cy, double dx, double dy) {
+        double o1 = orientacao(ax, ay, bx, by, cx, cy);
+        double o2 = orientacao(ax, ay, bx, by, dx, dy);
+        double o3 = orientacao(cx, cy, dx, dy, ax, ay);
+        double o4 = orientacao(cx, cy, dx, dy, bx, by);
+        if ((o1 > 0 && o2 < 0 || o1 < 0 && o2 > 0) && (o3 > 0 && o4 < 0 || o3 < 0 && o4 > 0)) {
+            return true;
+        }
+        return (o1 == 0 && noSegmento(ax, ay, bx, by, cx, cy))
+                || (o2 == 0 && noSegmento(ax, ay, bx, by, dx, dy))
+                || (o3 == 0 && noSegmento(cx, cy, dx, dy, ax, ay))
+                || (o4 == 0 && noSegmento(cx, cy, dx, dy, bx, by));
+    }
+
+    private static double orientacao(double ax, double ay, double bx, double by, double px, double py) {
+        return (bx - ax) * (py - ay) - (by - ay) * (px - ax);
+    }
+
+    private static boolean noSegmento(double ax, double ay, double bx, double by, double px, double py) {
+        return px >= Math.min(ax, bx) && px <= Math.max(ax, bx)
+                && py >= Math.min(ay, by) && py <= Math.max(ay, by);
     }
 
     private static double distanciaDosVertices(Map<String, Object> de, Map<String, Object> para) {
@@ -156,17 +394,7 @@ public final class Geodesia {
         if (dentro(lat, lon, aneis)) {
             return 0;
         }
-        double kmLon = KM_POR_GRAU * Math.cos(Math.toRadians(lat));
-        double min = Double.MAX_VALUE;
-        for (List<double[]> anel : aneis) {
-            for (int i = 0; i + 1 < anel.size(); i++) {
-                double[] a = anel.get(i);
-                double[] b = anel.get(i + 1);
-                min = Math.min(min, distanciaSegmentoKm((a[0] - lon) * kmLon, (a[1] - lat) * KM_POR_GRAU,
-                        (b[0] - lon) * kmLon, (b[1] - lat) * KM_POR_GRAU));
-            }
-        }
-        return min;
+        return menorDistanciaSegmentos(lat, lon, aneis);
     }
 
     /** Ponto dentro de algum anel externo e fora dos furos (regra par-ímpar sobre todos os anéis). */

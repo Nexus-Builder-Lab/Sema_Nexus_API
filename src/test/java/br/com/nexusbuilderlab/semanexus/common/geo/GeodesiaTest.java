@@ -69,7 +69,26 @@ class GeodesiaTest {
     @Test
     void geometriaInvalidaDaNaN() {
         assertThat(Geodesia.distanciaAoPoligonoKm(0, 0, null)).isNaN();
+        assertThat(Geodesia.distanciaALinhaKm(0, 0, null)).isNaN();
         assertThat(Geodesia.centroide(Map.of("type", "Point"))).isNull();
         assertThat(Geodesia.centroide(POLIGONO)[0]).isBetween(-10.1, -9.9);
+    }
+
+    @Test
+    void linhaEMultiLinhaCalculamDistanciaECruzamentoComArea() {
+        Map<String, Object> rio = Map.of("type", "LineString", "coordinates",
+                List.of(List.of(-56.0, -15.6), List.of(-55.8, -15.6)));
+        assertThat(Geodesia.distanciaALinhaKm(-15.58, -55.9, rio)).isBetween(2.0, 2.4);
+
+        Map<String, Object> multiRio = Map.of("type", "MultiLineString", "coordinates",
+                List.of(List.of(List.of(-56.0, -15.7), List.of(-55.8, -15.7)),
+                        List.of(List.of(-56.0, -15.6), List.of(-55.8, -15.6))));
+        assertThat(Geodesia.distanciaPontoAGeometriaKm(-15.6, -55.9, multiRio)).isZero();
+
+        // Cruzamento entre área e rio sem vértice interno dentro da área -> distância 0
+        Map<String, Object> area = quad(-55.95, -15.65, 0.10);
+        assertThat(Geodesia.distanciaAreaALinhaKm(area, rio)).isZero();
+        assertThat(Geodesia.caixaDeQualquerGeometria(rio, 0).lonMin()).isEqualTo(-56.0);
+        assertThat(Geodesia.centroideDeQualquerGeometria(rio)[0]).isEqualTo(-15.6);
     }
 }
