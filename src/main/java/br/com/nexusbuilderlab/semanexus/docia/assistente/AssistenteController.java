@@ -61,6 +61,7 @@ public class AssistenteController {
                     + "`:keepalive` periódicos. JWT só no cabeçalho `Authorization`. Issue #135.")
     @ApiResponse(responseCode = "200", description = "Stream SSE dos passos do agente",
             content = @Content(mediaType = "text/event-stream", schema = @Schema(implementation = EventoAgente.class)))
+    @ApiResponse(responseCode = "503", description = "Capacidade de streams de agentes esgotada (`AGENTES_SSE_MAX_SIMULTANEOS`); tente de novo ou use o endpoint JSON")
     @ApiResponse(responseCode = "403", description = "`demandaId` de demanda fora do escopo do usuário (FISCAL)")
     @ApiResponse(responseCode = "404", description = "`demandaId` inexistente")
     @PostMapping("/perguntas/stream")

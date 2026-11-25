@@ -326,4 +326,13 @@ class AgenteTriagemServiceTest {
         assertThat(indisponivel.lista).extracting(br.com.nexusbuilderlab.semanexus.agentes.EventoAgente::tipo)
                 .containsExactly("fallback_demonstrativo");
     }
+
+    @Test
+    void observadorComFalhaNoFallbackNaoDerrubaASugestao() {
+        when(demandas.detalhar(ator, 4L)).thenReturn(demanda(StatusDemanda.PENDENTE));
+        SugestaoTriagem s = service(new ModeloRoteiro()).sugerir(ator, demanda(StatusDemanda.PENDENTE), evento -> {
+            throw new IllegalStateException("cliente desconectado");
+        });
+        assertThat(s.modo()).isEqualTo("DEMONSTRATIVO");
+    }
 }

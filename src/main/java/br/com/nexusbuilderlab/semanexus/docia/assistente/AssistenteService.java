@@ -121,10 +121,10 @@ public class AssistenteService {
                 throw e; // cliente do stream desconectou
             } catch (AgenteIndisponivelException e) {
                 // segue no modo extrativo, que já identifica o próprio modo
-                observador.emitir(EventoAgente.fallbackDemonstrativo(FALLBACK_TEMPO));
+                ObservadorAgente.emitirSeguro(observador, EventoAgente.fallbackDemonstrativo(FALLBACK_TEMPO));
             }
         } else if (agente != null) {
-            observador.emitir(EventoAgente.fallbackDemonstrativo(FALLBACK_SEM_IA));
+            ObservadorAgente.emitirSeguro(observador, EventoAgente.fallbackDemonstrativo(FALLBACK_SEM_IA));
         }
         if (agente != null) {
             agente.contarModoExtrativo();

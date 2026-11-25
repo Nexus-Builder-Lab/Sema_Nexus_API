@@ -12,6 +12,20 @@ public interface ObservadorAgente {
     /** Recebe um evento. Falhas aqui nunca interrompem o agente (o executor as ignora). */
     void emitir(EventoAgente evento);
 
+    /**
+     * Entrega o evento sem deixar uma falha do observador interromper quem emite (agente, serviço ou fallback).
+     */
+    static void emitirSeguro(ObservadorAgente observador, EventoAgente evento) {
+        if (observador == null) {
+            return;
+        }
+        try {
+            observador.emitir(evento);
+        } catch (RuntimeException e) {
+            // cliente desconectado ou observador com defeito: o evento é descartado
+        }
+    }
+
     /** true quando quem acompanha a execução desistiu (ex.: cliente SSE desconectado). */
     default boolean cancelado() {
         return false;

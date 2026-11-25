@@ -37,10 +37,13 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
  * <ul>
  *   <li>Timeout do {@link SseEmitter} = orçamento + timeout por chamada + margem (sempre ≥ orçamento).</li>
  *   <li>Comentário {@code :keepalive} a cada {@code AGENTES_SSE_BATIMENTO_SEGUNDOS} (padrão 15 s), abaixo do
- *       {@code proxy_read_timeout} do Nginx do Web; também revela desconexões.</li>
+ *       {@code proxy_read_timeout} do Nginx do Web; também revela desconexões. Os batimentos rodam numa única thread
+ *       agendada (escrita pequena no buffer do contêiner); se um cliente travar o socket, a escrita falha ou expira e
+ *       aquele stream é encerrado — limitação aceita para no máximo {@code AGENTES_SSE_MAX_SIMULTANEOS} streams.</li>
  *   <li>Cliente desconectado ou timeout: a execução para na próxima etapa e desiste da fila da GPU (vaga liberada).</li>
  *   <li>{@code X-Accel-Buffering: no} e {@code Cache-Control: no-cache, no-transform}: o Nginx não acumula eventos.</li>
- *   <li>No máximo {@code AGENTES_SSE_MAX_SIMULTANEOS} (padrão 16) transmissões ao mesmo tempo; além disso, 503.</li>
+ *   <li>No máximo {@code AGENTES_SSE_MAX_SIMULTANEOS} (padrão 16) transmissões ao mesmo tempo; além disso, 503
+ *       {@code problem+json} imediato (sem fila de espera).</li>
  * </ul>
  */
 @Component
@@ -175,7 +178,7 @@ public class TransmissaoAgente implements DisposableBean {
             try {
                 emissor.send(SseEmitter.event().name(tipo).data(dados, MediaType.APPLICATION_JSON));
             } catch (IOException | IllegalStateException e) {
-                encerrar();
+                desconectado(e);
             }
         }
 
@@ -193,7 +196,23 @@ public class TransmissaoAgente implements DisposableBean {
             try {
                 emissor.send(SseEmitter.event().comment("keepalive"));
             } catch (IOException | IllegalStateException e) {
-                encerrar();
+                desconectado(e);
+            }
+        }
+
+        /**
+         * Falha de escrita = cliente foi embora: sinaliza o cancelamento e encerra a requisição assíncrona na hora
+         * (libera a conexão e o contexto assíncrono do contêiner sem esperar o fim do agente ou o timeout).
+         */
+        private void desconectado(Exception e) {
+            boolean aberto = !encerrado.getAndSet(true);
+            encerrar();
+            if (aberto) {
+                try {
+                    emissor.completeWithError(e);
+                } catch (RuntimeException ignorada) {
+                    LOG.debug("Stream já encerrado ({})", ignorada.getClass().getSimpleName());
+                }
             }
         }
 

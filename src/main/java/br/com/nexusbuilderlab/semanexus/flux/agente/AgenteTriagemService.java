@@ -149,10 +149,10 @@ public class AgenteTriagemService {
                 throw e; // cliente do stream desconectou: nada a sugerir
             } catch (AgenteIndisponivelException e) {
                 avisos.add(FALLBACK_TEMPO);
-                observador.emitir(EventoAgente.fallbackDemonstrativo(FALLBACK_TEMPO));
+                ObservadorAgente.emitirSeguro(observador, EventoAgente.fallbackDemonstrativo(FALLBACK_TEMPO));
             }
         } else {
-            observador.emitir(EventoAgente.fallbackDemonstrativo(FALLBACK_SEM_IA));
+            ObservadorAgente.emitirSeguro(observador, EventoAgente.fallbackDemonstrativo(FALLBACK_SEM_IA));
         }
         return porRegras(ator, d, nucleo, inpe, avisos, esp);
     }

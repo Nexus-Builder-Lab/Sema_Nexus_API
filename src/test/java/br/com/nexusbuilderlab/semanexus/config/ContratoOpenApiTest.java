@@ -191,6 +191,8 @@ class ContratoOpenApiTest {
             JsonNode op = operacao(chave);
             assertThat(op.path("responses").path("200").path("content").has("text/event-stream")).as(chave).isTrue();
             assertThat(op.path("responses").has("429")).as("429 em %s", chave).isTrue();
+            assertThat(op.path("responses").path("503").path("content").has("application/problem+json"))
+                    .as("503 em %s", chave).isTrue();
             assertThat(op.path("description").asText()).contains("fallback_demonstrativo").contains("concluido");
         }
         assertThat(contrato().path("components").path("schemas").path("EventoAgente").path("properties")

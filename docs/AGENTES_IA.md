@@ -142,8 +142,8 @@ A GPU chega a ~99% **durante** a geração (alguns segundos) — é o esperado: 
 | `AGENTES_MAX_CHAMADAS_FERRAMENTA` | `8` | Máximo de chamadas de ferramenta somadas na execução (1–30). |
 | `AGENTES_GPU_CONCORRENCIA` | `1` | Chamadas simultâneas ao modelo na fila da GPU (1–16; Issue #134). |
 | `AGENTES_GPU_ESPERA_SEGUNDOS` | `20` | Espera máxima por vaga na fila (1–120 s); esgotada, modo demonstrativo identificado. |
-| `AGENTES_SSE_BATIMENTO_SEGUNDOS` | `15` | Intervalo do comentário `:keepalive` dos streams SSE (1–60 s; Issue #135). Opcional, fora do `.env.example`. |
-| `AGENTES_SSE_MAX_SIMULTANEOS` | `16` | Streams SSE de agentes ao mesmo tempo (1–64); além disso, 503. Opcional. |
+| `AGENTES_SSE_BATIMENTO_SEGUNDOS` | `15` | Intervalo do comentário `:keepalive` dos streams SSE (1–60 s; Issue #135). Também no compose e no `.env.example`. |
+| `AGENTES_SSE_MAX_SIMULTANEOS` | `16` | Streams SSE de agentes ao mesmo tempo (1–64); além disso, 503 `problem+json`. |
 
 `GET /api/agentes/status` informa o modo efetivo (`LOCAL`, `CLAUDE` ou `DEMONSTRATIVO`) e o modelo de cada agente — nunca chaves.
 

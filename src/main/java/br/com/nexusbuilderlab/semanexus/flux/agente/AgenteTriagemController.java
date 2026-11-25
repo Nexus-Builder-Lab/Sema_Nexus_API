@@ -58,6 +58,8 @@ public class AgenteTriagemController {
                     + "cabeçalho `Authorization` (nunca na URL). Issue #135.")
     @ApiResponse(responseCode = "200", description = "Stream SSE dos passos do agente",
             content = @Content(mediaType = "text/event-stream", schema = @Schema(implementation = EventoAgente.class)))
+    @ApiResponse(responseCode = "409", description = "Demanda fora de PENDENTE/EM_TRIAGEM (antes de abrir o stream)")
+    @ApiResponse(responseCode = "503", description = "Capacidade de streams de agentes esgotada (`AGENTES_SSE_MAX_SIMULTANEOS`); tente de novo ou use o endpoint JSON")
     @PreAuthorize(Autorizacao.ADMIN_GESTOR_ANALISTA)
     @PostMapping("/{id}/triagem/sugestao/stream")
     public ResponseEntity<SseEmitter> sugerirStream(@AuthenticationPrincipal UsuarioAutenticado ator,
