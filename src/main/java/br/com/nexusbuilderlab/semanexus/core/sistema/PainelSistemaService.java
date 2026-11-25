@@ -220,6 +220,9 @@ public class PainelSistemaService {
                         ia ? executor.modelo(agentes.modeloDocia()) : "Template determinístico (sem IA generativa)",
                         List.of("obter_dossie_demanda", "ler_registro_fiscalizacao", "resumo_documentos_vinculados",
                                 "alertas_inpe_area"),
-                        metricas.resumo("minuta")));
+                        metricas.resumo("minuta")),
+                new AgentePainel("sentinela", "Sentinela Territorial", "SEMA Intelligence", modo,
+                        ia ? executor.modelo(agentes.modeloTriagem()) : "Template determinístico (sem IA generativa)",
+                        List.of("anomalias_sentinela", "indicadores_operacionais"), metricas.resumo("sentinela")));
     }
 }
