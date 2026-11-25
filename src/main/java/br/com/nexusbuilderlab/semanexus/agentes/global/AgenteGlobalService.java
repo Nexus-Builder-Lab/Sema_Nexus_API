@@ -86,6 +86,10 @@ public class AgenteGlobalService {
             - buscar_demandas: demandas por texto, status e município.
             - buscar_documentos: documentos da biblioteca por palavras-chave.
             - resumo_alertas_inpe: focos de calor e alertas DETER do INPE por município e período.
+            Perguntas sobre as demandas do próprio usuário ("minhas", "eu tenho") usam buscar_demandas ou \
+            prazos_criticos; resumo_indicadores_ambientais é o total do estado ou do município, não do usuário. \
+            "Vence esta semana" = prazos_criticos com estado PROXIMA e dias_alerta 7. Só informe de/ate quando a \
+            pergunta citar um período.
             Chame 1 ou 2 ferramentas com parâmetros e depois responda; não chame mais ferramentas.
             Regras da resposta: até 3 frases curtas, no máximo 500 caracteres, sem listas, títulos, links, Markdown \
             ou ids internos (a tela mostra os atalhos montados pelo sistema). Cite SOMENTE números que aparecem nos \
@@ -140,6 +144,10 @@ public class AgenteGlobalService {
                     return resposta(modo, r.modelo(), texto, consultas, avisos);
                 }
                 LOG.warn("Assistente Global: resposta da IA descartada ({})", motivo);
+                if (r.passos().isEmpty()) {
+                    avisos.add("A IA respondeu sem consultar dados; resposta pelas regras locais.");
+                    return demonstrativo(ator, pergunta, entidade, avisos);
+                }
                 avisos.add("Resposta da IA descartada na conferência (" + motivo + "); exibido o resumo "
                         + "determinístico das consultas.");
                 if (!consultas.isEmpty()) {
@@ -241,8 +249,8 @@ public class AgenteGlobalService {
     DefinicaoAgente definicao(UsuarioAutenticado ator, List<Consulta> consultas) {
         Map<String, Object> municipio = Map.of("type", "string",
                 "description", "Nome do município de MT ou código IBGE (opcional; vazio = estado todo)");
-        Map<String, Object> de = Map.of("type", "string", "description", "Data inicial AAAA-MM-DD (opcional)");
-        Map<String, Object> ate = Map.of("type", "string", "description", "Data final AAAA-MM-DD (opcional)");
+        Map<String, Object> de = Map.of("type", "string", "description", "Data inicial AAAA-MM-DD (só se a pergunta citar um período)");
+        Map<String, Object> ate = Map.of("type", "string", "description", "Data final AAAA-MM-DD (só se a pergunta citar um período)");
         List<FerramentaAgente> lista = List.of(
                 new FerramentaAgente("resumo_indicadores_ambientais",
                         "Totais de demandas (pendentes, em andamento, finalizadas, atrasadas), fiscalizações e "
