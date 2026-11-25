@@ -68,14 +68,18 @@ public class FiscalizacaoService {
         String recomendacoes = pedido.recomendacoes() == null || pedido.recomendacoes().isBlank()
                 ? null : pedido.recomendacoes().trim();
 
+        // Checklist da categoria (Issue #145): item desconhecido, obrigatório ausente ou tipo errado → 400.
+        String checklist = ChecklistFiscalizacao.validarEmJson(demanda.getCategoria(), pedido.checklist());
+
         Fiscalizacao f = fiscalizacoes.buscarPorDemanda(id).orElse(null);
         if (f == null) {
-            fiscalizacoes.save(new Fiscalizacao(demanda, pedido.data(), demanda.getEquipe(), atividades, resultado,
-                    evidencias, recomendacoes, autor));
+            f = new Fiscalizacao(demanda, pedido.data(), demanda.getEquipe(), atividades, resultado,
+                    evidencias, recomendacoes, autor);
         } else {
             f.atualizar(pedido.data(), atividades, resultado, evidencias, recomendacoes);
-            fiscalizacoes.save(f);
         }
+        f.setChecklist(checklist);
+        fiscalizacoes.save(f);
         demanda.setStatus(novo);
         demandas.save(demanda);
         historicos.save(ExecucaoSuporte.evento(demanda, TipoHistorico.FISCALIZACAO, anterior, novo,

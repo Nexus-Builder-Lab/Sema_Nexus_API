@@ -221,6 +221,34 @@ class ExecucaoServicosTest {
     }
 
     @Test
+    void fiscalizacaoComChecklistValidoGravaJsonDaCategoria() {
+        Demanda d = demanda(StatusDemanda.EM_ANDAMENTO);
+        d.setCategoria(br.com.nexusbuilderlab.semanexus.core.catalogo.CategoriaFiscalizacao.QUEIMADA_INCENDIO);
+        when(fiscalizacoes.buscarPorDemanda(5L)).thenReturn(Optional.empty());
+
+        fiscalizacaoService.registrar(como(fiscal), 5L, new FiscalizacaoRequest(HOJE, "Vistoria", "Sem irregularidades",
+                "Fotos simuladas", null, java.util.Map.of("local_acessivel", true, "foco_ativo", false,
+                "area_atingida_ha", 3)));
+
+        ArgumentCaptor<Fiscalizacao> f = ArgumentCaptor.forClass(Fiscalizacao.class);
+        verify(fiscalizacoes).save(f.capture());
+        assertThat(f.getValue().getChecklist()).contains("\"categoria\":\"QUEIMADA_INCENDIO\"").contains("\"versao\":1");
+    }
+
+    @Test
+    void fiscalizacaoComChecklistInvalidoRetorna400SemGravar() {
+        Demanda d = demanda(StatusDemanda.EM_ANDAMENTO);
+        d.setCategoria(br.com.nexusbuilderlab.semanexus.core.catalogo.CategoriaFiscalizacao.QUEIMADA_INCENDIO);
+
+        assertThatThrownBy(() -> fiscalizacaoService.registrar(como(fiscal), 5L, new FiscalizacaoRequest(HOJE,
+                "Vistoria", "Sem irregularidades", "Fotos simuladas", null,
+                java.util.Map.of("local_acessivel", true, "item_desconhecido", 1))))
+                .isInstanceOf(DadosInvalidosException.class);
+        verify(fiscalizacoes, never()).save(any());
+        assertThat(d.getStatus()).isEqualTo(StatusDemanda.EM_ANDAMENTO);
+    }
+
+    @Test
     void fiscalizacaoComDataFuturaRetorna400SemGravar() {
         demanda(StatusDemanda.EM_ANDAMENTO);
 
