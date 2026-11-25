@@ -102,4 +102,32 @@ class AssistenteServiceTest {
         String t = AssistenteService.melhorTrecho(d, List.of("queimadas"));
         assertThat(t.length()).isLessThanOrEqualTo(AssistenteService.MAX_TRECHO + 1);
     }
+
+    @Test
+    void streamEmiteFallbackQuandoOAgenteFalhaECancelamentoNaoCaiNoExtrativo() {
+        AgenteDocia agente = mock(AgenteDocia.class);
+        BuscaDocumentos busca = mock(BuscaDocumentos.class);
+        when(busca.pesquisar(anyString(), org.mockito.ArgumentMatchers.anyInt(), any()))
+                .thenReturn(BuscaDocumentos.Resultado.lexical(List.of()));
+        when(agente.disponivel()).thenReturn(true);
+        when(agente.responder(anyString(), any(), any(), any()))
+                .thenThrow(new br.com.nexusbuilderlab.semanexus.agentes.AgenteIndisponivelException(
+                        "Falha ao chamar o modelo (HttpServerErrorException)."));
+        AssistenteService s = new AssistenteService(busca, new DemoAssistenteProvider(), agente);
+        List<br.com.nexusbuilderlab.semanexus.agentes.EventoAgente> eventos = new java.util.ArrayList<>();
+
+        RespostaAssistente r = s.responder(new br.com.nexusbuilderlab.semanexus.docia.assistente.dto.PerguntaRequest("O que diz o relatório de queimadas?"), null,
+                eventos::add);
+
+        assertThat(r.resposta()).isEqualTo(AssistenteService.SEM_INFORMACAO); // busca vazia no modo extrativo
+        assertThat(eventos).extracting(br.com.nexusbuilderlab.semanexus.agentes.EventoAgente::tipo)
+                .containsExactly("fallback_demonstrativo");
+        assertThat(eventos.get(0).dados().toString()).doesNotContain("HttpServerErrorException");
+
+        org.mockito.Mockito.doThrow(new br.com.nexusbuilderlab.semanexus.agentes.ExecucaoCanceladaException())
+                .when(agente).responder(anyString(), any(), any(), any());
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> s.responder(
+                        new br.com.nexusbuilderlab.semanexus.docia.assistente.dto.PerguntaRequest("O que diz o relatório de queimadas?"), null, eventos::add))
+                .isInstanceOf(br.com.nexusbuilderlab.semanexus.agentes.ExecucaoCanceladaException.class);
+    }
 }

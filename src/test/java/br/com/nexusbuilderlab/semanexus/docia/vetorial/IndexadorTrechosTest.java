@@ -75,6 +75,13 @@ class IndexadorTrechosTest {
     }
 
     @Test
+    void eventoDepoisDoEncerramentoNaoFalha() {
+        indexador.encerrar();
+        indexador.aoAlterar(new br.com.nexusbuilderlab.semanexus.docia.documento.DocumentoTextoAlterado(1L));
+        verify(trechos, never()).documento(anyLong());
+    }
+
+    @Test
     void documentoExcluidoNaoEhIndexado() {
         when(trechos.documento(9L)).thenReturn(Optional.empty());
         assertThat(indexador.indexar(9L)).isTrue();

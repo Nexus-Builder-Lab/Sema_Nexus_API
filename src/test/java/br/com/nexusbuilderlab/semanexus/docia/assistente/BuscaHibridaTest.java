@@ -47,6 +47,10 @@ class BuscaHibridaTest {
         when(documentos.buscarAtivo(id)).thenReturn(Optional.of(d));
     }
 
+    private void vetor() {
+        when(vetorial.vetorizar(anyString())).thenReturn(Optional.of(new float[] {1f}));
+    }
+
     @BeforeEach
     void preparar() {
         when(jdbc.queryForList(anyString(), eq(Long.class), any(Object[].class))).thenReturn(List.of());
@@ -68,7 +72,7 @@ class BuscaHibridaTest {
     @Test
     void semEmbeddingsOResultadoEhOLexicalDeAntes() {
         conteudo("resid", 1L);
-        when(vetorial.buscar(anyString(), anyInt())).thenReturn(Optional.empty());
+        when(vetorial.vetorizar(anyString())).thenReturn(Optional.empty());
         BuscaDocumentos.Resultado r = busca.pesquisar("resíduos", 5, null);
         assertThat(r.recuperacao()).isEqualTo(Recuperacao.LEXICAL);
         assertThat(r.achados()).extracting(a -> a.documento().getId()).containsExactly(1L);
@@ -82,7 +86,8 @@ class BuscaHibridaTest {
     @Test
     void documentoSoSemanticoEntraComTrechoDoVetorEAderenciaNula() {
         // "lixo" não aparece em nenhum texto: o lexical se absteria; o vetorial aproxima do Termo de Denúncia.
-        when(vetorial.buscar(anyString(), anyInt())).thenReturn(Optional.of(List.of(
+        vetor();
+        when(vetorial.buscar(any(float[].class), anyInt(), any())).thenReturn(Optional.of(List.of(
                 new AchadoVetorial(1L, "Relato de descarte de resíduos em terreno baldio.", 0.71234),
                 new AchadoVetorial(3L, "Pico de queimadas em setembro.", 0.31))));
         BuscaDocumentos.Resultado r = busca.pesquisar("lixo jogado na rua", 5, null);
@@ -97,7 +102,8 @@ class BuscaHibridaTest {
 
     @Test
     void abaixoDoLimiarNinguemEntraEABuscaSeAbstem() {
-        when(vetorial.buscar(anyString(), anyInt())).thenReturn(Optional.of(List.of(
+        vetor();
+        when(vetorial.buscar(any(float[].class), anyInt(), any())).thenReturn(Optional.of(List.of(
                 new AchadoVetorial(2L, "Captação sem outorga.", 0.40),
                 new AchadoVetorial(3L, "Pico de queimadas.", 0.38))));
         BuscaDocumentos.Resultado r = busca.pesquisar("preço da arroba do boi", 5, null);
@@ -111,7 +117,8 @@ class BuscaHibridaTest {
         conteudo("capta", 2L);
         when(jdbc.queryForList(eq(DocumentoSpecification.SQL_BUSCA_TITULO), eq(Long.class), eq("%queima%")))
                 .thenReturn(List.of(3L));
-        when(vetorial.buscar(anyString(), anyInt())).thenReturn(Optional.of(List.of(
+        vetor();
+        when(vetorial.buscar(any(float[].class), anyInt(), any())).thenReturn(Optional.of(List.of(
                 new AchadoVetorial(3L, "Pico de queimadas em setembro.", 0.80),
                 new AchadoVetorial(2L, "Captação sem outorga.", 0.60))));
         BuscaDocumentos.Resultado r = busca.pesquisar("queimadas captação", 5, null);
@@ -122,10 +129,13 @@ class BuscaHibridaTest {
 
     @Test
     void respeitaOsDocumentosPermitidosNaParteVetorial() {
-        when(vetorial.buscar(anyString(), anyInt())).thenReturn(Optional.of(List.of(
+        vetor();
+        when(vetorial.buscar(any(float[].class), anyInt(), any())).thenReturn(Optional.of(List.of(
                 new AchadoVetorial(1L, "Relato de descarte.", 0.9),
                 new AchadoVetorial(2L, "Captação sem outorga.", 0.8))));
         BuscaDocumentos.Resultado r = busca.pesquisar("lixo", 5, Set.of(2L));
+        // O filtro vai para o SQL (repassado) e é conferido de novo na fusão.
+        verify(vetorial).buscar(any(float[].class), anyInt(), eq(Set.of(2L)));
         assertThat(r.achados()).extracting(a -> a.documento().getId()).containsExactly(2L);
     }
 
@@ -134,6 +144,6 @@ class BuscaHibridaTest {
         conteudo("resid", 1L);
         BuscaDocumentos.Resultado r = busca.pesquisar("resíduos", 5, null, false);
         assertThat(r.recuperacao()).isEqualTo(Recuperacao.LEXICAL);
-        verify(vetorial, never()).buscar(anyString(), anyInt());
+        verify(vetorial, never()).vetorizar(anyString());
     }
 }

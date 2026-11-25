@@ -4,6 +4,7 @@ import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.SqlParameterValue;
@@ -32,7 +33,7 @@ public class TrechoRepositorio {
                        ROW_NUMBER() OVER (PARTITION BY t.DOCUMENTO_ID
                            ORDER BY VECTOR_DISTANCE(t.EMBEDDING, TO_VECTOR(?, 768, FLOAT32), COSINE), t.ORDEM) AS RN
                 FROM DOCUMENTO_TRECHO t JOIN DOCUMENTO d ON d.ID = t.DOCUMENTO_ID
-                WHERE d.EXCLUIDO_EM IS NULL AND t.MODELO = ?
+                WHERE d.EXCLUIDO_EM IS NULL AND t.MODELO = ?%s
             ) WHERE RN = 1
             ORDER BY DISTANCIA, DOCUMENTO_ID
             FETCH FIRST ? ROWS ONLY""";
@@ -91,9 +92,29 @@ public class TrechoRepositorio {
         return new SqlParameterValue(Types.CLOB, literal);
     }
 
-    public List<TrechoProximo> maisProximos(float[] consulta, String modelo, int maxDocumentos) {
+    /** Limite de itens de uma lista IN do Oracle. */
+    static final int MAX_IDS = 1000;
+
+    /**
+     * @param idsPermitidos não nulo: a busca percorre só esses documentos (filtro no SQL, ex.: os vinculados à
+     *                      demanda); vazio devolve lista vazia
+     */
+    public List<TrechoProximo> maisProximos(float[] consulta, String modelo, int maxDocumentos,
+                                            Set<Long> idsPermitidos) {
+        if (idsPermitidos != null && idsPermitidos.isEmpty()) {
+            return List.of();
+        }
         SqlParameterValue v = clob(Vetores.literal(consulta));
-        return jdbc.query(SQL_PROXIMOS, (rs, i) -> new TrechoProximo(rs.getLong(1), rs.getString(2),
-                rs.getDouble(3)), v, v, modelo, maxDocumentos);
+        List<Object> args = new ArrayList<>(List.of(v, v, modelo));
+        String filtro = "";
+        if (idsPermitidos != null) {
+            List<Long> ids = idsPermitidos.stream().sorted().limit(MAX_IDS).toList();
+            filtro = " AND t.DOCUMENTO_ID IN (" + String.join(", ", java.util.Collections.nCopies(ids.size(), "?"))
+                    + ")";
+            args.addAll(ids);
+        }
+        args.add(maxDocumentos);
+        return jdbc.query(SQL_PROXIMOS.formatted(filtro), (rs, i) -> new TrechoProximo(rs.getLong(1),
+                rs.getString(2), rs.getDouble(3)), args.toArray());
     }
 }

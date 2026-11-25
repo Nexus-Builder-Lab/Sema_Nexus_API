@@ -139,6 +139,15 @@ Causas encontradas e correções:
 
 A GPU chega a ~99% **durante** a geração (alguns segundos) — é o esperado: o modelo usa a placa inteira para responder mais rápido e depois ela volta ao repouso. A memória de vídeo fica ocupada (~3,9 GB) enquanto o modelo está carregado.
 
+## Streaming SSE dos passos (Issue #135, Implementado)
+
+- `ExecutorAgente.executar(agente, tarefa, entidadeId, ObservadorAgente)`: callback de eventos (`EventoAgente`). A sobrecarga antiga usa `ObservadorAgente.NENHUM` (no-op) — agentes e endpoints JSON seguem iguais. O executor emite `ferramenta_iniciada`/`ferramenta_concluida` (nome seguro da ferramenta, resumo já exibido nos passos; erros só pelo catálogo `ErroFerramenta`). Uma falha do observador nunca interrompe o agente.
+- Os serviços (`AgenteTriagemService`, `AssistenteService`) emitem `fallback_demonstrativo` com motivo público fixo quando caem nas regras locais/modo extrativo; `TransmissaoAgente` emite `inicio`, `delta_texto`, `concluido` (mesmo payload do JSON) ou `erro` (mensagem pública + referência).
+- **`delta_texto` não é token a token:** os clientes `OllamaClienteModelo` e `AnthropicClienteModelo` usam respostas não transmitidas (o laço de ferramentas precisa da resposta completa para ler as chamadas e validar o JSON). O texto final vai num único `delta_texto`; transmitir tokens fica como evolução futura (exige `stream: true` nos dois clientes e leitura incremental do JSON).
+- **Cancelamento:** `ObservadorAgente.cancelado()` é conferido antes de cada chamada ao modelo e de cada ferramenta; a espera na `FilaGpu` é fatiada (200 ms) e desiste quando o cliente sai — a vaga não é ocupada por quem desconectou. Uma chamada ao modelo já em andamento termina (pior caso: 1 timeout) e a vaga é liberada em seguida. Cancelado, a auditoria registra `AGENTE_FALHA` ("execução cancelada") e não conta falha nas métricas.
+- Mesmo contexto de segurança na thread do stream (`DelegatingSecurityContextRunnable`): escopo das ferramentas e auditoria em nome do usuário, como no endpoint síncrono. O despacho `ASYNC` interno do contêiner (fim do stream) é liberado na cadeia de segurança — a requisição original já foi autenticada e autorizada.
+- Nginx do Web: o `location /api/` atual funciona (`proxy_http_version 1.1`, sem gzip; `X-Accel-Buffering: no` desliga o buffer por resposta; `:keepalive` a cada 15 s fica abaixo do `proxy_read_timeout 120s`).
+
 ## Configuração (`.env`)
 
 | Variável | Padrão | Descrição |
@@ -163,6 +172,8 @@ A GPU chega a ~99% **durante** a geração (alguns segundos) — é o esperado: 
 | `EMBEDDINGS_SIMILARIDADE_MINIMA` | `0.55` | Cosseno mínimo (0–1) para um documento entrar só pela parte vetorial. |
 | `EMBEDDINGS_REINDEXAR_SEGUNDOS` | `120` | Intervalo da indexação de documentos sem trechos (10–86400). |
 | `BUSCA_RRF_K` | `60` | Constante k da fusão RRF (1–1000). |
+| `AGENTES_SSE_BATIMENTO_SEGUNDOS` | `15` | Intervalo do comentário `:keepalive` dos streams SSE (1–60 s; Issue #135). Também no compose e no `.env.example`. |
+| `AGENTES_SSE_MAX_SIMULTANEOS` | `16` | Streams SSE de agentes ao mesmo tempo (1–64); além disso, 503 `problem+json`. |
 
 `GET /api/agentes/status` informa o modo efetivo (`LOCAL`, `CLAUDE` ou `DEMONSTRATIVO`) e o modelo de cada agente — nunca chaves.
 

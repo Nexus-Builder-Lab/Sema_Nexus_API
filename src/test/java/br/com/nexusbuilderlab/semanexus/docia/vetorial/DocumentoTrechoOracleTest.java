@@ -101,7 +101,11 @@ class DocumentoTrechoOracleTest {
 
         String consulta = "derrubada da floresta em Colniza";
         BuscaVetorialOracle vetorial = new BuscaVetorialOracle(falso, trechos);
-        var achados = vetorial.buscar(consulta, 10).orElseThrow();
+        float[] vq = vetorial.vetorizar(consulta).orElseThrow();
+        var achados = vetorial.buscar(vq, 10, null).orElseThrow();
+        // Filtro de documentos permitidos no SQL (contexto da demanda).
+        assertThat(vetorial.buscar(vq, 10, java.util.Set.of(sinop)).orElseThrow())
+                .extracting(BuscaVetorial.AchadoVetorial::documentoId).containsExactly(sinop);
         assertThat(achados.get(0).documentoId()).isEqualTo(colniza);
         assertThat(achados).extracting(BuscaVetorial.AchadoVetorial::documentoId).doesNotHaveDuplicates();
         // Cosseno do Oracle = cosseno em Java (mesmos vetores FLOAT32).
@@ -119,7 +123,7 @@ class DocumentoTrechoOracleTest {
 
         // Documento excluído (lógico) sai da busca vetorial.
         jdbc.update("UPDATE DOCUMENTO SET EXCLUIDO_EM = SYSTIMESTAMP WHERE ID = ?", colniza);
-        assertThat(vetorial.buscar(consulta, 10).orElseThrow())
+        assertThat(vetorial.buscar(vq, 10, null).orElseThrow())
                 .extracting(BuscaVetorial.AchadoVetorial::documentoId).doesNotContain(colniza);
 
         // O sistema real (sem Ollama no teste) nunca falha: degrada para a busca lexical.

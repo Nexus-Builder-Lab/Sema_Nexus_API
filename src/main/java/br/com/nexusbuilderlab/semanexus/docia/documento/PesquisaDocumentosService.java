@@ -7,7 +7,9 @@ import br.com.nexusbuilderlab.semanexus.docia.assistente.BuscaDocumentos;
 import br.com.nexusbuilderlab.semanexus.docia.documento.dto.PesquisaDocumentos;
 
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Pesquisa ranqueada da biblioteca (Issue #141): mesma busca do Assistente DocIA ({@link BuscaDocumentos}), híbrida
@@ -21,13 +23,18 @@ public class PesquisaDocumentosService {
     public static final int LIMITE_MAXIMO = 20;
 
     private final BuscaDocumentos busca;
+    private final TransactionTemplate transacao;
 
-    public PesquisaDocumentosService(BuscaDocumentos busca) {
+    public PesquisaDocumentosService(BuscaDocumentos busca, ObjectProvider<PlatformTransactionManager> transacoes) {
         this.busca = busca;
+        PlatformTransactionManager tm = transacoes.getIfAvailable();
+        this.transacao = tm == null ? null : new TransactionTemplate(tm);
+        if (this.transacao != null) {
+            this.transacao.setReadOnly(true);
+        }
     }
 
     /** @param modo {@code AUTO} (padrão: híbrida quando disponível) ou {@code LEXICAL} (só textual) */
-    @Transactional(readOnly = true)
     public PesquisaDocumentos pesquisar(String q, Integer limite, String modo) {
         String consulta = q == null ? "" : q.strip();
         if (consulta.length() < 2 || consulta.length() > 200) {
@@ -41,11 +48,17 @@ public class PesquisaDocumentosService {
         if (!m.equals("AUTO") && !m.equals("LEXICAL")) {
             throw new DadosInvalidosException("modo", "Use AUTO ou LEXICAL.");
         }
-        BuscaDocumentos.Resultado r = busca.pesquisar(consulta, n, null, m.equals("AUTO"));
+        // Embedding da consulta (rede) fora da transação: a conexão do banco só é usada depois.
+        BuscaDocumentos.ConsultaPreparada preparada = busca.preparar(consulta, m.equals("AUTO"));
+        return transacao == null ? consultar(preparada, n) : transacao.execute(st -> consultar(preparada, n));
+    }
+
+    private PesquisaDocumentos consultar(BuscaDocumentos.ConsultaPreparada preparada, int n) {
+        BuscaDocumentos.Resultado r = busca.pesquisar(preparada, n, null);
         List<PesquisaDocumentos.Item> itens = r.achados().stream()
                 .map(a -> new PesquisaDocumentos.Item(DocumentoService.resumo(a.documento()), a.trecho(),
                         a.aderencia(), a.similaridadeSemantica()))
                 .toList();
-        return new PesquisaDocumentos(consulta, r.recuperacao(), itens);
+        return new PesquisaDocumentos(preparada.texto(), r.recuperacao(), itens);
     }
 }

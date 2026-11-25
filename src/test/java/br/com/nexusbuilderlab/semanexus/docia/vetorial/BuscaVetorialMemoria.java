@@ -36,18 +36,25 @@ public class BuscaVetorialMemoria implements BuscaVetorial {
     }
 
     @Override
-    public Optional<List<AchadoVetorial>> buscar(String consulta, int maxDocumentos) {
+    public Optional<float[]> vetorizar(String consulta) {
         if (!embeddings.disponivel() || trechos.isEmpty()) {
             return Optional.empty();
         }
-        float[] q;
         try {
-            q = embeddings.gerar(List.of(consulta), ClienteEmbeddings.Finalidade.CONSULTA, true).get(0);
+            return Optional.of(embeddings.gerar(List.of(consulta), ClienteEmbeddings.Finalidade.CONSULTA, true)
+                    .get(0));
         } catch (ClienteEmbeddings.EmbeddingsIndisponiveisException e) {
             return Optional.empty();
         }
+    }
+
+    @Override
+    public Optional<List<AchadoVetorial>> buscar(float[] q, int maxDocumentos, java.util.Set<Long> ids) {
         Map<Long, AchadoVetorial> melhor = new LinkedHashMap<>();
         for (Trecho t : trechos) {
+            if (ids != null && !ids.contains(t.documentoId())) {
+                continue;
+            }
             double s = Vetores.cosseno(q, t.vetor());
             AchadoVetorial atual = melhor.get(t.documentoId());
             if (atual == null || s > atual.similaridade()) {

@@ -22,9 +22,11 @@ class BuscaVetorialOracleTest {
     @Test
     void converteDistanciaEmSimilaridade() {
         when(trechos.contar(EmbeddingsDeterministicos.MODELO)).thenReturn(3);
-        when(trechos.maisProximos(any(), anyString(), anyInt())).thenReturn(List.of(
+        when(trechos.maisProximos(any(), anyString(), anyInt(), any())).thenReturn(List.of(
                 new TrechoRepositorio.TrechoProximo(4L, "Foram detectados 4 alertas em Colniza.", 0.25)));
-        var r = busca.buscar("desmatamento em Colniza", 5).orElseThrow();
+        float[] v = busca.vetorizar("desmatamento em Colniza").orElseThrow();
+        var r = busca.buscar(v, 5, java.util.Set.of(4L)).orElseThrow();
+        org.mockito.Mockito.verify(trechos).maisProximos(v, EmbeddingsDeterministicos.MODELO, 5, java.util.Set.of(4L));
         assertThat(r).singleElement().satisfies(a -> {
             assertThat(a.documentoId()).isEqualTo(4L);
             assertThat(a.similaridade()).isEqualTo(0.75);
@@ -34,17 +36,21 @@ class BuscaVetorialOracleTest {
     @Test
     void semTrechosIndexadosNaoChamaOModelo() {
         when(trechos.contar(anyString())).thenReturn(0);
-        assertThat(busca.buscar("queimada", 5)).isEmpty();
+        assertThat(busca.vetorizar("queimada")).isEmpty();
         assertThat(embeddings.chamadas()).isZero();
     }
 
     @Test
     void modeloIndisponivelOuErroDeSqlDegradamParaVazio() {
         embeddings.disponivel(false);
-        assertThat(busca.buscar("queimada", 5)).isEmpty();
+        assertThat(busca.vetorizar("queimada")).isEmpty();
         embeddings.disponivel(true);
+        assertThat(busca.vetorizar("  ")).isEmpty();
+        when(trechos.maisProximos(any(), anyString(), anyInt(), any()))
+                .thenThrow(new DataAccessResourceFailureException("ORA-51805"));
+        assertThat(busca.buscar(new float[768], 5, null)).isEmpty();
+        assertThat(busca.buscar(null, 5, null)).isEmpty();
         when(trechos.contar(anyString())).thenThrow(new DataAccessResourceFailureException("ORA-00942"));
-        assertThat(busca.buscar("queimada", 5)).isEmpty();
-        assertThat(busca.buscar("  ", 5)).isEmpty();
+        assertThat(busca.vetorizar("queimada")).isEmpty();
     }
 }

@@ -14,6 +14,7 @@ import br.com.nexusbuilderlab.semanexus.agentes.AgentesController;
 import br.com.nexusbuilderlab.semanexus.agentes.DefinicaoAgente;
 import br.com.nexusbuilderlab.semanexus.agentes.ExecutorAgente;
 import br.com.nexusbuilderlab.semanexus.agentes.FerramentaAgente;
+import br.com.nexusbuilderlab.semanexus.agentes.ObservadorAgente;
 import br.com.nexusbuilderlab.semanexus.agentes.ResultadoAgente;
 import br.com.nexusbuilderlab.semanexus.common.exception.RecursoNaoEncontradoException;
 import br.com.nexusbuilderlab.semanexus.docia.assistente.dto.ReferenciaDocumento;
@@ -97,6 +98,13 @@ public class AgenteDocia {
      * @param historico turnos já sanitizados por {@link HistoricoConversa}; só contexto, nunca fonte de citação
      */
     public RespostaAssistente responder(String pergunta, Set<Long> idsPermitidos, List<br.com.nexusbuilderlab.semanexus.docia.assistente.dto.TurnoHistorico> historico) {
+        return responder(pergunta, idsPermitidos, historico, ObservadorAgente.NENHUM);
+    }
+
+    /** Como o anterior, emitindo os eventos das ferramentas ao {@code observador} (stream SSE, Issue #135). */
+    public RespostaAssistente responder(String pergunta, Set<Long> idsPermitidos,
+                                        List<br.com.nexusbuilderlab.semanexus.docia.assistente.dto.TurnoHistorico> historico,
+                                        ObservadorAgente observador) {
         Set<Long> vistos = new LinkedHashSet<>();
         Set<Long> lidos = new LinkedHashSet<>();
         Map<Long, String> aderencias = new HashMap<>();
@@ -104,8 +112,7 @@ public class AgenteDocia {
         java.util.concurrent.atomic.AtomicReference<Recuperacao> recuperacao =
                 new java.util.concurrent.atomic.AtomicReference<>();
         ResultadoAgente r = executor.executar(definicao(vistos, lidos, aderencias, similaridades, recuperacao,
-                        idsPermitidos), tarefa(pergunta, historico),
-                "pergunta");
+                        idsPermitidos), tarefa(pergunta, historico), "pergunta", observador);
         JsonNode j = r.resposta();
         // Ids internos não interessam ao usuário: o modelo às vezes os escreve no texto.
         String resposta = j.path("resposta").asText("").replaceAll("\\s*\\(?\\b[Dd]ocumento[Ii]d\\b:?\\s*\\d+\\)?", "").strip();

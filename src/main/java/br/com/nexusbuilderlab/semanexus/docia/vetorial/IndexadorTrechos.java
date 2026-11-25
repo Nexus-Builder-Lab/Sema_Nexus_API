@@ -45,6 +45,8 @@ public class IndexadorTrechos {
     private final Environment ambiente;
     private final ScheduledExecutorService executor;
     private final AtomicInteger indexados = new AtomicInteger();
+    /** Já avisou (WARN) de erro persistente de banco na indexação; volta a avisar depois de um sucesso. */
+    private volatile boolean avisouErroBanco;
 
     public IndexadorTrechos(ClienteEmbeddings embeddings, TrechoRepositorio trechos,
                             EmbeddingsConfiguracao configuracao, Environment ambiente) {
@@ -74,13 +76,20 @@ public class IndexadorTrechos {
         if (!configuracao.ativo()) {
             return;
         }
-        executor.execute(() -> {
-            try {
-                indexar(evento.documentoId());
-            } catch (RuntimeException e) {
-                // fica pendente: o preenchimento periódico tenta de novo
-            }
-        });
+        if (executor.isShutdown()) {
+            return; // aplicação encerrando: o preenchimento da próxima subida indexa o documento
+        }
+        try {
+            executor.execute(() -> {
+                try {
+                    indexar(evento.documentoId());
+                } catch (RuntimeException e) {
+                    erroBanco(e); // fica pendente: o preenchimento periódico tenta de novo
+                }
+            });
+        } catch (java.util.concurrent.RejectedExecutionException e) {
+            // encerrado entre a verificação e o envio: idem
+        }
     }
 
     @PreDestroy
@@ -92,7 +101,18 @@ public class IndexadorTrechos {
         try {
             preencher();
         } catch (RuntimeException e) {
-            LOG.debug("Preenchimento de trechos adiado ({}).", e.getClass().getSimpleName());
+            erroBanco(e);
+        }
+    }
+
+    /** Erro fora do embedding (ex.: SQL da V10, tabela ausente): WARN uma vez, sem a mensagem (pode trazer SQL). */
+    private void erroBanco(RuntimeException e) {
+        if (!avisouErroBanco) {
+            avisouErroBanco = true;
+            LOG.warn("Indexação da busca híbrida falhou ({}); a busca segue lexical e o próximo ciclo tenta de novo.",
+                    e.getClass().getSimpleName());
+        } else {
+            LOG.debug("Indexação da busca híbrida adiada ({}).", e.getClass().getSimpleName());
         }
     }
 
@@ -151,6 +171,7 @@ public class IndexadorTrechos {
         }
         trechos.substituir(documentoId, embeddings.modelo(), partes, vetores);
         indexados.incrementAndGet();
+        avisouErroBanco = false;
         return true;
     }
 

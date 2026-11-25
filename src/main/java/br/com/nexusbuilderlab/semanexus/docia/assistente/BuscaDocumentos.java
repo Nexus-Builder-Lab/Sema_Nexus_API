@@ -139,6 +139,28 @@ public class BuscaDocumentos {
      * @param permitirVetorial {@code false} força a busca só lexical (comparação do benchmark, {@code modo=LEXICAL})
      */
     public Resultado pesquisar(String consulta, int limite, Set<Long> idsPermitidos, boolean permitirVetorial) {
+        return pesquisar(preparar(consulta, permitirVetorial), limite, idsPermitidos);
+    }
+
+    /**
+     * Consulta com o embedding já calculado (ou nulo: só lexical). Separar as etapas permite chamar o modelo fora de
+     * transação e só depois abrir a consulta ao banco.
+     */
+    public record ConsultaPreparada(String texto, float[] vetor) {
+    }
+
+    /** Etapa de rede: gera o embedding da consulta quando a parte vetorial pode rodar. Nunca lança. */
+    public ConsultaPreparada preparar(String consulta, boolean permitirVetorial) {
+        float[] v = null;
+        if (permitirVetorial && vetorial != null && consulta != null && !consulta.isBlank()) {
+            v = vetorial.vetorizar(consulta).orElse(null);
+        }
+        return new ConsultaPreparada(consulta, v);
+    }
+
+    /** Etapa de banco: ranking lexical, ranking vetorial (se houver embedding) e fusão RRF. */
+    public Resultado pesquisar(ConsultaPreparada preparada, int limite, Set<Long> idsPermitidos) {
+        String consulta = preparada.texto();
         List<String> termos = radicais(consulta);
         Map<Long, Integer> pontos = new LinkedHashMap<>();
         for (String t : termos) {
@@ -161,9 +183,8 @@ public class BuscaDocumentos {
                 .map(Map.Entry::getKey)
                 .toList();
 
-        Optional<List<BuscaVetorial.AchadoVetorial>> vet = permitirVetorial && vetorial != null
-                && consulta != null && !consulta.isBlank()
-                ? vetorial.buscar(consulta, CANDIDATOS_VETORIAIS) : Optional.empty();
+        Optional<List<BuscaVetorial.AchadoVetorial>> vet = preparada.vetor() == null || vetorial == null
+                ? Optional.empty() : vetorial.buscar(preparada.vetor(), CANDIDATOS_VETORIAIS, idsPermitidos);
         if (vet == null || vet.isEmpty()) {
             List<Achado> r = new ArrayList<>();
             for (Long id : lexical) {

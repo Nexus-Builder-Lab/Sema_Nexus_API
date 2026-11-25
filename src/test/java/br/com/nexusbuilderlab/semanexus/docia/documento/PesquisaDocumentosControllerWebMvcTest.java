@@ -64,6 +64,12 @@ class PesquisaDocumentosControllerWebMvcTest {
     @MockitoBean
     BuscaDocumentos busca;
 
+    @org.junit.jupiter.api.BeforeEach
+    void preparar() {
+        when(busca.preparar(anyString(), org.mockito.ArgumentMatchers.anyBoolean()))
+                .thenAnswer(i -> new BuscaDocumentos.ConsultaPreparada(i.getArgument(0), null));
+    }
+
     private String bearer(Perfil perfil) {
         Usuario u = new Usuario("Usuário Teste", perfil.name().toLowerCase() + "@exemplo.test", "hash", perfil);
         long id = 500L + perfil.ordinal();
@@ -82,7 +88,7 @@ class PesquisaDocumentosControllerWebMvcTest {
         Documento d = mock(Documento.class);
         when(d.getId()).thenReturn(4L);
         when(d.getTitulo()).thenReturn("Relatório de Monitoramento de Desmatamento — Colniza");
-        when(busca.pesquisar(eq("área desmatada"), eq(10), any(), eq(true))).thenReturn(new BuscaDocumentos.Resultado(
+        when(busca.pesquisar(any(BuscaDocumentos.ConsultaPreparada.class), eq(10), any())).thenReturn(new BuscaDocumentos.Resultado(
                 List.of(new BuscaDocumentos.Achado(d, "Foram detectados 4 alertas.", "alta", 0.731)),
                 Recuperacao.HIBRIDA));
         mvc.perform(get(URL).param("q", " área desmatada ").header(HttpHeaders.AUTHORIZATION, bearer(Perfil.CONSULTA)))
@@ -92,18 +98,19 @@ class PesquisaDocumentosControllerWebMvcTest {
                 .andExpect(jsonPath("$.resultados[0].documento.id").value(4))
                 .andExpect(jsonPath("$.resultados[0].aderenciaTextual").value("alta"))
                 .andExpect(jsonPath("$.resultados[0].similaridadeSemantica").value(0.731));
+        verify(busca).preparar("área desmatada", true);
     }
 
     @Test
     void modoLexicalForcaABuscaTextual() throws Exception {
-        when(busca.pesquisar(anyString(), anyInt(), any(), eq(false)))
+        when(busca.pesquisar(any(BuscaDocumentos.ConsultaPreparada.class), anyInt(), any()))
                 .thenReturn(BuscaDocumentos.Resultado.lexical(List.of()));
         mvc.perform(get(URL).param("q", "queimada").param("modo", "lexical").param("limite", "3")
                         .header(HttpHeaders.AUTHORIZATION, bearer(Perfil.FISCAL)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.recuperacao").value("LEXICAL"))
                 .andExpect(jsonPath("$.resultados").isEmpty());
-        verify(busca).pesquisar("queimada", 3, null, false);
+        verify(busca).preparar("queimada", false);
     }
 
     @Test
