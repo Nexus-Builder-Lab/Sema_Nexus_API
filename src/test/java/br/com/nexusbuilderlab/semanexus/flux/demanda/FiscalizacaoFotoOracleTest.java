@@ -88,7 +88,7 @@ class FiscalizacaoFotoOracleTest {
                 + "EXIF_DATA_HORA FROM FISCALIZACAO_FOTO WHERE ID = ?", foto.id());
         assertThat(salvo.get("SHA256")).isEqualTo(foto.sha256());
         assertThat(salvo.get("MIME")).isEqualTo("image/jpeg");
-        assertThat(((Number) salvo.get("GPS_FORA_MT")).intValue()).isZero();
+        assertThat(salvo.get("GPS_FORA_MT")).isEqualTo(Boolean.FALSE);
         assertThat(salvo.get("EXIF_DATA_HORA")).isNotNull();
         assertThat(fotos.listar(ator, id)).extracting(FotoFiscalizacao::id).containsExactly(foto.id());
         assertThat(fotos.baixar(ator, id, foto.id()).conteudo()).isEqualTo(recurso("gps-cuiaba.jpg"));

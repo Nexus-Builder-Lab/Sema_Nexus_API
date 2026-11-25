@@ -34,7 +34,7 @@ public class FiscalizacaoFoto {
     @Column(name = "CHAVE_ARQUIVO", nullable = false, updatable = false)
     private String chaveArquivo;
 
-    @Column(name = "SHA256", nullable = false, updatable = false)
+    @Column(name = "SHA256", nullable = false, updatable = false, length = 64)
     private String sha256;
 
     @Column(name = "MIME", nullable = false, updatable = false)
