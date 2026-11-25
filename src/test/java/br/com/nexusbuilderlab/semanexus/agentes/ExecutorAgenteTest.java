@@ -201,4 +201,92 @@ class ExecutorAgenteTest {
                 .extracting(AgentesController.AgenteInfo::modelo).containsExactly("claude-sonnet-5-5");
         assertThat(c.toString()).doesNotContain(CHAVE_FICTICIA);
     }
+
+    /** Observador que guarda os eventos (Issue #135). */
+    static class ObservadorGravador implements ObservadorAgente {
+        final List<EventoAgente> eventos = new ArrayList<>();
+        boolean cancelar;
+
+        @Override
+        public void emitir(EventoAgente evento) {
+            eventos.add(evento);
+        }
+
+        @Override
+        public boolean cancelado() {
+            return cancelar;
+        }
+    }
+
+    @Test
+    void emiteEventosDeFerramentaEmOrdemComErroSanitizado() throws Exception {
+        ClienteFalso cliente = new ClienteFalso();
+        cliente.respostas.add(ferramenta("t1", "eco", "{\"texto\":\"oi\"}"));
+        cliente.respostas.add(ferramenta("t2", "falha", "{}"));
+        cliente.respostas.add(ferramenta("t3", "rm -rf/;", "{}"));
+        cliente.respostas.add(fim("{\"ok\":true}"));
+        ObservadorGravador obs = new ObservadorGravador();
+
+        ResultadoAgente r = executor(cliente, 6).executar(agente(new ArrayList<>()), "Tarefa", "11", obs);
+
+        assertThat(r.resposta().get("ok").asBoolean()).isTrue();
+        assertThat(obs.eventos).extracting(EventoAgente::tipo).containsExactly(
+                "ferramenta_iniciada", "ferramenta_concluida", "ferramenta_iniciada", "ferramenta_concluida",
+                "ferramenta_iniciada", "ferramenta_concluida");
+        assertThat(obs.eventos.get(0).dados()).containsEntry("ferramenta", "eco").containsEntry("ordem", 1);
+        assertThat(obs.eventos.get(1).dados()).containsEntry("resumo", "eco ok").containsEntry("erro", false);
+        // Erro da ferramenta: só o catálogo público + referência, nunca a mensagem interna.
+        assertThat(obs.eventos.get(3).dados()).containsEntry("erro", true);
+        assertThat((String) obs.eventos.get(3).dados().get("resumo")).contains("PARAMETRO_INVALIDO")
+                .contains("ref. ERR-").doesNotContain("demanda não encontrada");
+        // Nome vindo do modelo ecoado só com caracteres seguros.
+        assertThat(obs.eventos.get(4).dados()).containsEntry("ferramenta", "rmrf");
+        assertThat(obs.eventos.get(5).dados()).containsEntry("erro", true);
+        verify(auditoria).registrar(eq("AGENTE_EXECUCAO"), eq("AGENTE"), eq("teste:11"), anyString());
+    }
+
+    @Test
+    void observadorComFalhaNaoInterrompeOAgente() throws Exception {
+        ClienteFalso cliente = new ClienteFalso();
+        cliente.respostas.add(ferramenta("t1", "eco", "{\"texto\":\"oi\"}"));
+        cliente.respostas.add(fim("{\"ok\":true}"));
+        ObservadorAgente quebrado = evento -> {
+            throw new IllegalStateException("cliente desconectado");
+        };
+
+        assertThat(executor(cliente, 6).executar(agente(new ArrayList<>()), "Tarefa", "12", quebrado)
+                .resposta().get("ok").asBoolean()).isTrue();
+    }
+
+    @Test
+    void cancelamentoParaAntesDaProximaChamadaEAudita() throws Exception {
+        ClienteFalso cliente = new ClienteFalso();
+        cliente.respostas.add(ferramenta("t1", "eco", "{\"texto\":\"oi\"}"));
+        cliente.respostas.add(fim("{\"ok\":true}"));
+        List<String> chamadas = new ArrayList<>();
+        ObservadorGravador obs = new ObservadorGravador() {
+            @Override
+            public void emitir(EventoAgente evento) {
+                super.emitir(evento);
+                if (EventoAgente.FERRAMENTA_CONCLUIDA.equals(evento.tipo())) {
+                    cancelar = true; // o cliente desconecta logo após a primeira ferramenta
+                }
+            }
+        };
+
+        assertThatThrownBy(() -> executor(cliente, 6).executar(agente(chamadas), "Tarefa", "13", obs))
+                .isInstanceOf(ExecucaoCanceladaException.class)
+                .isInstanceOf(AgenteIndisponivelException.class);
+        assertThat(cliente.pedidos).hasSize(1); // a segunda chamada ao modelo não aconteceu
+        assertThat(chamadas).containsExactly("oi");
+        verify(auditoria).registrar(eq("AGENTE_FALHA"), eq("AGENTE"), eq("teste:13"), contains("cancelada"));
+    }
+
+    @Test
+    void semObservadorContinuaIgual() throws Exception {
+        ClienteFalso cliente = new ClienteFalso();
+        cliente.respostas.add(fim("{\"ok\":true}"));
+        assertThat(executor(cliente, 6).executar(agente(new ArrayList<>()), "Tarefa", "14", null)
+                .resposta().get("ok").asBoolean()).isTrue();
+    }
 }

@@ -278,4 +278,61 @@ class AgenteTriagemServiceTest {
         assertThat(RegrasTriagem.nucleo("Cáceres")[0]).isEqualTo("NR-CAC");
         assertThat(RegrasTriagem.nucleo("Outra")).isNull();
     }
+
+    /** Stream SSE (Issue #135): eventos das ferramentas e fallback, com a mesma sugestão do endpoint JSON. */
+    static class Eventos implements br.com.nexusbuilderlab.semanexus.agentes.ObservadorAgente {
+        final List<br.com.nexusbuilderlab.semanexus.agentes.EventoAgente> lista = new java.util.ArrayList<>();
+
+        @Override
+        public void emitir(br.com.nexusbuilderlab.semanexus.agentes.EventoAgente evento) {
+            lista.add(evento);
+        }
+    }
+
+    @Test
+    void streamEmiteEventosDasFerramentas() throws Exception {
+        when(demandas.detalhar(ator, 4L)).thenReturn(demanda(StatusDemanda.EM_TRIAGEM));
+        ModeloRoteiro modelo = new ModeloRoteiro();
+        modelo.respostas.add(ferramenta("obter_demanda", "{}"));
+        modelo.respostas.add(new ClienteModelo.RespostaModelo("stop", List.of(),
+                "{\"decisao\":\"CLASSIFICAR\",\"categoria\":\"RESIDUOS_POLUICAO\",\"prioridade\":\"MEDIA\","
+                        + "\"justificativa\":\"Descarte relatado.\",\"duplicatas\":[]}", null, 50, 30, 0));
+        AgenteTriagemService service = service(modelo);
+        Eventos eventos = new Eventos();
+
+        SugestaoTriagem s = service.sugerir(ator, service.verificar(ator, 4L), eventos);
+
+        assertThat(s.modo()).isEqualTo("LOCAL");
+        assertThat(eventos.lista).extracting(br.com.nexusbuilderlab.semanexus.agentes.EventoAgente::tipo)
+                .containsExactly("ferramenta_iniciada", "ferramenta_concluida");
+    }
+
+    @Test
+    void streamEmiteFallbackQuandoAIaFalhaOuEstaIndisponivel() {
+        when(demandas.detalhar(ator, 4L)).thenReturn(demanda(StatusDemanda.PENDENTE));
+        Eventos falha = new Eventos();
+        SugestaoTriagem s = service(new ModeloRoteiro()).sugerir(ator, demanda(StatusDemanda.PENDENTE), falha);
+        assertThat(s.modo()).isEqualTo("DEMONSTRATIVO");
+        assertThat(falha.lista).extracting(br.com.nexusbuilderlab.semanexus.agentes.EventoAgente::tipo)
+                .containsExactly("fallback_demonstrativo");
+        // Motivo público fixo: nunca a mensagem da exceção ("fim do roteiro", tipo do erro...).
+        assertThat(falha.lista.get(0).dados().get("motivo").toString()).doesNotContain("roteiro")
+                .doesNotContain("Exception");
+
+        ModeloRoteiro semIa = new ModeloRoteiro();
+        semIa.disponivel = false;
+        Eventos indisponivel = new Eventos();
+        service(semIa).sugerir(ator, demanda(StatusDemanda.PENDENTE), indisponivel);
+        assertThat(indisponivel.lista).extracting(br.com.nexusbuilderlab.semanexus.agentes.EventoAgente::tipo)
+                .containsExactly("fallback_demonstrativo");
+    }
+
+    @Test
+    void observadorComFalhaNoFallbackNaoDerrubaASugestao() {
+        when(demandas.detalhar(ator, 4L)).thenReturn(demanda(StatusDemanda.PENDENTE));
+        SugestaoTriagem s = service(new ModeloRoteiro()).sugerir(ator, demanda(StatusDemanda.PENDENTE), evento -> {
+            throw new IllegalStateException("cliente desconectado");
+        });
+        assertThat(s.modo()).isEqualTo("DEMONSTRATIVO");
+    }
 }

@@ -55,6 +55,8 @@ class ContratoOpenApiTest {
             "POST /api/documentos/comparacao",
             "POST /api/docia/comparacao/explicar",
             "POST /api/demandas/{id}/minuta-vistoria",
+            // Streaming SSE dos agentes (Issue #135)
+            "POST /api/demandas/{id}/triagem/sugestao/stream", "POST /api/docia/perguntas/stream",
             // Intelligence e dashboard (contrato)
             "GET /api/intelligence/resumo", "GET /api/intelligence/serie-mensal", "GET /api/intelligence/por-municipio",
             "GET /api/intelligence/por-bioma", "GET /api/intelligence/por-categoria", "GET /api/intelligence/por-situacao",
@@ -182,6 +184,20 @@ class ContratoOpenApiTest {
                 .isEqualTo("#/components/schemas/LoginResponse");
         assertThat(contrato().path("components").path("schemas").path("LoginResponse").path("properties").fieldNames())
                 .toIterable().contains("token", "expiresIn", "usuario");
+    }
+
+    @Test
+    void streamsSseDocumentamEventosELimite() throws Exception {
+        for (String chave : List.of("POST /api/demandas/{id}/triagem/sugestao/stream", "POST /api/docia/perguntas/stream")) {
+            JsonNode op = operacao(chave);
+            assertThat(op.path("responses").path("200").path("content").has("text/event-stream")).as(chave).isTrue();
+            assertThat(op.path("responses").has("429")).as("429 em %s", chave).isTrue();
+            assertThat(op.path("responses").path("503").path("content").has("application/problem+json"))
+                    .as("503 em %s", chave).isTrue();
+            assertThat(op.path("description").asText()).contains("fallback_demonstrativo").contains("concluido");
+        }
+        assertThat(contrato().path("components").path("schemas").path("EventoAgente").path("properties")
+                .path("tipo").path("enum").toString()).contains("ferramenta_iniciada", "delta_texto");
     }
 
     @Test

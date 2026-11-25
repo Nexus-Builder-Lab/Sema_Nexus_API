@@ -70,6 +70,11 @@ class LimitadorRequisicoesTest {
         assertThat(LimiteRequisicoesFilter.categoria("POST", "/api/demandas/12/distribuicao/sugestao"))
                 .isEqualTo(Categoria.IA);
         assertThat(LimiteRequisicoesFilter.categoria("POST", "/api/demandas/12/distribuicao")).isNull();
+        // Streams SSE (Issue #135): mesma categoria dos endpoints JSON.
+        assertThat(LimiteRequisicoesFilter.categoria("POST", "/api/demandas/12/triagem/sugestao/stream"))
+                .isEqualTo(Categoria.IA);
+        assertThat(LimiteRequisicoesFilter.categoria("POST", "/api/docia/perguntas/stream")).isEqualTo(Categoria.IA);
+        assertThat(LimiteRequisicoesFilter.categoria("POST", "/api/demandas/12/triagem/sugestao/outro")).isNull();
         assertThat(LimiteRequisicoesFilter.categoria("POST", "/api/docia/perguntas")).isEqualTo(Categoria.IA);
         assertThat(LimiteRequisicoesFilter.categoria("POST", "/api/demandas/12/minuta-vistoria"))
                 .isEqualTo(Categoria.IA);

@@ -3,6 +3,7 @@ package br.com.nexusbuilderlab.semanexus.security;
 import br.com.nexusbuilderlab.semanexus.core.usuario.UsuarioRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
+import jakarta.servlet.DispatcherType;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
@@ -79,6 +80,9 @@ public class SecurityConfig {
                 .logout(AbstractHttpConfigurer::disable)
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // Despacho ASYNC (fim de um stream SSE, Issue #135): a requisição original já foi autenticada
+                        // e autorizada; o filtro JWT não roda de novo nesse despacho interno do contêiner.
+                        .dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
                         .requestMatchers(PUBLICOS).permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/auth/config").permitAll()

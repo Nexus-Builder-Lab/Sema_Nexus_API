@@ -11,8 +11,11 @@ import br.com.nexusbuilderlab.semanexus.agentes.AgenteIndisponivelException;
 import br.com.nexusbuilderlab.semanexus.agentes.AgentesConfiguracao;
 import br.com.nexusbuilderlab.semanexus.agentes.AgentesController;
 import br.com.nexusbuilderlab.semanexus.agentes.DefinicaoAgente;
+import br.com.nexusbuilderlab.semanexus.agentes.EventoAgente;
+import br.com.nexusbuilderlab.semanexus.agentes.ExecucaoCanceladaException;
 import br.com.nexusbuilderlab.semanexus.agentes.ExecutorAgente;
 import br.com.nexusbuilderlab.semanexus.agentes.FerramentaAgente;
+import br.com.nexusbuilderlab.semanexus.agentes.ObservadorAgente;
 import br.com.nexusbuilderlab.semanexus.agentes.ResultadoAgente;
 import br.com.nexusbuilderlab.semanexus.common.exception.ConflitoException;
 import br.com.nexusbuilderlab.semanexus.core.catalogo.CategoriaFiscalizacao;
@@ -50,6 +53,8 @@ public class AgenteTriagemService {
     static final String NOME = "triagem";
     static final int MAX_SEMELHANTES = 8;
     static final String NENHUMA = "NENHUMA";
+    static final String FALLBACK_TEMPO = "A IA não respondeu a tempo; sugestão feita pelas regras locais.";
+    static final String FALLBACK_SEM_IA = "IA indisponível; sugestão feita pelas regras locais (modo demonstrativo).";
 
     static final String INSTRUCOES = """
             Você é o Agente de Triagem do SEMA ALERTA, um sistema DEMONSTRATIVO de demandas de fiscalização ambiental \
@@ -103,10 +108,24 @@ public class AgenteTriagemService {
     }
 
     public SugestaoTriagem sugerir(UsuarioAutenticado ator, Long id) {
+        return sugerir(ator, verificar(ator, id), ObservadorAgente.NENHUM);
+    }
+
+    /**
+     * Validações que viram status HTTP (404/403 pelo escopo do usuário, 409 pelo status). O stream SSE (Issue #135)
+     * chama antes de abrir a transmissão, na thread da requisição.
+     */
+    public DemandaDetalhe verificar(UsuarioAutenticado ator, Long id) {
         DemandaDetalhe d = demandas.detalhar(ator, id); // 404/403 conforme o escopo do usuário
         if (d.status() != StatusDemanda.PENDENTE && d.status() != StatusDemanda.EM_TRIAGEM) {
             throw new ConflitoException("A sugestão de triagem só se aplica a demandas Pendentes ou Em triagem.");
         }
+        return d;
+    }
+
+    /** Sugestão de uma demanda já verificada, emitindo os eventos do agente ao {@code observador} (Issue #135). */
+    public SugestaoTriagem sugerir(UsuarioAutenticado ator, DemandaDetalhe d, ObservadorAgente observador) {
+        Long id = d.id();
         String regiao = municipios.findById(d.municipio().id()).map(Municipio::getRegiao).orElse(null);
         String[] n = RegrasTriagem.nucleo(regiao);
         Nucleo nucleo = n == null ? null : new Nucleo(n[0], n[1]);
@@ -123,11 +142,17 @@ public class AgenteTriagemService {
                     raio -> cache.computeIfAbsent(raio, k -> espacial.analisar(ator, d, k));
             try {
                 ResultadoAgente r = executor.executar(definicao(ator, d, regiao, nucleo, inpe, vistas, espPara),
-                        "Sugira a triagem da demanda " + d.numero() + " (id " + d.id() + ").", String.valueOf(id));
+                        "Sugira a triagem da demanda " + d.numero() + " (id " + d.id() + ").", String.valueOf(id),
+                        observador);
                 return deIa(d, nucleo, inpe, r, vistas, avisos, esp);
+            } catch (ExecucaoCanceladaException e) {
+                throw e; // cliente do stream desconectou: nada a sugerir
             } catch (AgenteIndisponivelException e) {
-                avisos.add("A IA não respondeu a tempo; sugestão feita pelas regras locais.");
+                avisos.add(FALLBACK_TEMPO);
+                ObservadorAgente.emitirSeguro(observador, EventoAgente.fallbackDemonstrativo(FALLBACK_TEMPO));
             }
+        } else {
+            ObservadorAgente.emitirSeguro(observador, EventoAgente.fallbackDemonstrativo(FALLBACK_SEM_IA));
         }
         return porRegras(ator, d, nucleo, inpe, avisos, esp);
     }

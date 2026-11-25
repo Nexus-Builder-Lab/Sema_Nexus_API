@@ -155,7 +155,7 @@ Janela fixa em memória (uma instância da API), configurável por variáveis de
 | Categoria | Endpoints (só `POST`) | Conta por | Padrão |
 |---|---|---|---|
 | `LOGIN` | `/api/auth/login`, `/api/auth/demo/{perfil}` | IP do cliente | `LIMITE_LOGIN_POR_JANELA=20` |
-| `IA` | `/api/demandas/{id}/triagem/sugestao`, `/api/demandas/{id}/distribuicao/sugestao`, `/api/docia/perguntas`, `/api/docia/comparacao/explicar`, `/api/demandas/{id}/minuta-vistoria` | usuário autenticado | `LIMITE_IA_POR_JANELA=10` |
+| `IA` | `/api/demandas/{id}/triagem/sugestao` (e `/stream`), `/api/demandas/{id}/distribuicao/sugestao`, `/api/docia/perguntas` (e `/stream`), `/api/docia/comparacao/explicar`, `/api/demandas/{id}/minuta-vistoria` | usuário autenticado | `LIMITE_IA_POR_JANELA=10` |
 | `UPLOAD` | `/api/documentos` (multipart) | usuário autenticado | `LIMITE_UPLOAD_POR_JANELA=20` |
 
 Janela: `LIMITE_JANELA_SEGUNDOS=60`; `LIMITE_REQUISICOES_ATIVO=false` desliga. Acima do limite: `429` com `Retry-After` (segundos até a próxima janela). O IP vem do último endereço de `X-Forwarded-For` **só** quando a conexão chega de um proxy configurado em `LIMITE_PROXY_CONFIAVEL` (IPs, CIDR ou nomes de host; no compose, `web` — o Nginx do Web, resolvido pela rede interna a cada 30 s) ou do loopback; vazio = só loopback. De qualquer outra origem o cabeçalho é ignorado e vale o IP da conexão. No compose a porta da API é publicada só em `127.0.0.1`. Memória limitada: no máximo `LIMITE_MAX_CHAVES` (10.000) contadores vivos — as janelas vencidas saem em custo amortizado e, acima do teto, a mais antiga é descartada. Os contadores zeram a cada reinício da API. O `429` aparece no OpenAPI dessas operações.
@@ -231,6 +231,20 @@ Um fiscal cadastrado e associado a uma equipe passa a constar em `GET /api/equip
 **Assistente DocIA agêntico (Implementado — Issue #108)** — `POST /api/docia/perguntas` (mesmo contrato, campos novos compatíveis): com IA disponível, o Agente DocIA busca e lê os documentos e responde com citações conferidas; a resposta traz também `agente` (LOCAL, CLAUDE, DEMONSTRATIVO ou EXTERNO), `modelo` (nulo sem IA) e `passos` (o que o agente fez). Sem IA ou em falha, o comportamento extrativo anterior (#27). Detalhes em `docs/AGENTES_IA.md`.
 
 **Assistente DocIA contextualizado e multi-turno (Implementado — Issue #133)** — `POST /api/docia/perguntas` aceita dois campos **opcionais** (sem eles, o contrato anterior): `demandaId` (restringe a busca e a leitura aos documentos vinculados à demanda; o usuário precisa ter acesso à demanda pela mesma regra do detalhe da demanda — FISCAL só da sua equipe/atribuídas: **403** fora do escopo, **404** inexistente, `problem+json`; demanda sem documentos vinculados responde "Não há informação suficiente…") e `historico` (`[{pergunta, resposta}]`, até 10 itens aceitos; a API mantém só os **4 mais recentes**, com no máximo 300 caracteres por pergunta, 500 por resposta e 2.000 no total, sem caracteres de controle nem marcadores de delimitação/papel). O histórico entra no prompt só como **dados** num bloco `<<<HISTORICO_DADOS … HISTORICO_DADOS>>>` e nunca como instrução; as citações continuam conferidas apenas nos documentos efetivamente lidos. O modo extrativo (sem IA) respeita `demandaId` e ignora `historico`.
+
+**Streaming SSE dos agentes (Implementado — Issue #135)** — `POST /api/demandas/{id}/triagem/sugestao/stream` e `POST /api/docia/perguntas/stream`: mesmos corpos, perfis, escopo, auditoria e categoria `IA` do limite de requisições dos endpoints JSON (que seguem intactos). Erros de validação/escopo (400/401/403/404/409/429) saem como `problem+json` **antes** de abrir o stream; depois, `200 text/event-stream` com cabeçalhos `X-Accel-Buffering: no` e `Cache-Control: no-cache, no-transform`. JWT **só** no cabeçalho `Authorization` (nunca na query string — por isso o cliente usa `fetch` com `ReadableStream`, não `EventSource`). Eventos (`event:` + `data:` JSON):
+
+| Evento | `data` | Quando |
+|---|---|---|
+| `inicio` | `{agente}` (`triagem` ou `docia`) | sempre, primeiro |
+| `ferramenta_iniciada` | `{ferramenta, ordem}` | antes de cada ferramenta pedida pelo modelo |
+| `ferramenta_concluida` | `{ferramenta, ordem, resumo, erro}` | depois de cada ferramenta; em erro, `resumo` = código do catálogo `ErroFerramenta` + mensagem pública + `ref. ERR-…` (detalhe só no log) |
+| `fallback_demonstrativo` | `{motivo}` | IA indisponível ou sem resposta a tempo (orçamento, fila da GPU, erro do provedor); motivo público fixo, sem a mensagem da exceção |
+| `delta_texto` | `{texto}` | texto final exibível (justificativa da triagem / resposta do DocIA) num **único** evento — os clientes Ollama/Anthropic ainda não transmitem tokens |
+| `concluido` | mesmo JSON de `SugestaoTriagem` / `RespostaAssistente` do endpoint síncrono | fim normal |
+| `erro` | `{mensagem, referencia}` | falha inesperada depois de aberto o stream (sem detalhe interno) |
+
+Comentários `:keepalive` a cada 15 s (`AGENTES_SSE_BATIMENTO_SEGUNDOS`). Timeout do stream = orçamento + timeout por chamada + 30 s. Se o cliente desconectar, a execução para na próxima etapa (antes da próxima chamada ao modelo ou ferramenta) e desiste da espera pela fila da GPU. Até `AGENTES_SSE_MAX_SIMULTANEOS` (16) streams simultâneos; além disso, 503 `problem+json`.
 
 ## Painel do sistema (Implementado — Issue #114)
 
