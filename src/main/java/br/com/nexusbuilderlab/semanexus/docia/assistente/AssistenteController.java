@@ -68,7 +68,7 @@ public class AssistenteController {
     public ResponseEntity<SseEmitter> perguntarStream(@AuthenticationPrincipal UsuarioAutenticado ator,
                                                       @Valid @RequestBody PerguntaRequest pedido) {
         Set<Long> permitidos = service.documentosPermitidos(ator, pedido);
-        return transmissao.transmitir("docia", obs -> service.responder(pedido, permitidos, obs),
+        return transmissao.transmitir("docia", obs -> service.responder(ator, pedido, permitidos, obs),
                 RespostaAssistente::resposta);
     }
 }

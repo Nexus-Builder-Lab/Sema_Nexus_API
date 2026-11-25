@@ -172,8 +172,8 @@ class StreamAgentesWebMvcTest {
     @Test
     void docIaComFallbackDemonstrativo() throws Exception {
         when(assistente.documentosPermitidos(any(), any())).thenReturn(null);
-        when(assistente.responder(any(), any(), any())).thenAnswer(inv -> {
-            ObservadorAgente obs = inv.getArgument(2);
+        when(assistente.responder(any(), any(), any(), any())).thenAnswer(inv -> {
+            ObservadorAgente obs = inv.getArgument(3);
             obs.emitir(EventoAgente.fallbackDemonstrativo("IA indisponÃ­vel; resposta pelo modo extrativo."));
             return new RespostaAssistente("Trechos encontrados nos documentos.", "Modo demonstrativo", List.of());
         });
@@ -238,7 +238,7 @@ class StreamAgentesWebMvcTest {
     @Test
     void streamUsaOLimiteDaCategoriaIa() throws Exception {
         when(assistente.documentosPermitidos(any(), any())).thenReturn(null);
-        when(assistente.responder(any(), any(), any()))
+        when(assistente.responder(any(), any(), any(), any()))
                 .thenReturn(new RespostaAssistente("ok", "Modo demonstrativo", List.of()));
         String auth = bearer(Perfil.ANALISTA, 530);
         for (int i = 0; i < 3; i++) {

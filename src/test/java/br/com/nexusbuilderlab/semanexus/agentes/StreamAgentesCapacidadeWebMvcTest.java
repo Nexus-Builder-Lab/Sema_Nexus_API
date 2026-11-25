@@ -83,7 +83,7 @@ class StreamAgentesCapacidadeWebMvcTest {
         CountDownLatch ocupado = new CountDownLatch(1);
         CountDownLatch liberar = new CountDownLatch(1);
         when(assistente.documentosPermitidos(any(), any())).thenReturn(null);
-        when(assistente.responder(any(), any(), any())).thenAnswer(inv -> {
+        when(assistente.responder(any(), any(), any(), any())).thenAnswer(inv -> {
             ocupado.countDown();
             liberar.await(5, TimeUnit.SECONDS);
             return new RespostaAssistente("ok", "Modo demonstrativo", List.of());

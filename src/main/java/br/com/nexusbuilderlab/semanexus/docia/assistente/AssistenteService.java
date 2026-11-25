@@ -50,11 +50,19 @@ public class AssistenteService {
     private final AgenteDocia agente;
     private final DemandaService demandas;
     private final JdbcTemplate jdbc;
+    private final br.com.nexusbuilderlab.semanexus.agentes.AcoesSugeridas acoes;
+
+    public AssistenteService(BuscaDocumentos busca, AssistenteProvider provider, AgenteDocia agente,
+                             DemandaService demandas, JdbcTemplate jdbc) {
+        this(busca, provider, agente, demandas, jdbc, null);
+    }
 
     /** {@code agente} nulo = só o modo extrativo/provider (testes e configuração sem agentes). */
     @Autowired
     public AssistenteService(BuscaDocumentos busca, AssistenteProvider provider, AgenteDocia agente,
-                             DemandaService demandas, JdbcTemplate jdbc) {
+                             DemandaService demandas, JdbcTemplate jdbc,
+                             br.com.nexusbuilderlab.semanexus.agentes.AcoesSugeridas acoes) {
+        this.acoes = acoes;
         this.busca = busca;
         this.provider = provider;
         this.agente = agente;
@@ -75,7 +83,7 @@ public class AssistenteService {
      * recuperação textual + provider (extrativo por padrão). Sem transação própria: a auditoria do agente grava.
      */
     public RespostaAssistente perguntar(UsuarioAutenticado ator, PerguntaRequest pedido) {
-        return responder(pedido, documentosPermitidos(ator, pedido), ObservadorAgente.NENHUM);
+        return responder(ator, pedido, documentosPermitidos(ator, pedido), ObservadorAgente.NENHUM);
     }
 
     /**
@@ -93,6 +101,17 @@ public class AssistenteService {
     }
 
     /** Resposta com o escopo já resolvido, emitindo os eventos do agente ao {@code observador} (Issue #135). */
+    public RespostaAssistente responder(UsuarioAutenticado ator, PerguntaRequest pedido, Set<Long> permitidos,
+                                        ObservadorAgente observador) {
+        RespostaAssistente r = responder(pedido, permitidos, observador);
+        if (acoes == null || r.referencias() == null || r.referencias().isEmpty()) {
+            return r;
+        }
+        // Action Cards (Issue #136): derivadas dos documentos citados, nunca de ids do modelo; nada e gravado.
+        return r.comAcoes(acoes.paraDocia(ator, pedido.demandaId(),
+                r.referencias().stream().map(ReferenciaDocumento::documentoId).toList()));
+    }
+
     public RespostaAssistente responder(PerguntaRequest pedido, Set<Long> permitidos, ObservadorAgente observador) {
         if (permitidos != null && permitidos.isEmpty()) {
             return semInformacao(); // nada vinculado: não gasta a IA

@@ -51,10 +51,10 @@ public class ReferenciaSateliteLoader {
     private static final Logger log = LoggerFactory.getLogger(ReferenciaSateliteLoader.class);
 
     /** Limites de Mato Grosso (os mesmos dos CHECKs das tabelas). */
-    static final BigDecimal LAT_MIN = new BigDecimal("-18.1");
-    static final BigDecimal LAT_MAX = new BigDecimal("-7.3");
-    static final BigDecimal LON_MIN = new BigDecimal("-61.7");
-    static final BigDecimal LON_MAX = new BigDecimal("-50.1");
+    public static final BigDecimal LAT_MIN = new BigDecimal("-18.1");
+    public static final BigDecimal LAT_MAX = new BigDecimal("-7.3");
+    public static final BigDecimal LON_MIN = new BigDecimal("-61.7");
+    public static final BigDecimal LON_MAX = new BigDecimal("-50.1");
 
     /** Valor usado pelo BDQueimadas para "sem dado" (ex.: risco_fogo = -999). */
     static final double SEM_DADO_INPE = -999d;

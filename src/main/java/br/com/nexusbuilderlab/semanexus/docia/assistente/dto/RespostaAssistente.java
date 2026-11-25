@@ -2,6 +2,7 @@ package br.com.nexusbuilderlab.semanexus.docia.assistente.dto;
 
 import java.util.List;
 
+import br.com.nexusbuilderlab.semanexus.agentes.AcaoSugerida;
 import br.com.nexusbuilderlab.semanexus.docia.vetorial.Recuperacao;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -23,11 +24,25 @@ public record RespostaAssistente(
         @Schema(description = "Como os documentos foram recuperados: LEXICAL (só busca textual por termos) ou "
                 + "HIBRIDA (busca textual + vetorial com embeddings locais, fundidas por RRF). Nula quando nenhuma "
                 + "busca foi feita (ex.: pergunta recusada).", nullable = true, example = "HIBRIDA")
-        Recuperacao recuperacao) {
+        Recuperacao recuperacao,
+        @Schema(description = "Action Cards opcionais derivados no servidor do que o agente citou (Issue #136); "
+                + "vazio quando não há. Nada é gravado: a pessoa confirma na tela.")
+        List<AcaoSugerida> acoesSugeridas) {
 
     public RespostaAssistente(String resposta, String modo, List<ReferenciaDocumento> referencias, String agente,
                               String modelo, List<String> passos) {
-        this(resposta, modo, referencias, agente, modelo, passos, null);
+        this(resposta, modo, referencias, agente, modelo, passos, null, List.of());
+    }
+
+    public RespostaAssistente(String resposta, String modo, List<ReferenciaDocumento> referencias, String agente,
+                              String modelo, List<String> passos, Recuperacao recuperacao) {
+        this(resposta, modo, referencias, agente, modelo, passos, recuperacao, List.of());
+    }
+
+    /** Mesma resposta com os Action Cards (Issue #136). */
+    public RespostaAssistente comAcoes(List<AcaoSugerida> acoes) {
+        return new RespostaAssistente(resposta, modo, referencias, agente, modelo, passos, recuperacao,
+                acoes == null ? List.of() : List.copyOf(acoes));
     }
 
     /** Respostas sem agente (demonstrativa extrativa ou provider externo). */
@@ -38,6 +53,6 @@ public record RespostaAssistente(
 
     /** Mesma resposta com o modo de recuperação informado. */
     public RespostaAssistente comRecuperacao(Recuperacao r) {
-        return new RespostaAssistente(resposta, modo, referencias, agente, modelo, passos, r);
+        return new RespostaAssistente(resposta, modo, referencias, agente, modelo, passos, r, acoesSugeridas);
     }
 }
