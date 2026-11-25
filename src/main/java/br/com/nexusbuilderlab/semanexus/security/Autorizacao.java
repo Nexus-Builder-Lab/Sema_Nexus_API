@@ -19,6 +19,9 @@ public final class Autorizacao {
     /** Admin, Gestor e Fiscal: acompanhamento e fiscalização (o fiscal precisa ser o designado). */
     public static final String ADMIN_GESTOR_FISCAL = "hasAnyRole('ADMIN','GESTOR','FISCAL')";
 
+    /** Admin, Gestor, Analista e Fiscal (o fiscal precisa ser o designado, verificado no Service): minuta de vistoria. */
+    public static final String ADMIN_GESTOR_ANALISTA_FISCAL = "hasAnyRole('ADMIN','GESTOR','ANALISTA','FISCAL')";
+
     /** Todos exceto Consulta: upload e vínculo de documentos. */
     public static final String ESCRITA_DOCUMENTO = "hasAnyRole('ADMIN','GESTOR','FISCAL','ANALISTA')";
 

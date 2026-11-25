@@ -118,6 +118,8 @@ class PainelSistemaServiceTest {
         assertThat(triagem.metricas().tempoMedioMs()).isEqualTo(9000);
         assertThat(triagem.metricas().ultimaFalha()).isEqualTo("JSON inválido");
         assertThat(p.agentes().get(1).metricas().demonstrativo()).isEqualTo(1);
+        assertThat(p.agentes()).anyMatch(a -> a.id().equals("minuta")
+                && a.ferramentas().contains("alertas_inpe_area"));
         assertThat(p.sistema().perfilAtivo()).isEqualTo("demo");
     }
 

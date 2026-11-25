@@ -215,6 +215,11 @@ public class PainelSistemaService {
                 new AgentePainel("distribuicao", "Agente de Distribuição", "SEMA Flux", modo,
                         ia ? executor.modelo(agentes.modeloTriagem()) : "Regras locais (sem IA generativa)",
                         List.of("carga_trabalho_fiscais", "demandas_ativas_na_regiao", "tempo_medio_categoria"),
-                        metricas.resumo("distribuicao")));
+                        metricas.resumo("distribuicao")),
+                new AgentePainel("minuta", "Agente Copiloto de Minuta", "SEMA Flux", modo,
+                        ia ? executor.modelo(agentes.modeloDocia()) : "Template determinístico (sem IA generativa)",
+                        List.of("obter_dossie_demanda", "ler_registro_fiscalizacao", "resumo_documentos_vinculados",
+                                "alertas_inpe_area"),
+                        metricas.resumo("minuta")));
     }
 }

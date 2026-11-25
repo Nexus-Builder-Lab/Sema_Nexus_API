@@ -54,6 +54,7 @@ class ContratoOpenApiTest {
             "GET /api/agentes/status", "POST /api/demandas/{id}/triagem/sugestao", "POST /api/demandas/{id}/distribuicao/sugestao", "GET /api/sistema/painel",
             "POST /api/documentos/comparacao",
             "POST /api/docia/comparacao/explicar",
+            "POST /api/demandas/{id}/minuta-vistoria",
             // Streaming SSE dos agentes (Issue #135)
             "POST /api/demandas/{id}/triagem/sugestao/stream", "POST /api/docia/perguntas/stream",
             // Intelligence e dashboard (contrato)

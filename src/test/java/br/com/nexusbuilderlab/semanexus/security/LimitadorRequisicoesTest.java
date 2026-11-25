@@ -76,6 +76,8 @@ class LimitadorRequisicoesTest {
         assertThat(LimiteRequisicoesFilter.categoria("POST", "/api/docia/perguntas/stream")).isEqualTo(Categoria.IA);
         assertThat(LimiteRequisicoesFilter.categoria("POST", "/api/demandas/12/triagem/sugestao/outro")).isNull();
         assertThat(LimiteRequisicoesFilter.categoria("POST", "/api/docia/perguntas")).isEqualTo(Categoria.IA);
+        assertThat(LimiteRequisicoesFilter.categoria("POST", "/api/demandas/12/minuta-vistoria"))
+                .isEqualTo(Categoria.IA);
         assertThat(LimiteRequisicoesFilter.categoria("POST", "/api/docia/comparacao/explicar")).isEqualTo(Categoria.IA);
         assertThat(LimiteRequisicoesFilter.categoria("POST", "/api/documentos")).isEqualTo(Categoria.UPLOAD);
         assertThat(LimiteRequisicoesFilter.categoria("GET", "/api/documentos")).isNull();
