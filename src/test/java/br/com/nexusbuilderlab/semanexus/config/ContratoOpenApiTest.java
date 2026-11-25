@@ -46,6 +46,9 @@ class ContratoOpenApiTest {
             "POST /api/demandas/{id}/devolucao",
             "GET /api/demandas/{id}/documentos", "POST /api/demandas/{id}/documentos",
             "DELETE /api/demandas/{id}/documentos/{documentoId}",
+            // Checklist e fotos da fiscalização (Issue #145)
+            "GET /api/demandas/checklists", "POST /api/demandas/{id}/fotos", "GET /api/demandas/{id}/fotos",
+            "GET /api/demandas/{id}/fotos/{fotoId}/arquivo", "DELETE /api/demandas/{id}/fotos/{fotoId}",
             "GET /api/flux/prazos", "GET /api/flux/prazos/resumo", "GET /api/flux/produtividade",
             // DocIA (contrato)
             "POST /api/documentos", "POST /api/documentos/pre-analise", "GET /api/documentos", "GET /api/documentos/busca", "GET /api/documentos/{id}", "GET /api/documentos/{id}/arquivo",

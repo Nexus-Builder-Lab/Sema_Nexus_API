@@ -17,5 +17,14 @@ public record FiscalizacaoDetalhe(
         @Schema(description = "Evidências registradas (texto)") String evidencias,
         @Schema(description = "Recomendações", nullable = true) String recomendacoes,
         UsuarioRef registradoPor,
-        LocalDateTime registradoEm) {
+        LocalDateTime registradoEm,
+        @Schema(description = "Checklist estruturado (Issue #145); nulo em registros sem checklist", nullable = true)
+        ChecklistPreenchido checklist) {
+
+    /** Registro sem checklist. */
+    public FiscalizacaoDetalhe(Long id, LocalDate data, EquipeRef equipe, String atividades, String resultado,
+                               String evidencias, String recomendacoes, UsuarioRef registradoPor,
+                               LocalDateTime registradoEm) {
+        this(id, data, equipe, atividades, resultado, evidencias, recomendacoes, registradoPor, registradoEm, null);
+    }
 }

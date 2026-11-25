@@ -420,7 +420,7 @@ public class DemandaService {
     private static FiscalizacaoDetalhe fiscalizacao(Fiscalizacao f) {
         return new FiscalizacaoDetalhe(f.getId(), f.getData(), equipeRef(f.getEquipe()), f.getAtividades(),
                 f.getResultado(), f.getEvidencias(), f.getRecomendacoes(), UsuarioRef.de(f.getRegistradoPor()),
-                f.getRegistradoEm());
+                f.getRegistradoEm(), ChecklistFiscalizacao.ler(f.getChecklist()));
     }
 
     private static MunicipioRef municipioRef(Municipio m) {
