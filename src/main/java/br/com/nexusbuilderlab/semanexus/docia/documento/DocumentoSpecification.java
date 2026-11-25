@@ -15,8 +15,11 @@ import org.springframework.data.jpa.domain.Specification;
 
 /**
  * Filtros combináveis e pesquisa textual da biblioteca documental (Criteria API, parâmetros vinculados).
- * A pesquisa ignora maiúsculas e acentos: {@code TRANSLATE(coluna, maiúsculas/acentuadas, minúsculas simples) LIKE :padrao},
- * com o termo normalizado do mesmo modo no Java. É busca textual, não semântica.
+ * A pesquisa ignora maiúsculas e acentos: nas colunas VARCHAR2 (título, descrição, palavras-chave)
+ * {@code TRANSLATE(coluna, maiúsculas/acentuadas, minúsculas simples) LIKE :padrao}; no texto extraído (CLOB) usa a
+ * coluna derivada {@code TEXTO_BUSCA}, já normalizada pela aplicação ({@link #textoBusca(String)}), com {@code LIKE}
+ * direto no CLOB — TRANSLATE/LOWER sobre CLOB convertem para VARCHAR2 e falham com ORA-64203 acima de 4000 bytes
+ * (Issue #164). O termo é normalizado do mesmo modo no Java. É busca textual, não semântica.
  */
 public final class DocumentoSpecification {
 
@@ -65,17 +68,27 @@ public final class DocumentoSpecification {
     }
 
     /**
-     * Ids dos documentos ativos que contêm o termo (SQL parametrizado). O TRANSLATE é feito em SQL porque o
-     * Hibernate recusa funções de texto sobre CLOB na Criteria API.
+     * Conteúdo da coluna {@code TEXTO_BUSCA}: o texto extraído normalizado como o termo de busca ({@code null} se não
+     * há texto). Qualquer gravação de {@code TEXTO_EXTRAIDO} deve gravar também este valor.
+     */
+    public static String textoBusca(String textoExtraido) {
+        return textoExtraido == null ? null : normalizar(textoExtraido);
+    }
+
+    /**
+     * Ids dos documentos ativos que contêm o termo (SQL parametrizado, 4 vezes o mesmo padrão). O TRANSLATE é feito
+     * em SQL porque o Hibernate recusa funções de texto na Criteria API; o texto extraído (CLOB, qualquer tamanho)
+     * é comparado pela coluna já normalizada {@code TEXTO_BUSCA}, sem função nenhuma sobre o CLOB.
      */
     public static final String SQL_BUSCA = "SELECT ID FROM DOCUMENTO WHERE EXCLUIDO_EM IS NULL AND ("
             + coluna("TITULO") + " OR " + coluna("DESCRICAO") + " OR " + coluna("PALAVRAS_CHAVE") + " OR "
-            + coluna("TEXTO_EXTRAIDO") + ")";
+            + "TEXTO_BUSCA LIKE ? ESCAPE '\\')";
 
     /** Mesma busca restrita ao título (peso maior na busca do assistente). */
     public static final String SQL_BUSCA_TITULO = "SELECT ID FROM DOCUMENTO WHERE EXCLUIDO_EM IS NULL AND "
             + coluna("TITULO");
 
+    /** Só para colunas VARCHAR2 — nunca CLOB (ORA-64203). */
     private static String coluna(String nome) {
         return "TRANSLATE(" + nome + ", '" + DE + "', '" + PARA + "') LIKE ? ESCAPE '\\'";
     }

@@ -12,7 +12,9 @@ import br.com.nexusbuilderlab.semanexus.docia.documento.dto.DocumentoDetalhe;
 import br.com.nexusbuilderlab.semanexus.docia.documento.dto.DocumentoFiltro;
 import br.com.nexusbuilderlab.semanexus.flux.demanda.DemandaService;
 import br.com.nexusbuilderlab.semanexus.flux.demanda.dto.DemandaRequest;
+import br.com.nexusbuilderlab.semanexus.docia.assistente.BuscaDocumentos;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import br.com.nexusbuilderlab.semanexus.docia.documento.dto.DocumentoUploadRequest;
 import br.com.nexusbuilderlab.semanexus.security.UsuarioAutenticado;
 import java.time.LocalDate;
@@ -96,6 +98,49 @@ class DocumentoOracleTest {
                 .extracting("id").containsExactly(porTexto.id());
         assertThat(service.listar(q("100%_inexistente"), pagina).totalElements()).isZero();
         assertThat(service.detalhar(porTexto.id()).historico()).extracting("acao").contains("UPLOAD");
+    }
+
+    @Autowired
+    BuscaDocumentos busca;
+    @Autowired
+    JdbcTemplate jdbc;
+    @Autowired
+    IndiceBuscaDocumentos indice;
+
+    /** Issue #164: texto extraído longo (> 32 KB) e acentuado não pode quebrar a busca com ORA-64203. */
+    @Test
+    void pesquisaEmTextoLongoAcentuadoNaoEstouraEPreencheDocumentosAntigos() {
+        Usuario u = usuarios.save(new Usuario("Analista Longo", "lo." + UUID.randomUUID() + "@exemplo.test", "hash", Perfil.ANALISTA));
+        UsuarioAutenticado ator = UsuarioAutenticado.de(u);
+        String marca = "zl" + UUID.randomUUID().toString().substring(0, 8);
+        String bloco = "## Minuta fictícia de Termo de Ajustamento — região de Cáceres, ação de fiscalização, "
+                + "inspeção técnica e autuação; área degradada, recuperação e compensação ambiental. ";
+        StringBuilder sb = new StringBuilder();
+        while (sb.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8).length < 40_000) {
+            sb.append(bloco);
+        }
+        sb.append("Conclusão: QUEIMADA não autorizada ").append(marca).append(" — notificação expedida.");
+        String texto = sb.toString();
+        assertThat(texto.getBytes(java.nio.charset.StandardCharsets.UTF_8).length).isGreaterThan(32 * 1024);
+        DocumentoDetalhe longo = enviar(ator, "Minuta longa " + marca, texto, "Parecer");
+        var pagina = PageRequest.of(0, 20);
+
+        // listagem com q (GET /api/documentos?q=) e pesquisa ranqueada (GET /api/documentos/busca e DocIA)
+        assertThat(service.listar(q("queimada nao autorizada " + marca), pagina).content()).extracting("id")
+                .containsExactly(longo.id());
+        assertThat(service.listar(q("NOTIFICAÇÃO EXPEDIDA"), pagina).content()).extracting("id").contains(longo.id());
+        assertThat(busca.pesquisar("queimada " + marca, 5, null, false).achados())
+                .extracting(a -> a.documento().getId()).contains(longo.id());
+        assertThat(busca.pesquisar("compensação ambiental Cáceres", 5, null, false).achados())
+                .extracting(a -> a.documento().getId()).contains(longo.id());
+
+        // documento antigo (antes da V11) sem TEXTO_BUSCA: o preenchimento da subida resolve e é idempotente
+        jdbc.update("UPDATE DOCUMENTO SET TEXTO_BUSCA = NULL WHERE ID = ?", longo.id());
+        assertThat(service.listar(q(marca + " — notificacao"), pagina).content()).isEmpty();
+        assertThat(indice.preencherPendentes()).isGreaterThanOrEqualTo(1);
+        assertThat(indice.preencherPendentes()).isZero();
+        assertThat(service.listar(q(marca + " — notificacao"), pagina).content()).extracting("id")
+                .containsExactly(longo.id());
     }
 
     @Test
