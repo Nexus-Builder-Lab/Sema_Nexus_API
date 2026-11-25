@@ -58,6 +58,12 @@ services:
       # Fila da GPU e limite de requisições (#134).
       AGENTES_GPU_CONCORRENCIA: ${AGENTES_GPU_CONCORRENCIA:-1}
       AGENTES_GPU_ESPERA_SEGUNDOS: ${AGENTES_GPU_ESPERA_SEGUNDOS:-20}
+      # Busca híbrida do DocIA (#141): embeddings locais (nomic-embed-text no mesmo Ollama); sem o modelo, só lexical.
+      EMBEDDINGS_ATIVO: ${EMBEDDINGS_ATIVO:-false}
+      EMBEDDINGS_MODELO: ${EMBEDDINGS_MODELO:-nomic-embed-text}
+      EMBEDDINGS_SIMILARIDADE_MINIMA: ${EMBEDDINGS_SIMILARIDADE_MINIMA:-0.65}
+      EMBEDDINGS_REINDEXAR_SEGUNDOS: ${EMBEDDINGS_REINDEXAR_SEGUNDOS:-120}
+      BUSCA_RRF_K: ${BUSCA_RRF_K:-60}
       # Streaming SSE dos agentes (#135): intervalo do keepalive (s) e streams simultâneos.
       AGENTES_SSE_BATIMENTO_SEGUNDOS: ${AGENTES_SSE_BATIMENTO_SEGUNDOS:-15}
       AGENTES_SSE_MAX_SIMULTANEOS: ${AGENTES_SSE_MAX_SIMULTANEOS:-16}

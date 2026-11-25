@@ -1,0 +1,27 @@
+{
+  "descricao": "Benchmark da busca do DocIA (Issue #141): lexical x híbrida sobre o acervo fictício do seed (12 documentos). AMBIENTE DEMONSTRATIVO — DADOS FICTÍCIOS.",
+  "k": 3,
+  "perguntas": [
+    { "pergunta": "Qual a área desmatada em Colniza?", "relevantes": ["Relatório de Monitoramento de Desmatamento — Colniza"] },
+    { "pergunta": "Quantos hectares a queimada atingiu em Cáceres?", "relevantes": ["Parecer Técnico nº 014/2026 — versão 1", "Parecer Técnico nº 014/2026 — versão 2", "Relatório de Vistoria — Cáceres"] },
+    { "pergunta": "Captação de água sem outorga em Primavera do Leste", "relevantes": ["Laudo de Recursos Hídricos — Primavera do Leste", "Relatório Final de Fiscalização — Primavera do Leste"] },
+    { "pergunta": "Pesca irregular no período de defeso", "relevantes": ["Ofício de Solicitação de Vistoria — Barão de Melgaço"] },
+    { "pergunta": "Descarte de lixo em terreno baldio", "relevantes": ["Termo de Denúncia — Sinop"] },
+    { "pergunta": "Em que mês há mais focos de calor?", "relevantes": ["Nota Técnica — Focos de Calor em Julho a Outubro", "Boletim Mensal de Focos de Calor (simulado)"] },
+    { "pergunta": "É preciso autorização para usar fogo na propriedade?", "relevantes": ["Instrução Normativa Demonstrativa sobre Queimadas"] },
+    { "pergunta": "Quais os passos de uma fiscalização em campo?", "relevantes": ["Guia de Procedimentos de Fiscalização Ambiental"] },
+    { "pergunta": "O que mudou entre as versões do parecer 014?", "relevantes": ["Parecer Técnico nº 014/2026 — versão 1", "Parecer Técnico nº 014/2026 — versão 2"] },
+    { "pergunta": "Qual a vazão da captação inspecionada?", "relevantes": ["Laudo de Recursos Hídricos — Primavera do Leste"] },
+    { "pergunta": "Supressão de vegetação na Amazônia", "relevantes": ["Relatório de Monitoramento de Desmatamento — Colniza"] },
+    { "pergunta": "Derrubada da floresta detectada por satélite", "relevantes": ["Relatório de Monitoramento de Desmatamento — Colniza"] },
+    { "pergunta": "Incêndio no pantanal durante a seca", "relevantes": ["Nota Técnica — Focos de Calor em Julho a Outubro", "Parecer Técnico nº 014/2026 — versão 1", "Parecer Técnico nº 014/2026 — versão 2", "Relatório de Vistoria — Cáceres"] },
+    { "pergunta": "Uso de água de rio por irrigação sem licença", "relevantes": ["Laudo de Recursos Hídricos — Primavera do Leste", "Relatório Final de Fiscalização — Primavera do Leste"] },
+    { "pergunta": "Licenciamento de mineração em Juína", "relevantes": [] },
+    { "pergunta": "Preço da arroba do boi gordo", "relevantes": [] },
+    { "pergunta": "Resultado das eleições municipais", "relevantes": [] },
+    { "pergunta": "Campanha de vacinação contra febre aftosa", "relevantes": [] },
+    { "pergunta": "Qual a área desmatada em Cáceres?", "relevantes": [] },
+    { "pergunta": "Mortandade de peixes no rio Cuiabá", "relevantes": [] },
+    { "pergunta": "Contaminação por agrotóxico em Sorriso", "relevantes": [] }
+  ]
+}

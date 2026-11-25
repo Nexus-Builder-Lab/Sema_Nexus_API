@@ -41,6 +41,7 @@ class DocumentoServiceTest {
     UsuarioRepository usuarios = mock(UsuarioRepository.class);
     AuditService auditoria = mock(AuditService.class);
     JdbcTemplate jdbc = mock(JdbcTemplate.class);
+    org.springframework.context.ApplicationEventPublisher eventos = mock(org.springframework.context.ApplicationEventPublisher.class);
     DocumentoService service;
     UsuarioAutenticado ator = new UsuarioAutenticado(3L, "Analista", "a@demo.local", Perfil.ANALISTA);
 
@@ -48,7 +49,7 @@ class DocumentoServiceTest {
     void preparar() throws IOException {
         service = new DocumentoService(documentos, mock(MunicipioRepository.class), usuarios, storage,
                 new TextExtractor(), auditoria, mock(DemandaService.class), jdbc,
-                mock(br.com.nexusbuilderlab.semanexus.core.notificacao.NotificacaoService.class));
+                mock(br.com.nexusbuilderlab.semanexus.core.notificacao.NotificacaoService.class), eventos);
         when(storage.store(any())).thenReturn("2026/11/uuid");
         when(usuarios.findById(3L)).thenReturn(Optional.of(mock(Usuario.class)));
         when(documentos.save(any())).thenAnswer(i -> i.getArgument(0));
@@ -86,6 +87,16 @@ class DocumentoServiceTest {
         assertThat(d.palavrasChave()).containsExactly("a", "b");
         verify(storage).store(any());
         verify(auditoria).registrar(org.mockito.ArgumentMatchers.eq("UPLOAD"), any(), any(), any());
+    }
+
+    @Test
+    void uploadPublicaEventoParaIndexarOsTrechos() {
+        when(documentos.save(any())).thenAnswer(i -> {
+            org.springframework.test.util.ReflectionTestUtils.setField((Object) i.getArgument(0), "id", 42L);
+            return i.getArgument(0);
+        });
+        service.enviar(ator, pedido("notas.txt", "Texto de teste".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        verify(eventos).publishEvent(new DocumentoTextoAlterado(42L));
     }
 
     @Test

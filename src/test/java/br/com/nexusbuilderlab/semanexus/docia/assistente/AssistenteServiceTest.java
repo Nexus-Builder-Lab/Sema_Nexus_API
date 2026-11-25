@@ -107,6 +107,8 @@ class AssistenteServiceTest {
     void streamEmiteFallbackQuandoOAgenteFalhaECancelamentoNaoCaiNoExtrativo() {
         AgenteDocia agente = mock(AgenteDocia.class);
         BuscaDocumentos busca = mock(BuscaDocumentos.class);
+        when(busca.pesquisar(anyString(), org.mockito.ArgumentMatchers.anyInt(), any()))
+                .thenReturn(BuscaDocumentos.Resultado.lexical(List.of()));
         when(agente.disponivel()).thenReturn(true);
         when(agente.responder(anyString(), any(), any(), any()))
                 .thenThrow(new br.com.nexusbuilderlab.semanexus.agentes.AgenteIndisponivelException(

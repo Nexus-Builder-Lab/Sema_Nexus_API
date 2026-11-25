@@ -22,6 +22,7 @@ import br.com.nexusbuilderlab.semanexus.docia.assistente.dto.RespostaAssistente;
 import br.com.nexusbuilderlab.semanexus.docia.documento.Documento;
 import br.com.nexusbuilderlab.semanexus.docia.documento.DocumentoRepository;
 import br.com.nexusbuilderlab.semanexus.docia.documento.DocumentoSpecification;
+import br.com.nexusbuilderlab.semanexus.docia.vetorial.Recuperacao;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
@@ -107,8 +108,11 @@ public class AgenteDocia {
         Set<Long> vistos = new LinkedHashSet<>();
         Set<Long> lidos = new LinkedHashSet<>();
         Map<Long, String> aderencias = new HashMap<>();
-        ResultadoAgente r = executor.executar(definicao(vistos, lidos, aderencias, idsPermitidos), tarefa(pergunta, historico),
-                "pergunta", observador);
+        Map<Long, Double> similaridades = new HashMap<>();
+        java.util.concurrent.atomic.AtomicReference<Recuperacao> recuperacao =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        ResultadoAgente r = executor.executar(definicao(vistos, lidos, aderencias, similaridades, recuperacao,
+                        idsPermitidos), tarefa(pergunta, historico), "pergunta", observador);
         JsonNode j = r.resposta();
         // Ids internos não interessam ao usuário: o modelo às vezes os escreve no texto.
         String resposta = j.path("resposta").asText("").replaceAll("\\s*\\(?\\b[Dd]ocumento[Ii]d\\b:?\\s*\\d+\\)?", "").strip();
@@ -121,7 +125,7 @@ public class AgenteDocia {
         List<String> passos = r.passos().stream().map(ResultadoAgente.PassoAgente::resumo).toList();
         if (!j.path("suficiente").asBoolean(true) || resposta.isEmpty() || resposta.contains(NAO_ENCONTRADO)) {
             return new RespostaAssistente(AssistenteService.SEM_INFORMACAO, modo, List.of(), agente, r.modelo(),
-                    passos);
+                    passos, recuperacao.get());
         }
         List<String> termos = BuscaDocumentos.radicais(pergunta + " " + resposta);
         List<ReferenciaDocumento> referencias = new ArrayList<>();
@@ -132,7 +136,8 @@ public class AgenteDocia {
             }
             documentos.buscarAtivo(id).ifPresent(d ->
                     referencias.add(new ReferenciaDocumento(d.getId(), d.getTitulo(),
-                            trechoConferido(d, ref.path("trecho").asText(""), termos), aderencias.get(d.getId()))));
+                            trechoConferido(d, ref.path("trecho").asText(""), termos), aderencias.get(d.getId()),
+                            similaridades.get(d.getId()))));
         }
         if (referencias.isEmpty()) {
             // Citações montadas pela API: os documentos devolvidos pelas ferramentas que sustentam a resposta (números
@@ -146,13 +151,14 @@ public class AgenteDocia {
             for (Long id : base) {
                 documentos.buscarAtivo(id).ifPresent(d ->
                         referencias.add(new ReferenciaDocumento(d.getId(), d.getTitulo(),
-                                trechoConferido(d, "", termos), aderencias.get(d.getId()))));
+                                trechoConferido(d, "", termos), aderencias.get(d.getId()),
+                                similaridades.get(d.getId()))));
             }
         }
         if (referencias.isEmpty()) {
             throw new AgenteIndisponivelException("O agente respondeu sem consultar documentos.");
         }
-        return new RespostaAssistente(resposta, modo, referencias, agente, r.modelo(), passos);
+        return new RespostaAssistente(resposta, modo, referencias, agente, r.modelo(), passos, recuperacao.get());
     }
 
     static String tarefa(String pergunta, List<br.com.nexusbuilderlab.semanexus.docia.assistente.dto.TurnoHistorico> historico) {
@@ -227,6 +233,8 @@ public class AgenteDocia {
     }
 
     private DefinicaoAgente definicao(Set<Long> vistos, Set<Long> lidos, Map<Long, String> aderencias,
+                                      Map<Long, Double> similaridades,
+                                      java.util.concurrent.atomic.AtomicReference<Recuperacao> recuperacao,
                                       Set<Long> permitidos) {
         FerramentaAgente buscar = new FerramentaAgente("buscar_documentos",
                 "Busca textual na biblioteca de documentos (sem acento/caixa). Devolve o texto dos documentos mais "
@@ -237,8 +245,11 @@ public class AgenteDocia {
                 Map.of("consulta", Map.of("type", "string", "description", "Palavras-chave da pergunta")),
                 List.of("consulta"), e -> {
                     String consulta = e.path("consulta").asText("");
-                    List<BuscaDocumentos.Achado> achados = permitidos == null ? busca.buscar(consulta, MAX_RESULTADOS)
-                            : busca.buscar(consulta, MAX_RESULTADOS, permitidos);
+                    BuscaDocumentos.Resultado resultado = busca.pesquisar(consulta, MAX_RESULTADOS, permitidos);
+                    List<BuscaDocumentos.Achado> achados = resultado.achados();
+                    // Uma busca híbrida na execução basta para a resposta ser HIBRIDA.
+                    recuperacao.accumulateAndGet(resultado.recuperacao(),
+                            (atual, nova) -> atual == Recuperacao.HIBRIDA ? atual : nova);
                     Map<String, Object> r = new LinkedHashMap<>();
                     List<Map<String, Object>> outros = new ArrayList<>();
                     List<Map<String, Object>> textos = new ArrayList<>();
@@ -246,6 +257,9 @@ public class AgenteDocia {
                     for (BuscaDocumentos.Achado a : achados) {
                         vistos.add(a.documento().getId());
                         aderencias.putIfAbsent(a.documento().getId(), a.aderencia());
+                        if (a.similaridadeSemantica() != null) {
+                            similaridades.putIfAbsent(a.documento().getId(), a.similaridadeSemantica());
+                        }
                         // O mais aderente (e um 2º de aderência alta, ex.: outra versão) já vem lido: o modelo
                         // pequeno às vezes respondia só pelo trecho ou não lia a outra versão.
                         if (textos.isEmpty() || (textos.size() < MAX_REFERENCIAS && "alta".equals(a.aderencia()))) {
