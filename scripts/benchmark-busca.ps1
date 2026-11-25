@@ -36,12 +36,20 @@ try {
 }
 $cabecalho = @{ Authorization = "Bearer $($login.token)" }
 
+# A API responde JSON em UTF-8 sem charset no Content-Type; o PowerShell 5.1 decodificaria como ISO-8859-1 e os
+# títulos com acento não bateriam com o conjunto de perguntas.
+function Get-Json([string]$Uri, [hashtable]$Cabecalho) {
+    $resposta = Invoke-WebRequest -UseBasicParsing -Headers $Cabecalho -Uri $Uri
+    $bytes = $resposta.RawContentStream.ToArray()
+    return [Text.Encoding]::UTF8.GetString($bytes) | ConvertFrom-Json
+}
+
 function Medir([string]$Modo) {
     $somaP = 0.0; $somaR = 0.0; $acertos = 0; $resp = 0; $fora = 0; $absOk = 0; $absErro = 0
     $modos = @{}; $linhas = @()
     foreach ($p in $conjunto.perguntas) {
         $q = [uri]::EscapeDataString($p.pergunta)
-        $r = Invoke-RestMethod -Headers $cabecalho -Uri "$base/api/documentos/busca?q=$q&limite=$k&modo=$Modo"
+        $r = Get-Json "$base/api/documentos/busca?q=$q&limite=$k&modo=$Modo" $cabecalho
         $modos[$r.recuperacao] = 1 + [int]$modos[$r.recuperacao]
         $top = @($r.resultados | ForEach-Object { $_.documento.titulo })
         $relevantes = @($p.relevantes)

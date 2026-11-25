@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
  *   <li>{@code EMBEDDINGS_MODELO} (padrão nomic-embed-text) — precisa gerar vetores de {@value #DIMENSAO} dimensões
  *   (a coluna é {@code VECTOR(768, FLOAT32)}); outra dimensão desliga a parte vetorial com aviso no log;</li>
  *   <li>{@code BUSCA_RRF_K} (padrão 60) — constante da fusão RRF;</li>
- *   <li>{@code EMBEDDINGS_SIMILARIDADE_MINIMA} (padrão 0.55) — documento que só a busca vetorial encontrou entra
+ *   <li>{@code EMBEDDINGS_SIMILARIDADE_MINIMA} (padrão 0.65) — documento que só a busca vetorial encontrou entra
  *   apenas com similaridade de cosseno igual ou acima dela (preserva a abstenção);</li>
  *   <li>{@code EMBEDDINGS_REINDEXAR_SEGUNDOS} (padrão 120) — intervalo da verificação de documentos sem trechos.</li>
  * </ul>
@@ -26,7 +26,7 @@ public class EmbeddingsConfiguracao {
     public static final int DIMENSAO = 768;
     public static final String MODELO_PADRAO = "nomic-embed-text";
     public static final int RRF_K_PADRAO = 60;
-    public static final double SIMILARIDADE_MINIMA_PADRAO = 0.55;
+    public static final double SIMILARIDADE_MINIMA_PADRAO = 0.65;
 
     private static final Pattern FORMATO_MODELO = Pattern.compile("^[a-z0-9][a-z0-9._/-]{1,60}(:[a-z0-9._-]{1,40})?$");
     private static final Pattern FORMATO_URL = Pattern.compile("^https?://[A-Za-z0-9.-]+(:\\d{1,5})?/?$");
