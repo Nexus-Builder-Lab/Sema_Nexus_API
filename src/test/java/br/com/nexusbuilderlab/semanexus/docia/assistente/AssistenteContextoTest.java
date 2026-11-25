@@ -73,8 +73,8 @@ class AssistenteContextoTest {
         when(doc99.getTitulo()).thenReturn("Outro documento");
         when(doc99.getTextoExtraido()).thenReturn("Texto de documento fora da demanda.");
         when(documentos.buscarAtivo(99L)).thenReturn(Optional.of(doc99));
-        when(busca.buscar(anyString(), anyInt(), any())).thenReturn(List.of(
-                new BuscaDocumentos.Achado(doc7, "A queimada atingiu 12 hectares na área vistoriada.")));
+        when(busca.pesquisar(anyString(), anyInt(), any())).thenReturn(BuscaDocumentos.Resultado.lexical(List.of(
+                new BuscaDocumentos.Achado(doc7, "A queimada atingiu 12 hectares na área vistoriada."))));
         when(jdbc.queryForList(anyString(), eq(Long.class), eq(10L))).thenReturn(List.of(7L));
     }
 
@@ -104,7 +104,7 @@ class AssistenteContextoTest {
                 new PerguntaRequest("Quantos hectares a queimada atingiu?", 10L, null));
 
         verify(demandas).detalhar(fiscal, 10L);
-        verify(busca).buscar(anyString(), anyInt(), eq(Set.of(7L)));
+        verify(busca).pesquisar(anyString(), anyInt(), eq(Set.of(7L)));
         assertThat(r.referencias()).extracting(x -> x.documentoId()).containsExactly(7L);
     }
 
@@ -134,7 +134,7 @@ class AssistenteContextoTest {
                 .isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> s.perguntar(fiscal, new PerguntaRequest("Qual o parecer?", 12L, null)))
                 .isInstanceOf(RecursoNaoEncontradoException.class);
-        verify(busca, never()).buscar(anyString(), anyInt(), any());
+        verify(busca, never()).pesquisar(anyString(), anyInt(), any());
         verify(jdbc, never()).queryForList(anyString(), eq(Long.class), anyLong());
     }
 
@@ -153,8 +153,8 @@ class AssistenteContextoTest {
 
     @Test
     void semDemandaNemHistoricoMantemOComportamentoAnterior() throws Exception {
-        when(busca.buscar(anyString(), anyInt())).thenReturn(List.of(
-                new BuscaDocumentos.Achado(doc7, "A queimada atingiu 12 hectares na área vistoriada.")));
+        when(busca.pesquisar(anyString(), anyInt(), any())).thenReturn(BuscaDocumentos.Resultado.lexical(List.of(
+                new BuscaDocumentos.Achado(doc7, "A queimada atingiu 12 hectares na área vistoriada."))));
         Gravador modelo = new Gravador();
         modelo.respostas.add(ferramenta("buscar_documentos", "{\"consulta\":\"queimada\"}"));
         modelo.respostas.add(fim("{\"resposta\":\"12 hectares.\",\"suficiente\":true,\"referencias\":[]}"));
@@ -163,7 +163,7 @@ class AssistenteContextoTest {
                 new PerguntaRequest("Quantos hectares a queimada atingiu?"));
 
         verify(demandas, never()).detalhar(any(), anyLong());
-        verify(busca).buscar(anyString(), anyInt());
+        verify(busca).pesquisar(anyString(), anyInt(), org.mockito.ArgumentMatchers.isNull());
         assertThat(modelo.pedidos.get(0).mensagens().get(0).texto())
                 .isEqualTo("Pergunta: Quantos hectares a queimada atingiu?");
         assertThat(r.referencias()).hasSize(1);

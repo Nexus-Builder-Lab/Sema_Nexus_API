@@ -42,6 +42,12 @@ Conexão: `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOU
 | `AUDITORIA` | `ID` identity, `DATA`, `USUARIO_ID`, `ACAO`, `ENTIDADE`, `ENTIDADE_ID VARCHAR2(64)`, `DETALHE VARCHAR2(4000)` | `FK_AUDITORIA_USUARIO`; `IX_AUDITORIA_DATA`, `IX_AUDITORIA_ENTIDADE (ENTIDADE, ENTIDADE_ID)`, `IX_AUDITORIA_USUARIO_ID`. Append-only (entidade `@Immutable`) |
 | `TOKEN_REVOGADO` (Issue #134, `V9__token_revogado.sql`) | `JTI VARCHAR2(64)` (PK, claim `jti` do JWT), `USUARIO_ID`, `EXPIRA_EM`, `REVOGADO_EM` | `PK_TOKEN_REVOGADO`, `IX_TOKEN_REVOGADO_EXPIRA`. Gravada no `POST /api/auth/logout`; o filtro JWT recusa (401) token cujo `jti` esteja aqui. Sem FK para `USUARIO` (registro temporário): a limpeza diária (`TOKEN_REVOGADO_LIMPEZA_CRON`, padrão 03:17 UTC) apaga os já expirados. Sobrevive a reinícios da API |
 
+### DocIA — busca híbrida (Implementado — Issue #141, `V10__documento_trecho.sql`)
+
+| Tabela | Colunas | Restrições / índices |
+|---|---|---|
+| `DOCUMENTO_TRECHO` | `ID` identity, `DOCUMENTO_ID`, `ORDEM NUMBER(5)`, `TEXTO VARCHAR2(2000 CHAR)`, `EMBEDDING VECTOR(768, FLOAT32)`, `MODELO VARCHAR2(100)`, `CRIADO_EM` | `PK_DOCUMENTO_TRECHO`, `UK_DOCUMENTO_TRECHO (DOCUMENTO_ID, MODELO, ORDEM)`, `FK_DOCTRECHO_DOCUMENTO` (`ON DELETE CASCADE`), `CK_DOCTRECHO_ORDEM`; `IX_DOCTRECHO_MODELO (MODELO, DOCUMENTO_ID)`. Tabela **derivada** do `DOCUMENTO`: a API divide cada documento em trechos (~900 caracteres, 1º trecho = título/descrição/palavras-chave) e grava o embedding do modelo local (`nomic-embed-text`, 768 dimensões) com `TO_VECTOR(?, 768, FLOAT32)` (literal enviado como CLOB). Indexação no upload (após o commit, em segundo plano) e preenchimento idempotente ao iniciar e a cada `EMBEDDINGS_REINDEXAR_SEGUNDOS` (documentos ativos sem trechos do modelo). Busca **exata** `VECTOR_DISTANCE(EMBEDDING, ?, COSINE)` com o trecho mais próximo por documento ativo; sem índice vetorial (HNSW/IVF exigiriam `VECTOR_MEMORY_SIZE` e o acervo demonstrativo é pequeno). Pode ser apagada e reconstruída a qualquer momento |
+
 ### Flux (Implementado, Issue #11) e demais módulos (Planejado)
 
 | Tabela | Colunas principais | Restrições / índices | Issue |
