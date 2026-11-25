@@ -61,7 +61,9 @@ public record BriefingSentinela(
             String titulo,
             String descricao,
             @Schema(description = "Números que sustentam a anomalia") Map<String, Object> numeros,
-            List<AcaoSugerida> acoes) {
+            List<AcaoSugerida> acoes,
+            @Schema(description = "Sujeito da anomalia: município, equipe ou status (rótulo)", example = "Sinop")
+            String assunto) {
     }
 
     /**

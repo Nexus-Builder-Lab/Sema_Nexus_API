@@ -135,9 +135,9 @@ class RegrasSentinelaTest {
 
     @Test
     void ordenarPoeAltaPrimeiro() {
-        Anomalia baixa = new Anomalia("x", "FILA_ACUMULADA", "BAIXA", "", "", Map.of(), List.of());
-        Anomalia alta = new Anomalia("y", "EQUIPE_SOBRECARREGADA", "ALTA", "", "", Map.of(), List.of());
-        Anomalia media = new Anomalia("z", "INPE_SEM_DEMANDA", "MEDIA", "", "", Map.of(), List.of());
+        Anomalia baixa = new Anomalia("x", "FILA_ACUMULADA", "BAIXA", "", "", Map.of(), List.of(), "");
+        Anomalia alta = new Anomalia("y", "EQUIPE_SOBRECARREGADA", "ALTA", "", "", Map.of(), List.of(), "");
+        Anomalia media = new Anomalia("z", "INPE_SEM_DEMANDA", "MEDIA", "", "", Map.of(), List.of(), "");
         assertThat(RegrasSentinela.ordenar(List.of(baixa, alta, media))).containsExactly(alta, media, baixa);
     }
 }

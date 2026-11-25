@@ -33,6 +33,10 @@ public class SentinelaAgendador {
         }
         try {
             BriefingSentinela b = service.atualizarAgendado();
+            if (b == null) {
+                LOG.info("Briefing da Sentinela já em atualização; rotina agendada ignorada nesta execução.");
+                return false;
+            }
             LOG.info("Briefing da Sentinela pré-calculado: {} anomalia(s), modo {}.", b.totais().anomalias(),
                     b.modo());
             return true;

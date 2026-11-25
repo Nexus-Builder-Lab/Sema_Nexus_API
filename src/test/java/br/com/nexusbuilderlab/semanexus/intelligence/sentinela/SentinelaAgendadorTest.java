@@ -41,6 +41,12 @@ class SentinelaAgendadorTest {
     }
 
     @Test
+    void atualizacaoJaEmAndamentoNaoRecalcula() {
+        when(service.atualizarAgendado()).thenReturn(null);
+        assertThat(new SentinelaAgendador(service, parametros(true)).executarAgendado()).isFalse();
+    }
+
+    @Test
     void falhaNaoPropaga() {
         when(service.atualizarAgendado()).thenThrow(new IllegalStateException("banco fora"));
         assertThat(new SentinelaAgendador(service, parametros(true)).executarAgendado()).isFalse();

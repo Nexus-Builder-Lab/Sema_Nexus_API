@@ -1,6 +1,7 @@
 package br.com.nexusbuilderlab.semanexus.intelligence.sentinela;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -8,8 +9,13 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -39,6 +45,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /**
@@ -68,6 +75,10 @@ public class SentinelaTerritorialService {
     private static final DateTimeFormatter DATA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final Pattern NUMERO = Pattern.compile("\\d{1,3}(?:\\.\\d{3})+(?:,\\d+)?|\\d+(?:[.,]\\d+)?");
     private static final Pattern MARCADOR_LISTA = Pattern.compile("(?m)^\\s*\\d{1,2}[.)]\\s");
+    private static final Pattern FIM_DE_FRASE = Pattern.compile("(?<=[.!?;])\\s+");
+    private static final Locale PT_BR = Locale.forLanguageTag("pt-BR");
+    /** Espera após uma falha de geração antes de tentar de novo (requisições seguintes não repetem a geração). */
+    static final Duration ESPERA_APOS_FALHA = Duration.ofSeconds(60);
     private static final List<String> TIPOS = List.of("TODAS", RegrasSentinela.INPE_SEM_DEMANDA,
             RegrasSentinela.FILA_ACUMULADA, RegrasSentinela.EQUIPE_SOBRECARREGADA);
 
@@ -99,12 +110,32 @@ public class SentinelaTerritorialService {
     private final ParametrosSentinela parametros;
     private final ObjectMapper json;
     private final Clock clock;
+    private final Executor segundoPlano;
+    /** Só protege a primeira geração (sem IA, rápida); a geração com IA nunca roda segurando a trava. */
     private final ReentrantLock trava = new ReentrantLock();
+    private final AtomicBoolean atualizando = new AtomicBoolean();
     private volatile BriefingSentinela cache;
+    /** Fim da espera após uma falha de geração (nulo = última geração bem-sucedida). */
+    private volatile LocalDateTime falhaAte;
+    private volatile LocalDateTime falhaEm;
 
+    @Autowired
     public SentinelaTerritorialService(ConsultasSentinela consultas, ConsultasDistribuicao distribuicao,
                                        ExecutorAgente executor, AgentesConfiguracao configuracao,
                                        ParametrosSentinela parametros, ObjectMapper json, Clock clock) {
+        this(consultas, distribuicao, executor, configuracao, parametros, json, clock,
+                Executors.newSingleThreadExecutor(r -> {
+                    Thread t = new Thread(r, "sentinela-briefing");
+                    t.setDaemon(true);
+                    return t;
+                }));
+    }
+
+    /** Com o executor da atualização em segundo plano informado (testes). */
+    SentinelaTerritorialService(ConsultasSentinela consultas, ConsultasDistribuicao distribuicao,
+                                ExecutorAgente executor, AgentesConfiguracao configuracao,
+                                ParametrosSentinela parametros, ObjectMapper json, Clock clock,
+                                Executor segundoPlano) {
         this.consultas = consultas;
         this.distribuicao = distribuicao;
         this.executor = executor;
@@ -112,43 +143,128 @@ public class SentinelaTerritorialService {
         this.parametros = parametros;
         this.json = json;
         this.clock = clock;
+        this.segundoPlano = segundoPlano;
     }
 
     /**
-     * Briefing atual: o do cache enquanto válido; vencido (ou ausente), é recalculado uma única vez — requisições
-     * simultâneas esperam a mesma geração. Assim o modelo é chamado no máximo uma vez por janela de cache.
+     * Briefing atual (<i>stale-while-revalidate</i>): o último briefing é devolvido na hora; vencido
+     * ({@code validoAte}), uma única atualização roda em segundo plano (com IA, fora da thread HTTP) — no máximo uma
+     * por janela de cache. Sem briefing ainda, a primeira geração é síncrona e <b>sem IA</b> (template, rápida; uma
+     * só para requisições simultâneas) e o resumo da IA vem na atualização em segundo plano. Falha de geração: o
+     * último briefing bom continua servido, com aviso, e nova tentativa só depois de {@link #ESPERA_APOS_FALHA}.
+     *
+     * @throws SentinelaIndisponivelException sem briefing algum e a geração falhou (ou está em espera após falha)
      */
     public BriefingSentinela briefing() {
         BriefingSentinela atual = cache;
-        if (valido(atual)) {
-            return atual;
+        if (atual == null) {
+            atual = primeiro();
         }
+        if (!agora().isBefore(atual.validoAte())) {
+            agendarAtualizacao();
+        }
+        return comAvisoDeFalha(atual);
+    }
+
+    private BriefingSentinela primeiro() {
         trava.lock();
         try {
-            atual = cache;
-            if (valido(atual)) {
-                return atual;
+            if (cache != null) {
+                return cache;
             }
-            cache = gerar(ORIGEM_SOB_DEMANDA);
-            return cache;
+            exigirForaDaEspera();
+            try {
+                boolean ia = executor.iaDisponivel();
+                BriefingSentinela b = gerar(ORIGEM_SOB_DEMANDA, false);
+                cache = b;
+                falhaAte = null;
+                if (ia) {
+                    agendarAtualizacao(); // o resumo da IA substitui o template assim que ficar pronto
+                }
+                return b;
+            } catch (RuntimeException e) {
+                registrarFalha(e);
+                throw new SentinelaIndisponivelException(ESPERA_APOS_FALHA.toSeconds());
+            }
         } finally {
             trava.unlock();
         }
     }
 
-    /** Pré-cálculo da rotina agendada: sempre recalcula e substitui o cache. */
-    public BriefingSentinela atualizarAgendado() {
-        trava.lock();
+    private void exigirForaDaEspera() {
+        LocalDateTime ate = falhaAte;
+        if (ate != null && agora().isBefore(ate)) {
+            throw new SentinelaIndisponivelException(Math.max(1, Duration.between(agora(), ate).toSeconds()));
+        }
+    }
+
+    private boolean emEspera() {
+        LocalDateTime ate = falhaAte;
+        return ate != null && agora().isBefore(ate);
+    }
+
+    /** Dispara uma atualização em segundo plano, se nenhuma estiver em andamento e não houver espera após falha. */
+    void agendarAtualizacao() {
+        if (emEspera() || !atualizando.compareAndSet(false, true)) {
+            return;
+        }
         try {
-            cache = gerar(ORIGEM_AGENDADA);
-            return cache;
-        } finally {
-            trava.unlock();
+            segundoPlano.execute(() -> {
+                try {
+                    BriefingSentinela b = gerar(ORIGEM_SOB_DEMANDA, true);
+                    cache = b;
+                    falhaAte = null;
+                } catch (RuntimeException e) {
+                    registrarFalha(e);
+                } finally {
+                    atualizando.set(false);
+                }
+            });
+        } catch (RejectedExecutionException e) {
+            atualizando.set(false);
         }
     }
 
-    private boolean valido(BriefingSentinela b) {
-        return b != null && agora().isBefore(b.validoAte());
+    /**
+     * Pré-cálculo da rotina agendada (thread do agendador, com IA): substitui o cache. Devolve nulo se outra
+     * atualização já está em andamento. Em falha, mantém o último briefing, inicia a espera e propaga a exceção.
+     */
+    public BriefingSentinela atualizarAgendado() {
+        if (!atualizando.compareAndSet(false, true)) {
+            return null;
+        }
+        try {
+            BriefingSentinela b = gerar(ORIGEM_AGENDADA, true);
+            cache = b;
+            falhaAte = null;
+            return b;
+        } catch (RuntimeException e) {
+            registrarFalha(e);
+            throw e;
+        } finally {
+            atualizando.set(false);
+        }
+    }
+
+    private void registrarFalha(RuntimeException e) {
+        LocalDateTime agora = agora();
+        falhaEm = agora;
+        falhaAte = agora.plus(ESPERA_APOS_FALHA);
+        LOG.warn("Falha ao gerar o briefing da Sentinela ({}); nova tentativa em {} s", e.getClass().getSimpleName(),
+                ESPERA_APOS_FALHA.toSeconds());
+    }
+
+    /** O briefing em cache com aviso, quando a última tentativa de atualização falhou. */
+    private BriefingSentinela comAvisoDeFalha(BriefingSentinela b) {
+        if (falhaAte == null || falhaEm == null || !falhaEm.isAfter(b.geradoEm())) {
+            return b;
+        }
+        List<String> avisos = new ArrayList<>(b.avisos());
+        avisos.add("Não foi possível atualizar o briefing agora; exibido o gerado em "
+                + DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").format(b.geradoEm()) + ".");
+        return new BriefingSentinela(b.aviso(), b.geradoEm(), b.validoAte(), b.origem(), b.modo(), b.modelo(),
+                b.resumo(), b.referenciaInpe(), b.indicadores(), b.totais(), b.anomalias(), b.parametros(),
+                b.evidencias(), List.copyOf(avisos));
     }
 
     private LocalDateTime agora() {
@@ -160,7 +276,7 @@ public class SentinelaTerritorialService {
                  List<Anomalia> anomalias) {
     }
 
-    BriefingSentinela gerar(String origem) {
+    BriefingSentinela gerar(String origem, boolean usarIa) {
         LocalDateTime agora = agora();
         LocalDate hoje = agora.toLocalDate();
         ParametrosSentinela p = parametros;
@@ -221,10 +337,14 @@ public class SentinelaTerritorialService {
         String modelo = null;
         String resumo = null;
         String entidade = "briefing-" + hoje;
-        if (executor.iaDisponivel()) {
+        boolean iaDisponivel = executor.iaDisponivel();
+        if (iaDisponivel && !usarIa) {
+            avisos.add("Resumo pelo template enquanto o resumo da IA é preparado em segundo plano.");
+        }
+        if (iaDisponivel && usarIa) {
             try {
                 ResultadoAgente r = executor.executar(definicao(dados), tarefa(hoje), entidade);
-                String texto = r.resposta().path("resumo").asText("").strip();
+                String texto = limpar(r.resposta().path("resumo").asText(""));
                 String motivo = motivoDescarte(texto, dados);
                 if (motivo == null) {
                     resumo = texto;
@@ -353,22 +473,65 @@ public class SentinelaTerritorialService {
     }
 
     /**
-     * Todo número do texto precisa existir nos dados calculados (indicadores, totais, anomalias, janelas do INPE e
-     * data de hoje). Marcadores de lista não contam; formatos pt-BR e com ponto decimal são aceitos.
+     * Conferência dos números do texto da IA, frase a frase:
+     * <ul>
+     *   <li>todo número precisa existir nos dados calculados (indicadores, totais, anomalias, janelas do INPE e data
+     *       de hoje);</li>
+     *   <li>números ≥ 10 numa frase que cita o assunto de uma anomalia (município, equipe ou status) precisam estar
+     *       nos números dessa(s) anomalia(s) ou nos indicadores gerais — evita atribuir a Sinop o número de outra
+     *       anomalia. Números menores (1–9) aparecem em quase todo conjunto de dados e só passam pela regra geral.</li>
+     * </ul>
+     * Marcadores de lista não contam; formatos pt-BR e com ponto decimal são aceitos.
      */
     boolean numerosConferem(String texto, Dados d) {
-        List<Double> permitidos = new ArrayList<>();
-        coletar(json.valueToTree(Map.of("dados", indicadoresModelo(d), "anomalias", d.anomalias().stream()
-                .map(SentinelaTerritorialService::paraModelo).toList(), "inpe", inpeModelo(d.inpe()))), permitidos);
-        coletarTexto(DATA.format(d.hoje()), permitidos);
-        Matcher m = NUMERO.matcher(MARCADOR_LISTA.matcher(texto).replaceAll(" "));
-        while (m.find()) {
-            List<Double> leituras = leituras(m.group());
-            if (leituras.stream().noneMatch(n -> permitidos.stream().anyMatch(x -> Math.abs(x - n) < 0.011))) {
-                return false;
+        List<Double> globais = new ArrayList<>();
+        coletar(json.valueToTree(Map.of("dados", indicadoresModelo(d), "inpe", inpeModelo(d.inpe()))), globais);
+        coletarTexto(DATA.format(d.hoje()), globais);
+        Map<Anomalia, List<Double>> porAnomalia = new LinkedHashMap<>();
+        List<Double> todos = new ArrayList<>(globais);
+        for (Anomalia a : d.anomalias()) {
+            List<Double> n = new ArrayList<>();
+            coletar(json.valueToTree(paraModelo(a)), n);
+            porAnomalia.put(a, n);
+            todos.addAll(n);
+        }
+        String limpo = MARCADOR_LISTA.matcher(texto).replaceAll(" ");
+        for (String frase : FIM_DE_FRASE.split(limpo)) {
+            String minuscula = frase.toLowerCase(PT_BR);
+            List<Double> doAssunto = null;
+            for (Map.Entry<Anomalia, List<Double>> e : porAnomalia.entrySet()) {
+                String assunto = e.getKey().assunto();
+                if (assunto != null && !assunto.isBlank() && minuscula.contains(assunto.toLowerCase(PT_BR))) {
+                    if (doAssunto == null) {
+                        doAssunto = new ArrayList<>(globais);
+                    }
+                    doAssunto.addAll(e.getValue());
+                }
+            }
+            Matcher m = NUMERO.matcher(frase);
+            while (m.find()) {
+                List<Double> leituras = leituras(m.group());
+                boolean grande = leituras.stream().anyMatch(n -> n >= 10);
+                List<Double> permitidos = grande && doAssunto != null ? doAssunto : todos;
+                if (leituras.stream().noneMatch(n -> permitidos.stream().anyMatch(x -> Math.abs(x - n) < 0.011))) {
+                    return false;
+                }
             }
         }
         return true;
+    }
+
+    /** Remove URLs, tags HTML e marcação Markdown do texto da IA (o resumo é exibido como texto simples). */
+    static String limpar(String s) {
+        if (s == null) {
+            return "";
+        }
+        return s.replaceAll("(?i)\\b(?:https?://|www\\.)\\S+", "")
+                .replaceAll("<[^>]{0,200}>", "")
+                .replaceAll("[`*#>\\[\\]|~]", "")
+                .replace('_', ' ')
+                .replaceAll("\\s+", " ")
+                .strip();
     }
 
     private static Map<String, Object> inpeModelo(ReferenciaInpe r) {

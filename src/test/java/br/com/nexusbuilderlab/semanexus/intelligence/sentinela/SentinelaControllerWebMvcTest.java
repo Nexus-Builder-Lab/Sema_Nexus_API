@@ -2,6 +2,8 @@ package br.com.nexusbuilderlab.semanexus.intelligence.sentinela;
 
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -72,11 +74,20 @@ class SentinelaControllerWebMvcTest {
     }
 
     @Test
+    void semBriefingEGeracaoEmFalhaDa503ComRetryAfter() throws Exception {
+        when(service.briefing()).thenThrow(new SentinelaIndisponivelException(42));
+        mvc.perform(get(URL).header(HttpHeaders.AUTHORIZATION, bearer(Perfil.GESTOR)))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(header().string(HttpHeaders.RETRY_AFTER, "42"))
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"));
+    }
+
+    @Test
     void adminEGestorRecebemOBriefing() throws Exception {
         BriefingSentinela.Anomalia a = new BriefingSentinela.Anomalia("INPE_SEM_DEMANDA:5107909", "INPE_SEM_DEMANDA",
                 "ALTA", "Sinop: 32 registro(s) do INPE sem demanda aberta", "desc", Map.of("total", 32),
                 List.of(new BriefingSentinela.AcaoSugerida("CRIAR_DEMANDA_MONITORAMENTO", "Abrir",
-                        Map.of("origem", "MONITORAMENTO", "municipioId", 5107909))));
+                        Map.of("origem", "MONITORAMENTO", "municipioId", 5107909))), "Sinop");
         when(service.briefing()).thenReturn(new BriefingSentinela("AMBIENTE DEMONSTRATIVO", LocalDateTime.now(),
                 LocalDateTime.now().plusMinutes(10), "AGENDADA", "DEMONSTRATIVO", null, "Briefing de hoje.", null,
                 null, new BriefingSentinela.Totais(1, 1, 0, 0), List.of(a), Map.of(), List.of(), List.of()));

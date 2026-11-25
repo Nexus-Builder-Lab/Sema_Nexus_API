@@ -113,7 +113,7 @@ public final class RegrasSentinela {
             r.add(new Anomalia(INPE_SEM_DEMANDA + ":" + c.municipioId(), INPE_SEM_DEMANDA,
                     severidade(c.total(), p.minRegistrosInpe()),
                     c.municipio() + ": " + c.total() + " registro(s) do INPE sem demanda aberta", descricao, numeros,
-                    acoes));
+                    acoes, c.municipio()));
         }
         return r;
     }
@@ -179,7 +179,7 @@ public final class RegrasSentinela {
             r.add(new Anomalia(FILA_ACUMULADA + ":" + s.name(), FILA_ACUMULADA,
                     severidade(paradas.size(), p.filaMinimo()),
                     "Fila acumulada em \"" + rotulo + "\": " + paradas.size() + " parada(s) há " + p.filaDias()
-                            + "+ dias", descricao, numeros, acoes));
+                            + "+ dias", descricao, numeros, acoes, rotulo));
         }
         return r;
     }
@@ -231,7 +231,7 @@ public final class RegrasSentinela {
                             new AcaoSugerida("FILTRAR_DEMANDAS", "Ver demandas da " + c.equipe(), filtro));
                     return new Anomalia(EQUIPE_SOBRECARREGADA + ":" + c.equipeId(), EQUIPE_SOBRECARREGADA,
                             x.estourouAtivas() && x.estourouAtrasadas() ? ALTA : MEDIA,
-                            nome + " sobrecarregada", descricao, numeros, acoes);
+                            nome + " sobrecarregada", descricao, numeros, acoes, c.equipe());
                 })
                 .toList();
     }
