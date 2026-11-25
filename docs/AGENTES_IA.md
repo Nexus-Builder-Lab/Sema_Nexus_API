@@ -100,14 +100,14 @@ A recuperação de `buscar_documentos`, do modo extrativo e de `GET /api/documen
 
 ### Benchmark textual × híbrida
 
-Conjunto fixo: `src/test/resources/benchmark/perguntas-busca.json` — 18 perguntas sobre o acervo fictício do seed (14 respondíveis, incluindo 4 paráfrases sem as palavras do texto, e 4 fora do acervo, em que o certo é se abster). Métricas: precisão@3 (fração do que voltou no top-3 que é relevante), acerto@1, recall@3, abstenção correta (fora do acervo → nada) e abstenção indevida (respondível → nada).
+Conjunto fixo: `src/test/resources/benchmark/perguntas-busca.json` — 21 perguntas sobre o acervo fictício do seed (14 respondíveis, incluindo 4 paráfrases sem as palavras do texto, e 7 fora do acervo — 3 delas ambientais, como "Qual a área desmatada em Cáceres?" (o caso Cáceres × Colniza), em que o certo é se abster). Métricas: precisão@3 (fração do que voltou no top-3 que é relevante), acerto@1, recall@3, abstenção correta (fora do acervo → nada) e abstenção indevida (respondível → nada).
 
 **Offline (teste `BenchmarkBuscaTest`, `mvn test`, 24/11/2026)** — código de produção da busca com o SQL emulado em memória e embeddings **falsos determinísticos** (trigramas + uma tabela pequena de sinônimos de teste, limiar 0,30). Prova a mecânica (fusão, limiar, abstenção, degradação), **não** a qualidade do nomic-embed-text:
 
 | Recuperação | Precisão@3 | Acerto@1 | Recall@3 | Abstenção correta | Abstenção indevida |
 |---|---|---|---|---|---|
-| LEXICAL | 0,80 | 0,93 | 0,96 | 0,75 | 0,00 |
-| HIBRIDA (embeddings falsos) | 0,71 | 1,00 | 0,92 | 0,75 | 0,00 |
+| LEXICAL | 0,80 | 0,93 | 0,96 | 0,71 | 0,00 |
+| HIBRIDA (embeddings falsos) | 0,71 | 1,00 | 0,92 | 0,71 | 0,00 |
 
 Leitura honesta: a híbrida pôs o documento certo em 1º na paráfrase "Derrubada da floresta detectada por satélite" (a textual punha o Parecer de Cáceres, por causa de "satélite"), mas trouxe mais documentos ao top-3 (ex.: a Instrução Normativa em "Incêndio no pantanal durante a seca"), o que baixou a precisão@3. A abstenção não mudou: "Resultado das eleições municipais" continua com falso positivo **textual** ("resultado" e "município" existem nos documentos) — a parte vetorial não cria nem remove esse erro. O teste também garante que, sem embeddings, a busca "AUTO" devolve exatamente o resultado lexical.
 
