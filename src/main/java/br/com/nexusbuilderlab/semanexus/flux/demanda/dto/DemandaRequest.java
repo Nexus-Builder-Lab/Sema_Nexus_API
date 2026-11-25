@@ -52,5 +52,17 @@ public record DemandaRequest(
                 example = "2026-12-10", nullable = true)
         LocalDate prazoSugerido,
         @Schema(description = "Observações livres", nullable = true)
-        @Size(max = 2000) String observacoes) {
+        @Size(max = 2000) String observacoes,
+        @Schema(description = "Somente na edição: true remove a área afetada (areaHa e areaGeometria). Sem areaHa/areaGeometria "
+                + "e sem este indicador, a área existente é MANTIDA", example = "false", nullable = true)
+        Boolean removerArea) {
+
+    /** Construtor sem {@code removerArea} (cadastro e edição que não mexem na área). */
+    public DemandaRequest(String titulo, String descricao, Origem origem, CategoriaFiscalizacao categoria,
+                          Integer municipioId, String localidade, BigDecimal latitude, BigDecimal longitude,
+                          BigDecimal areaHa, Map<String, Object> areaGeometria, LocalDate dataRecebimento,
+                          Prioridade prioridade, LocalDate prazoSugerido, String observacoes) {
+        this(titulo, descricao, origem, categoria, municipioId, localidade, latitude, longitude, areaHa, areaGeometria,
+                dataRecebimento, prioridade, prazoSugerido, observacoes, null);
+    }
 }

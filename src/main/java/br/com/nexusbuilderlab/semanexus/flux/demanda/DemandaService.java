@@ -95,7 +95,7 @@ public class DemandaService {
     public DemandaDetalhe cadastrar(UsuarioAutenticado ator, DemandaRequest pedido) {
         LocalDate hoje = hoje();
         Municipio municipio = validar(pedido, hoje);
-        AreaResolvida area = resolverArea(pedido);
+        AreaResolvida area = resolverArea(pedido, null);
         Usuario autor = usuario(ator);
 
         Demanda demanda = new Demanda(numeracao.proximoNumero(hoje.getYear()), autor);
@@ -123,7 +123,7 @@ public class DemandaService {
                     + "(status atual: " + demanda.getStatus().rotulo() + ").");
         }
         Municipio municipio = validar(pedido, hoje);
-        AreaResolvida area = resolverArea(pedido);
+        AreaResolvida area = resolverArea(pedido, demanda);
         Usuario autor = usuario(ator);
 
         List<String> alterados = camposAlterados(demanda, pedido, area);
@@ -298,11 +298,15 @@ public class DemandaService {
 
     /**
      * Valida areaHa/areaGeometria. Com geometria: área calculada no servidor (divergência maior que 2% da informada
-     * gera 400) e, sem lat/lon, o centroide (dentro de MT) as preenche. Sem geometria, areaHa é gravada como veio.
+     * gera 400) e, sem lat/lon, o centroide (dentro de MT) as preenche. Sem geometria, areaHa é gravada como veio. Na edição, sem areaHa/areaGeometria a área existente é mantida; `removerArea: true` a remove.
      */
-    private static AreaResolvida resolverArea(DemandaRequest pedido) {
+    private static AreaResolvida resolverArea(DemandaRequest pedido, Demanda existente) {
         BigDecimal lat = pedido.latitude();
         BigDecimal lon = pedido.longitude();
+        if (existente != null && pedido.areaHa() == null && pedido.areaGeometria() == null
+                && !Boolean.TRUE.equals(pedido.removerArea())) {
+            return new AreaResolvida(existente.getAreaHa(), existente.getAreaGeometria(), lat, lon);
+        }
         if (pedido.areaGeometria() == null) {
             return new AreaResolvida(pedido.areaHa(), null, lat, lon);
         }

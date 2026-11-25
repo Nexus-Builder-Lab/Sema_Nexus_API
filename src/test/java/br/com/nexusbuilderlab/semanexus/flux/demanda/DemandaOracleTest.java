@@ -172,6 +172,29 @@ class DemandaOracleTest {
                 PageRequest.of(0, 10)).content()).extracting(DemandaResumo::id).doesNotContain(criada.id());
     }
 
+    @Test
+    void poligonoGravaMantemEmEdicaoSemAreaERemoveComFlag() {
+        UsuarioAutenticado ator = novoAtor(Perfil.ADMIN);
+        var geo = br.com.nexusbuilderlab.semanexus.common.geo.GeometriaAreaTest.poligono(
+                br.com.nexusbuilderlab.semanexus.common.geo.GeometriaAreaTest.anel(-56.10, -15.60, -56.09, -15.59));
+        DemandaDetalhe criada = service.cadastrar(ator, new DemandaRequest("Área com polígono", "Descrição fictícia",
+                Origem.DENUNCIA, null, CUIABA, null, null, null, null, geo, hoje(), null, null, null));
+        assertThat(criada.areaHa()).isPositive();
+        assertThat(criada.areaGeometria()).containsEntry("type", "Polygon");
+        assertThat(criada.latitude()).isNotNull();
+
+        DemandaDetalhe soTitulo = service.editar(ator, criada.id(), new DemandaRequest("Só o título mudou", "Descrição fictícia",
+                Origem.DENUNCIA, null, CUIABA, null, criada.latitude(), criada.longitude(), null, null, hoje(), null, null, null));
+        assertThat(soTitulo.areaHa()).isEqualByComparingTo(criada.areaHa());
+        assertThat(soTitulo.areaGeometria()).isEqualTo(criada.areaGeometria());
+
+        DemandaDetalhe removida = service.editar(ator, criada.id(), new DemandaRequest("Só o título mudou", "Descrição fictícia",
+                Origem.DENUNCIA, null, CUIABA, null, criada.latitude(), criada.longitude(), null, null, hoje(), null, null, null,
+                true));
+        assertThat(removida.areaHa()).isNull();
+        assertThat(removida.areaGeometria()).isNull();
+    }
+
     private static DemandaFiltro filtro(String q, Integer municipio, CategoriaFiscalizacao categoria,
                                         Prioridade prioridade, StatusDemanda status, LocalDate de, LocalDate ate,
                                         Boolean atrasada) {

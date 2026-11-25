@@ -290,6 +290,28 @@ class DemandaServiceTest {
         assertThat(h.getValue().getTexto()).contains("área afetada").contains("prazo sugerido");
     }
 
+    @Test
+    void edicaoSemAreaMantemAExistenteEFlagRemove() {
+        Demanda d = demanda(1, StatusDemanda.PENDENTE);
+        when(demandas.buscarParaEscrita(1L)).thenReturn(Optional.of(d));
+        service.editar(ator, 1L, comArea(null, quadrado(-56.1, -15.6, -56.0, -15.5), null, null, null));
+        BigDecimal ha = d.getAreaHa();
+        String geo = d.getAreaGeometria();
+        assertThat(ha).isNotNull();
+
+        DemandaDetalhe mantida = service.editar(ator, 1L, comArea(null, null, null, null, null));
+        assertThat(mantida.areaHa()).isEqualByComparingTo(ha);
+        assertThat(d.getAreaGeometria()).isEqualTo(geo);
+
+        DemandaDetalhe nova = service.editar(ator, 1L, comArea(null, quadrado(-56.1, -15.6, -56.05, -15.55), null, null, null));
+        assertThat(nova.areaHa()).isLessThan(ha);
+
+        DemandaDetalhe removida = service.editar(ator, 1L, new DemandaRequest("Título da demanda", "Descrição fictícia",
+                Origem.DENUNCIA, null, 5103403, null, null, null, null, null, HOJE.minusDays(2), null, null, null, true));
+        assertThat(removida.areaHa()).isNull();
+        assertThat(removida.areaGeometria()).isNull();
+    }
+
     // ---------------------------------------------------------------- edição
 
     @Test
