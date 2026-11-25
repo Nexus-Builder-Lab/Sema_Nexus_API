@@ -1,6 +1,7 @@
 package br.com.nexusbuilderlab.semanexus.flux.demanda;
 
-import com.drew.imaging.ImageMetadataReader;
+import com.drew.imaging.jpeg.JpegMetadataReader;
+import com.drew.imaging.webp.WebpMetadataReader;
 import com.drew.lang.GeoLocation;
 import com.drew.metadata.Directory;
 import com.drew.metadata.Metadata;
@@ -36,7 +37,10 @@ final class LeitorExif {
     static Exif ler(byte[] conteudo) {
         Metadata metadados;
         try {
-            metadados = ImageMetadataReader.readMetadata(new ByteArrayInputStream(conteudo), conteudo.length);
+            metadados = lerMetadados(conteudo);
+            if (metadados == null) {
+                return Exif.VAZIO;
+            }
         } catch (Exception | StackOverflowError e) {
             return Exif.VAZIO;
         }
@@ -57,6 +61,22 @@ final class LeitorExif {
             }
         }
         return new Exif(dataHora, lat, lon);
+    }
+
+    /**
+     * Só JPEG e WebP têm leitura de EXIF. PNG é deliberadamente ignorado: o leitor de PNG da biblioteca descompacta
+     * chunks zTXt/iTXt inteiros, sem limite (bomba de descompressão → OutOfMemoryError). Nunca usar
+     * {@code ImageMetadataReader}, que escolhe o leitor pelo conteúdo e alcançaria o PNG.
+     */
+    private static Metadata lerMetadados(byte[] c) throws Exception {
+        if (c.length >= 3 && (c[0] & 0xFF) == 0xFF && (c[1] & 0xFF) == 0xD8) {
+            return JpegMetadataReader.readMetadata(new ByteArrayInputStream(c));
+        }
+        if (c.length >= 12 && c[0] == 'R' && c[1] == 'I' && c[2] == 'F' && c[3] == 'F'
+                && c[8] == 'W' && c[9] == 'E' && c[10] == 'B' && c[11] == 'P') {
+            return WebpMetadataReader.readMetadata(new ByteArrayInputStream(c));
+        }
+        return null;
     }
 
     private static LocalDateTime data(Directory diretorio, int tag) {

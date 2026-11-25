@@ -271,6 +271,45 @@ class FotoFiscalizacaoServiceTest {
     }
 
     @Test
+    void pngBombaZtxtNaoEDescompactado() throws IOException {
+        java.io.ByteArrayOutputStream png = new java.io.ByteArrayOutputStream();
+        png.write(new byte[] {(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A});
+        byte[] ihdr = {0, 0, 0, 1, 0, 0, 0, 1, 8, 2, 0, 0, 0};
+        chunkPng(png, "IHDR", ihdr);
+        java.io.ByteArrayOutputStream z = new java.io.ByteArrayOutputStream();
+        z.write("Comment".getBytes(java.nio.charset.StandardCharsets.ISO_8859_1));
+        z.write(0);
+        z.write(0);
+        java.util.zip.DeflaterOutputStream d = new java.util.zip.DeflaterOutputStream(z,
+                new java.util.zip.Deflater(9));
+        byte[] zeros = new byte[1 << 20];
+        for (int i = 0; i < 600; i++) { // ~600 MB descompactados: estouraria o heap se alguém lesse
+            d.write(zeros);
+        }
+        d.close();
+        chunkPng(png, "zTXt", z.toByteArray());
+        chunkPng(png, "IEND", new byte[0]);
+
+        long ini = System.nanoTime();
+        LeitorExif.Exif exif = LeitorExif.ler(png.toByteArray());
+
+        assertThat(exif).isEqualTo(LeitorExif.Exif.VAZIO);
+        assertThat((System.nanoTime() - ini) / 1_000_000).isLessThan(2000L);
+    }
+
+    private static void chunkPng(java.io.ByteArrayOutputStream out, String tipo, byte[] dados) throws IOException {
+        java.io.DataOutputStream o = new java.io.DataOutputStream(out);
+        o.writeInt(dados.length);
+        byte[] t = tipo.getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+        o.write(t);
+        o.write(dados);
+        java.util.zip.CRC32 crc = new java.util.zip.CRC32();
+        crc.update(t);
+        crc.update(dados);
+        o.writeInt((int) crc.getValue());
+    }
+
+    @Test
     void leitorExifToleraConteudoCorrompido() throws IOException {
         byte[] truncado = java.util.Arrays.copyOf(recurso("gps-cuiaba.jpg"), 40);
         assertThat(LeitorExif.ler(truncado).temGps()).isFalse();

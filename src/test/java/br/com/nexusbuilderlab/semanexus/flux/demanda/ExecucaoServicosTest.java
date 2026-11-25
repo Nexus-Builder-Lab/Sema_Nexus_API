@@ -221,6 +221,19 @@ class ExecucaoServicosTest {
     }
 
     @Test
+    void reenvioSemChecklistPreservaOChecklistAnterior() {
+        demanda(StatusDemanda.EM_ANDAMENTO);
+        Fiscalizacao existente = new Fiscalizacao(mock(Demanda.class), HOJE.minusDays(3), equipe, "a", "r", "e", null,
+                fiscal);
+        existente.setChecklist("{\"versao\":1}");
+        when(fiscalizacoes.buscarPorDemanda(5L)).thenReturn(Optional.of(existente));
+
+        fiscalizacaoService.registrar(como(fiscal), 5L, fiscalizacao(HOJE));
+
+        assertThat(existente.getChecklist()).isEqualTo("{\"versao\":1}");
+    }
+
+    @Test
     void fiscalizacaoComChecklistValidoGravaJsonDaCategoria() {
         Demanda d = demanda(StatusDemanda.EM_ANDAMENTO);
         d.setCategoria(br.com.nexusbuilderlab.semanexus.core.catalogo.CategoriaFiscalizacao.QUEIMADA_INCENDIO);

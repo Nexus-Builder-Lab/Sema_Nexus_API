@@ -78,7 +78,9 @@ public class FiscalizacaoService {
         } else {
             f.atualizar(pedido.data(), atividades, resultado, evidencias, recomendacoes);
         }
-        f.setChecklist(checklist);
+        if (checklist != null) { // reenvio sem checklist preserva o anterior
+            f.setChecklist(checklist);
+        }
         fiscalizacoes.save(f);
         demanda.setStatus(novo);
         demandas.save(demanda);
