@@ -598,3 +598,10 @@
 - **Testes:** novo `IndiceBuscaDocumentosTest` (4) e caso em `DocumentoServiceTest`; `DocumentoOracleTest` (tag `oracle`) com texto acentuado de ~40 KB: listagem, pesquisa ranqueada, backfill e idempotência — com o SQL antigo o mesmo teste falha com `ORA-22835 (real: 36021, máximo: 4000)`, com a correção passa. `mvn -B -ntp verify` local (sem Oracle, após rebase na main com #163) → 624 testes, 0 falhas; `-Poracle` `DocumentoOracleTest` 4/4, `DemoSeedOracleTest` 5/5, `DocumentoTrechoOracleTest` 1/1.
 - **Docker (demo):** V11 aplicada; "texto normalizado preenchido em 14 documento(s)"; `GET /api/documentos/busca?q=queimada` → 200 (5 resultados), `q=minuta` → 200 com o documento 41; `POST /api/docia/perguntas` (ANALISTA) → 200, agente LOCAL, referência ao documento 41, sem ORA nos logs.
 - **Pendências:** nenhuma de código.
+
+## 2026-11-25 · GH-143 · Área afetada no cadastro/edição de demanda (PE-10A-API)
+- **Status:** PR solicitado (subagente implementador, pacote de evoluções de 24/11/2026).
+- **O que foi feito:** `DemandaRequest` ganhou `areaHa?` e `areaGeometria?`; `GeometriaArea` (common/geo) valida o GeoJSON (tipo, anéis fechados, >= 4 pontos, NaN, caixa de MT das constantes do `ReferenciaSateliteLoader`, <= 2000 vértices, <= 200 KB) e calcula a área em ha (esfera, Chamberlain-Duquette, furos subtraídos); `DemandaService` grava área/geometria (colunas V7, entidade agora gravável) e preenche lat/lon com o centroide quando ausentes; histórico/auditoria incluem "área afetada".
+- **Decisões técnicas:** `areaHa` informada divergente > 2% da calculada gera 400 (não sobrescreve em silêncio); PUT por substituição (omitir limpa a área). `prazoSugerido` já era gravado e devolvido em `DemandaDetalhe`; agora há teste de ida e volta (cadastro e edição). Sem migration.
+- **Testes:** novo `GeometriaAreaTest` (6: área x fórmula fechada, furo, MultiPolygon, inválidas, > 2000 vértices, tolerância) e 4 casos em `DemandaServiceTest` (cálculo/centroide/prazoSugerido, divergência 400, fora de MT 400, edição com histórico); suítes afetadas verdes.
+- **Pendências:** validar no Docker/Oracle (CLOB e coluna AREA_HA) no validador.

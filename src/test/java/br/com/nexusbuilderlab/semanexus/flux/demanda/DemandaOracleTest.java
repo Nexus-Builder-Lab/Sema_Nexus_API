@@ -69,7 +69,7 @@ class DemandaOracleTest {
     private DemandaDetalhe cadastrar(UsuarioAutenticado ator, String titulo, int municipio,
                                      CategoriaFiscalizacao categoria, Prioridade prioridade, LocalDate recebimento) {
         return service.cadastrar(ator, new DemandaRequest(titulo, "Descrição fictícia", Origem.DENUNCIA, categoria,
-                municipio, null, null, null, recebimento, prioridade, null, null));
+                municipio, null, null, null, null, null, recebimento, prioridade, null, null));
     }
 
     @Test
@@ -165,7 +165,7 @@ class DemandaOracleTest {
         DemandaDetalhe criada = cadastrar(ator, "Para editar e excluir", CUIABA, null, null, hoje());
 
         DemandaDetalhe editada = service.editar(ator, criada.id(), new DemandaRequest("Título editado", "Descrição fictícia",
-                Origem.DENUNCIA, null, CUIABA, null, null, null, hoje(), null, null, null));
+                Origem.DENUNCIA, null, CUIABA, null, null, null, null, null, hoje(), null, null, null));
         assertThat(editada.titulo()).isEqualTo("Título editado");
         service.excluir(ator, criada.id());
         assertThat(service.listar(ator, filtro("Título editado", null, null, null, null, null, null, null),
