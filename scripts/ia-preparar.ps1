@@ -5,7 +5,7 @@
   Usa COMPOSE_PROFILES do .env: "ia" (GPU NVIDIA) ou "ia-cpu" (sem GPU). Baixa OLLAMA_MODELO (padrão qwen3:4b-instruct,
   licença Apache 2.0, ~2,5 GB) para o volume "ollama" do projeto sema-nexus. Não mexe em outros projetos.
   Também baixa o modelo de embeddings EMBEDDINGS_MODELO (padrão nomic-embed-text, Apache 2.0, ~0,3 GB) da busca
-  híbrida do DocIA (Issue #141); se EMBEDDINGS_ATIVO=false, pula. Falha nele não impede os agentes (a busca fica lexical).
+  híbrida do DocIA (Issue #141) quando EMBEDDINGS_ATIVO=true (padrão false). Falha nele não impede os agentes (a busca fica lexical).
   Sem custo: o modelo roda na própria máquina e nenhum dado sai dela. Ver docs/AGENTES_IA.md.
   AMBIENTE DEMONSTRATIVO — DADOS FICTÍCIOS.
 #>
@@ -21,7 +21,7 @@ else {
 }
 $modelo = Get-EnvValor 'OLLAMA_MODELO' 'qwen3:4b-instruct'
 if ($modelo -notmatch '^[a-z0-9][a-z0-9._-]{1,60}(:[a-z0-9._-]{1,40})?$') { Stop-Demo "OLLAMA_MODELO inválido: '$modelo'." }
-$embeddingsAtivo = (Get-EnvValor 'EMBEDDINGS_ATIVO' 'true') -ne 'false'
+$embeddingsAtivo = (Get-EnvValor 'EMBEDDINGS_ATIVO' 'false') -ne 'false'
 $modeloEmbeddings = Get-EnvValor 'EMBEDDINGS_MODELO' 'nomic-embed-text'
 if ($modeloEmbeddings -notmatch '^[a-z0-9][a-z0-9._/-]{1,60}(:[a-z0-9._-]{1,40})?$') {
     Stop-Demo "EMBEDDINGS_MODELO inválido: '$modeloEmbeddings'."

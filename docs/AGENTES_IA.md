@@ -115,7 +115,16 @@ Leitura honesta: a híbrida pôs o documento certo em 1º na paráfrase "Derruba
 
 **Calibração com o modelo real (24/11/2026, nomic-embed-text no Ollama do compose, acervo do seed):** os cossenos do nomic ficam comprimidos (0,55–0,80). Nas 7 perguntas fora do acervo, o documento mais próximo **sem** nenhum termo da pergunta chegou a 0,633 ("Campanha de vacinação contra febre aftosa"); nas respondíveis, os documentos só-vetoriais acima de 0,63 eram quase todos **irrelevantes** (ex.: 0,671 em "Quantos hectares a queimada atingiu em Cáceres?"), e o 1º vetorial coincidiu com o relevante em 12 de 14 perguntas, sempre já achado pela textual. Por isso o limiar padrão é **0,65**: nenhuma pergunta fora do acervo ganha documento pela parte vetorial (abstenção preservada) e a contribuição vetorial fica na reordenação por RRF. Os falsos positivos de "Qual a área desmatada em Cáceres?" e "Resultado das eleições municipais" vêm da busca **textual** (termos em comum) e não mudam com o limiar.
 
-**Benchmark com o modelo real (a registrar):** o benchmark com o nomic-embed-text exige Docker (Ollama e API) e não foi rodado nesta Issue. Para medir: `scripts/ia-preparar.ps1` (baixa o modelo), aguardar ~2 min (indexação; `GET /api/documentos/busca?q=queimada` deve responder `recuperacao=HIBRIDA`) e rodar `scripts/benchmark-busca.ps1 -Saida benchmark.md` (ou `scripts/benchmark-busca.sh benchmark.md`, requer `jq`). O script só lê (login demonstrativo CONSULTA ou `SEMA_EMAIL`/`SEMA_SENHA`) e compara `modo=LEXICAL` × `modo=AUTO` com as mesmas perguntas. Calibrar `EMBEDDINGS_SIMILARIDADE_MINIMA` pelo resultado (abstenção correta sem perder acerto@1) e registrar a tabela aqui.
+**Benchmark com o modelo real (24/11/2026, `scripts/benchmark-busca.ps1`, limiar 0,65, 21 perguntas):**
+
+| Recuperação | Precisão@3 | Acerto@1 | Recall@3 | Abstenção correta | Abstenção indevida |
+|---|---|---|---|---|---|
+| LEXICAL | 0,80 | 0,93 | 0,96 | 0,71 | 0,00 |
+| HIBRIDA (nomic-embed-text) | 0,70 | 0,86 | 0,96 | 0,71 | 0,00 |
+
+**Decisão:** no acervo demonstrativo (12 documentos curtos, perguntas com termos do texto) a híbrida **não supera** a textual — mesma abstenção e recall, menos precisão e acerto@1 (a fusão RRF promove vizinhos semânticos pouco relevantes). Por isso `EMBEDDINGS_ATIVO=false` é o padrão: a demonstração usa a busca textual e a resposta informa `recuperacao=LEXICAL`. Tudo continua implementado e testado; para ligar, `EMBEDDINGS_ATIVO=true` no `.env` (o modelo precisa estar baixado). Reavaliar com acervo maior ou outro modelo de embeddings.
+
+**Como repetir:** o benchmark com o nomic-embed-text exige Docker (Ollama e API) e não foi rodado nesta Issue. Para medir: `scripts/ia-preparar.ps1` (baixa o modelo), aguardar ~2 min (indexação; `GET /api/documentos/busca?q=queimada` deve responder `recuperacao=HIBRIDA`) e rodar `scripts/benchmark-busca.ps1 -Saida benchmark.md` (ou `scripts/benchmark-busca.sh benchmark.md`, requer `jq`). O script só lê (login demonstrativo CONSULTA ou `SEMA_EMAIL`/`SEMA_SENHA`) e compara `modo=LEXICAL` × `modo=AUTO` com as mesmas perguntas. Calibrar `EMBEDDINGS_SIMILARIDADE_MINIMA` pelo resultado (abstenção correta sem perder acerto@1) e registrar a tabela aqui.
 
 ## Resumo das diferenças da comparação (Issue #142)
 
@@ -171,7 +180,7 @@ A GPU chega a ~99% **durante** a geração (alguns segundos) — é o esperado: 
 | `AGENTES_MAX_CHAMADAS_FERRAMENTA` | `8` | Máximo de chamadas de ferramenta somadas na execução (1–30). |
 | `AGENTES_GPU_CONCORRENCIA` | `1` | Chamadas simultâneas ao modelo na fila da GPU (1–16; Issue #134). |
 | `AGENTES_GPU_ESPERA_SEGUNDOS` | `20` | Espera máxima por vaga na fila (1–120 s); esgotada, modo demonstrativo identificado. |
-| `EMBEDDINGS_ATIVO` | `true` | Busca híbrida do DocIA (#141); `false` = só lexical. |
+| `EMBEDDINGS_ATIVO` | `false` | Busca híbrida do DocIA (#141); desligada por padrão após o benchmark real; `true` liga. |
 | `EMBEDDINGS_MODELO` | `nomic-embed-text` | Modelo de embeddings no Ollama (768 dimensões). |
 | `EMBEDDINGS_SIMILARIDADE_MINIMA` | `0.65` | Cosseno mínimo (0–1) para um documento entrar só pela parte vetorial. |
 | `EMBEDDINGS_REINDEXAR_SEGUNDOS` | `120` | Intervalo da indexação de documentos sem trechos (10–86400). |

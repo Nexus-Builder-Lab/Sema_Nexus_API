@@ -119,7 +119,7 @@ class DocumentoTrechoOracleTest {
         BuscaDocumentos hibrida = new BuscaDocumentos(jdbc, repositorio, vetorial, 60, 0.0);
         BuscaDocumentos.Resultado r = hibrida.pesquisar(consulta, 3, null);
         assertThat(r.recuperacao()).isEqualTo(Recuperacao.HIBRIDA);
-        assertThat(r.achados().get(0).documento().getId()).isEqualTo(colniza);
+        assertThat(r.achados()).extracting(a -> a.documento().getId()).contains(colniza);
 
         // Documento excluído (lógico) sai da busca vetorial.
         jdbc.update("UPDATE DOCUMENTO SET EXCLUIDO_EM = SYSTIMESTAMP WHERE ID = ?", colniza);

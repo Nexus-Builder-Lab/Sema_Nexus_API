@@ -11,7 +11,8 @@ import org.springframework.stereotype.Component;
  * agentes), modelo aberto {@code nomic-embed-text} (Apache 2.0, 768 dimensões). Tudo opcional: sem o modelo ou com
  * {@code EMBEDDINGS_ATIVO=false} a busca continua só lexical, sem falha.
  * <ul>
- *   <li>{@code EMBEDDINGS_ATIVO} (padrão true) — liga a indexação e a parte vetorial da busca;</li>
+ *   <li>{@code EMBEDDINGS_ATIVO} (padrão <b>false</b> desde o benchmark real de 24/11/2026: a híbrida não superou a
+ *   textual no acervo demonstrativo — ver docs/AGENTES_IA.md) — liga a indexação e a parte vetorial da busca;</li>
  *   <li>{@code EMBEDDINGS_MODELO} (padrão nomic-embed-text) — precisa gerar vetores de {@value #DIMENSAO} dimensões
  *   (a coluna é {@code VECTOR(768, FLOAT32)}); outra dimensão desliga a parte vetorial com aviso no log;</li>
  *   <li>{@code BUSCA_RRF_K} (padrão 60) — constante da fusão RRF;</li>
@@ -39,7 +40,7 @@ public class EmbeddingsConfiguracao {
     private final int reindexarSegundos;
 
     @Autowired
-    public EmbeddingsConfiguracao(@Value("${EMBEDDINGS_ATIVO:true}") boolean ativo,
+    public EmbeddingsConfiguracao(@Value("${EMBEDDINGS_ATIVO:false}") boolean ativo,
                                   @Value("${EMBEDDINGS_MODELO:" + MODELO_PADRAO + "}") String modelo,
                                   @Value("${OLLAMA_URL:http://ollama:11434}") String ollamaUrl,
                                   @Value("${BUSCA_RRF_K:" + RRF_K_PADRAO + "}") int rrfK,
