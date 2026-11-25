@@ -223,6 +223,11 @@ public class PainelSistemaService {
                         metricas.resumo("minuta")),
                 new AgentePainel("sentinela", "Sentinela Territorial", "SEMA Intelligence", modo,
                         ia ? executor.modelo(agentes.modeloTriagem()) : "Template determinístico (sem IA generativa)",
-                        List.of("anomalias_sentinela", "indicadores_operacionais"), metricas.resumo("sentinela")));
+                        List.of("anomalias_sentinela", "indicadores_operacionais"), metricas.resumo("sentinela")),
+                new AgentePainel("assistente-global", "Assistente Global", "SEMA ALERTA", modo,
+                        ia ? executor.modelo(agentes.modeloTriagem()) : "Regras locais (sem IA generativa)",
+                        List.of("resumo_indicadores_ambientais", "prazos_criticos", "buscar_demandas",
+                                "buscar_documentos", "resumo_alertas_inpe"),
+                        metricas.resumo("assistente-global")));
     }
 }

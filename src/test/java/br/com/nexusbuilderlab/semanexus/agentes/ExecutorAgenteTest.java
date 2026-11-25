@@ -201,6 +201,8 @@ class ExecutorAgenteTest {
                 .extracting(AgentesController.AgenteInfo::modelo).containsExactly("claude-sonnet-5-5");
         assertThat(c.agentes()).filteredOn(a -> a.id().equals("sentinela"))
                 .extracting(AgentesController.AgenteInfo::modelo).containsExactly("claude-haiku-5-5");
+        assertThat(c.agentes()).filteredOn(a -> a.id().equals("assistente-global"))
+                .extracting(AgentesController.AgenteInfo::modelo).containsExactly("claude-haiku-5-5");
         assertThat(c.toString()).doesNotContain(CHAVE_FICTICIA);
     }
 

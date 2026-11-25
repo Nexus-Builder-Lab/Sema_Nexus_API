@@ -63,7 +63,11 @@ public class AgentesController {
                 new AgenteInfo("sentinela", "Sentinela Territorial", "SEMA Intelligence",
                         ia ? executor.modelo(configuracao.modeloTriagem()) : SEM_IA,
                         "Detecta anomalias (INPE sem demanda, filas acumuladas, equipes sobrecarregadas) e escreve o "
-                                + "briefing executivo.")));
+                                + "briefing executivo."),
+                new AgenteInfo("assistente-global", "Assistente Global", "SEMA ALERTA",
+                        ia ? executor.modelo(configuracao.modeloTriagem()) : SEM_IA,
+                        "Responde perguntas rápidas (Ctrl+K) com indicadores, prazos, demandas, documentos e INPE, "
+                                + "no escopo do usuário, com atalhos para as telas.")));
     }
 
     private String modo() {
