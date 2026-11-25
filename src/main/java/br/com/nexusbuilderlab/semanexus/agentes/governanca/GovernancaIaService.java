@@ -18,18 +18,25 @@ import br.com.nexusbuilderlab.semanexus.security.UsuarioAutenticado;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Governança de IA (Issue #131): registra a última sugestão de cada agente por demanda, compara com a decisão humana
  * e guarda o feedback do DocIA na tabela {@code AVALIACAO_AGENTE}.
  * <p>
- * O registro é telemetria, nunca dado operacional: os métodos de registro não têm transação própria (participam da
- * transação do chamador, quando houver) e <b>engolem</b> qualquer falha com um aviso no log — a triagem, a
- * distribuição e as respostas dos agentes nunca falham por causa da governança. No Oracle, um comando com erro não
- * invalida a transação do chamador.
+ * O registro é telemetria, nunca dado operacional: {@link #registrarSugestao} executa o par {@code DELETE + INSERT} em
+ * transação própria ({@code REQUIRES_NEW}), garantindo atomicidade quando chamado fora de transação pelos agentes e
+ * rollback conjunto se o {@code INSERT} falhar; os demais métodos de registro participam da transação do chamador
+ * quando houver. Todos <b>engolem</b> qualquer falha com um aviso no log — a triagem, a distribuição e as respostas
+ * dos agentes nunca falham por causa da governança. No Oracle, um comando com erro não invalida a transação do
+ * chamador.
  */
 @Service
 public class GovernancaIaService {
@@ -49,11 +56,28 @@ public class GovernancaIaService {
     private final JdbcTemplate jdbc;
     private final AuditService auditoria;
     private final Clock clock;
+    private final TransactionTemplate novaTransacao;
 
     public GovernancaIaService(JdbcTemplate jdbc, AuditService auditoria, Clock clock) {
+        this(jdbc, auditoria, clock, (PlatformTransactionManager) null);
+    }
+
+    GovernancaIaService(JdbcTemplate jdbc, AuditService auditoria, Clock clock, PlatformTransactionManager transacoes) {
         this.jdbc = jdbc;
         this.auditoria = auditoria;
         this.clock = clock;
+        if (transacoes == null) {
+            this.novaTransacao = null;
+        } else {
+            this.novaTransacao = new TransactionTemplate(transacoes);
+            this.novaTransacao.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        }
+    }
+
+    @Autowired
+    public GovernancaIaService(JdbcTemplate jdbc, AuditService auditoria, Clock clock,
+                               ObjectProvider<PlatformTransactionManager> transacoes) {
+        this(jdbc, auditoria, clock, transacoes.getIfAvailable());
     }
 
     private Timestamp agora() {
@@ -61,8 +85,9 @@ public class GovernancaIaService {
     }
 
     /**
-     * Guarda a sugestão como PENDENTE, substituindo a pendente anterior do mesmo agente na mesma demanda (fica só a
-     * última). {@code campos}: o que a pessoa poderá aplicar (ex.: decisao, categoria, prioridade).
+     * Guarda a sugestão como PENDENTE em transação própria ({@code REQUIRES_NEW}), substituindo a pendente anterior do
+     * mesmo agente na mesma demanda (fica só a última). {@code campos}: o que a pessoa poderá aplicar (ex.: decisao,
+     * categoria, prioridade).
      */
     public void registrarSugestao(String agente, Long demandaId, Long usuarioId, String modo,
                                   Map<String, String> campos) {
@@ -70,16 +95,25 @@ public class GovernancaIaService {
             return;
         }
         try {
-            jdbc.update("DELETE FROM AVALIACAO_AGENTE WHERE AGENTE = ? AND DEMANDA_ID = ? AND RESULTADO = 'PENDENTE'",
-                    agente, demandaId);
-            jdbc.update("INSERT INTO AVALIACAO_AGENTE (AGENTE, DEMANDA_ID, USUARIO_ID, MODO, SUGERIDO, RESULTADO, "
-                            + "CRIADO_EM) VALUES (?, ?, ?, ?, ?, 'PENDENTE', ?)",
-                    agente, demandaId, usuarioId, cortar(modo, 20), cortar(ComparadorDecisao.serializar(campos), 1000),
-                    agora());
+            if (novaTransacao == null) {
+                gravarSugestao(agente, demandaId, usuarioId, modo, campos);
+            } else {
+                novaTransacao.executeWithoutResult(st -> gravarSugestao(agente, demandaId, usuarioId, modo, campos));
+            }
         } catch (RuntimeException e) {
             LOG.warn("Governança de IA: sugestão do agente {} na demanda {} não registrada ({})", agente, demandaId,
                     e.getClass().getSimpleName());
         }
+    }
+
+    private void gravarSugestao(String agente, Long demandaId, Long usuarioId, String modo,
+                                Map<String, String> campos) {
+        jdbc.update("DELETE FROM AVALIACAO_AGENTE WHERE AGENTE = ? AND DEMANDA_ID = ? AND RESULTADO = 'PENDENTE'",
+                agente, demandaId);
+        jdbc.update("INSERT INTO AVALIACAO_AGENTE (AGENTE, DEMANDA_ID, USUARIO_ID, MODO, SUGERIDO, RESULTADO, "
+                        + "CRIADO_EM) VALUES (?, ?, ?, ?, ?, 'PENDENTE', ?)",
+                agente, demandaId, usuarioId, cortar(modo, 20), cortar(ComparadorDecisao.serializar(campos), 1000),
+                agora());
     }
 
     /**

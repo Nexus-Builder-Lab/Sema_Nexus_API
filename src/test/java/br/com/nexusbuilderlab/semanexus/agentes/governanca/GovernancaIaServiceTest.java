@@ -4,7 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.startsWith;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -26,6 +28,10 @@ import br.com.nexusbuilderlab.semanexus.security.UsuarioAutenticado;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.SimpleTransactionStatus;
 
 class GovernancaIaServiceTest {
 
@@ -124,6 +130,44 @@ class GovernancaIaServiceTest {
         String id = service.registrarResposta(10L, "DEMONSTRATIVO");
         assertThat(id).matches("[0-9a-f-]{36}");
         verify(jdbc).update(anyString(), eq(id), eq(10L), eq("DEMONSTRATIVO"), any());
+    }
+
+    @Test
+    void sugestaoUsaTransacaoPropriaRequiresNewECommitaDeleteInsert() {
+        PlatformTransactionManager tm = mock(PlatformTransactionManager.class);
+        TransactionStatus tx = new SimpleTransactionStatus();
+        when(tm.getTransaction(any())).thenReturn(tx);
+        GovernancaIaService comTransacao = new GovernancaIaService(jdbc, auditoria,
+                Clock.fixed(Instant.parse("2026-11-20T12:00:00Z"), ZoneOffset.UTC), tm);
+
+        comTransacao.registrarSugestao("triagem", 5L, 10L, "LOCAL", m("decisao", "CLASSIFICAR"));
+
+        verify(tm).getTransaction(argThat(def ->
+                def.getPropagationBehavior() == TransactionDefinition.PROPAGATION_REQUIRES_NEW));
+        verify(jdbc).update(startsWith("DELETE FROM AVALIACAO_AGENTE"), eq("triagem"), eq(5L));
+        verify(jdbc).update(startsWith("INSERT INTO AVALIACAO_AGENTE"), eq("triagem"), eq(5L), eq(10L), eq("LOCAL"),
+                eq("decisao=CLASSIFICAR"), any());
+        verify(tm).commit(tx);
+        verify(tm, never()).rollback(any());
+    }
+
+    @Test
+    void sugestaoDesfazDeleteSeInsertFalharNaTransacaoPropria() {
+        PlatformTransactionManager tm = mock(PlatformTransactionManager.class);
+        TransactionStatus tx = new SimpleTransactionStatus();
+        when(tm.getTransaction(any())).thenReturn(tx);
+        when(jdbc.update(startsWith("DELETE FROM AVALIACAO_AGENTE"), any(Object[].class))).thenReturn(1);
+        when(jdbc.update(startsWith("INSERT INTO AVALIACAO_AGENTE"), any(Object[].class)))
+                .thenThrow(new DataAccessResourceFailureException("fora"));
+        GovernancaIaService comTransacao = new GovernancaIaService(jdbc, auditoria,
+                Clock.fixed(Instant.parse("2026-11-20T12:00:00Z"), ZoneOffset.UTC), tm);
+
+        comTransacao.registrarSugestao("triagem", 5L, 10L, "LOCAL", m("decisao", "CLASSIFICAR"));
+
+        verify(tm).getTransaction(argThat(def ->
+                def.getPropagationBehavior() == TransactionDefinition.PROPAGATION_REQUIRES_NEW));
+        verify(tm).rollback(tx);
+        verify(tm, never()).commit(any());
     }
 
     // ------------------------------------------------------------- feedback do DocIA
