@@ -52,6 +52,8 @@ A ordem de avaliação é **autenticação (401) → perfil (403) → validaçã
 | POST | `/api/demandas/{id}/distribuicao` · GET `/api/equipes/{id}/demandas` | Admin, Gestor | #12 | ✅ |
 | POST | `/api/demandas/{id}/inicio` · `/atividades` · `/fiscalizacao` | fiscal designado, Gestor, Admin | #13 | ✅ |
 | POST | `/api/demandas/{id}/conclusao` · `/devolucao` | Gestor, Admin | #13 | ✅ |
+| GET | `/api/demandas/checklists` (modelos de checklist por categoria) | consulta | #145 | ✅ |
+| POST · GET · DELETE | `/api/demandas/{id}/fotos` (multipart) · `/fotos/{fotoId}/arquivo` · `/fotos/{fotoId}` | envio: fiscal designado, Gestor, Admin; leitura: escopo da demanda; exclusão: só quem enviou | #145 | ✅ |
 | GET | `/api/auditoria` | Admin | #14 | Implementado |
 | POST · GET | `/api/documentos` (multipart; Admin, Gestor, Fiscal, Analista) · `/api/documentos/{id}/arquivo` | ver ARCHITECTURE §6 | #15 | ✅ |
 | POST | `/api/documentos/pre-analise` (multipart `arquivo`; Admin, Gestor, Fiscal, Analista; nada é salvo) | título, município, data, palavras-chave, vínculos `DEM-AAAA/NNNN` e avisos (ex.: OCR indisponível) | #140 | ✅ |
@@ -103,7 +105,7 @@ Os controllers, DTOs de requisição/resposta, validações e erros abaixo já e
 | `POST /api/demandas/{id}/triagem` | `{decisao: CLASSIFICAR\|SOLICITAR_COMPLEMENTACAO, categoria?, prioridade?, justificativa}` — `CLASSIFICAR` exige categoria e prioridade | EM_TRIAGEM → AGUARDANDO_DISTRIBUICAO ou → PENDENTE |
 | `POST /api/demandas/{id}/distribuicao` | `{equipeId, fiscalId, prazo (≥ hoje), observacoes?}` | AGUARDANDO_DISTRIBUICAO → DISTRIBUIDA |
 | `POST /api/demandas/{id}/atividades` | `{descricao, data?}` | (sem mudança de status; demanda EM_ANDAMENTO) |
-| `POST /api/demandas/{id}/fiscalizacao` | `{data, atividades, resultado, evidencias, recomendacoes?}` | EM_ANDAMENTO → AGUARDANDO_CONCLUSAO |
+| `POST /api/demandas/{id}/fiscalizacao` | `{data, atividades, resultado, evidencias, recomendacoes?, checklist?}` | EM_ANDAMENTO → AGUARDANDO_CONCLUSAO |
 | `POST /api/demandas/{id}/conclusao` | `{resultadoFinal, justificativa}` | AGUARDANDO_CONCLUSAO → FINALIZADA |
 | `POST /api/demandas/{id}/devolucao` | `{justificativa}` | AGUARDANDO_CONCLUSAO → EM_ANDAMENTO |
 
@@ -158,7 +160,7 @@ Janela fixa em memória (uma instância da API), configurável por variáveis de
 |---|---|---|---|
 | `LOGIN` | `/api/auth/login`, `/api/auth/demo/{perfil}` | IP do cliente | `LIMITE_LOGIN_POR_JANELA=20` |
 | `IA` | `/api/demandas/{id}/triagem/sugestao` (e `/stream`), `/api/demandas/{id}/distribuicao/sugestao`, `/api/docia/perguntas` (e `/stream`), `/api/docia/comparacao/explicar`, `/api/demandas/{id}/minuta-vistoria` | usuário autenticado | `LIMITE_IA_POR_JANELA=10` |
-| `UPLOAD` | `/api/documentos` (multipart) | usuário autenticado | `LIMITE_UPLOAD_POR_JANELA=20` |
+| `UPLOAD` | `/api/documentos` e `/api/documentos/pre-analise` (multipart), `/api/demandas/{id}/fotos` (multipart, #145) | usuário autenticado | `LIMITE_UPLOAD_POR_JANELA=20` |
 
 Janela: `LIMITE_JANELA_SEGUNDOS=60`; `LIMITE_REQUISICOES_ATIVO=false` desliga. Acima do limite: `429` com `Retry-After` (segundos até a próxima janela). O IP vem do último endereço de `X-Forwarded-For` **só** quando a conexão chega de um proxy configurado em `LIMITE_PROXY_CONFIAVEL` (IPs, CIDR ou nomes de host; no compose, `web` — o Nginx do Web, resolvido pela rede interna a cada 30 s) ou do loopback; vazio = só loopback. De qualquer outra origem o cabeçalho é ignorado e vale o IP da conexão. No compose a porta da API é publicada só em `127.0.0.1`. Memória limitada: no máximo `LIMITE_MAX_CHAVES` (10.000) contadores vivos — as janelas vencidas saem em custo amortizado e, acima do teto, a mais antiga é descartada. Os contadores zeram a cada reinício da API. O `429` aparece no OpenAPI dessas operações.
 
@@ -166,6 +168,18 @@ Janela: `LIMITE_JANELA_SEGUNDOS=60`; `LIMITE_REQUISICOES_ATIVO=false` desliga. A
 - *Custo da revogação por requisição:* cada requisição autenticada consulta `TOKEN_REVOGADO` pela PK (além da leitura do usuário que já existia), exceto tokens já conhecidos como revogados (cache local). Custo aceito para a demonstração; com muitas instâncias, um cache compartilhado seria o próximo passo.
 - *Cache antes do commit (falha segura):* o `jti` entra no cache local **antes** da gravação no Oracle. Se a gravação falhar, esta instância continua recusando o token até ele expirar, mas outra instância (ou um reinício) o aceitaria — o lado seguro para uma única instância.
 - *Logouts simultâneos do mesmo token:* a gravação roda em transação própria (`MERGE`, `REQUIRES_NEW`); uma colisão na PK conta como "já revogado". As duas respostas são `204` (ou `401` para a que chegar depois da revogação), e a auditoria registra **um** `LOGOUT`.
+
+## Checklist por categoria e fotos de evidência com EXIF (Implementado — Issue #145)
+
+Simulação demonstrativa (AMBIENTE DEMONSTRATIVO — DADOS FICTÍCIOS): não gera auto de infração nem substitui roteiros ou sistemas oficiais.
+
+- **Modelos de checklist:** `GET /api/demandas/checklists` (qualquer perfil) devolve `ChecklistModelo[]` — um por `CategoriaFiscalizacao`, com `versao` (hoje `1`, constante `ChecklistFiscalizacao.VERSAO` no código) e `itens[]` `{id, rotulo, tipo: BOOLEANO|TEXTO|NUMERO, obrigatorio}`.
+- **Checklist no registro da fiscalização:** `FiscalizacaoRequest.checklist?` é um objeto `{"<id do item>": valor}`. Validado contra o modelo da **categoria da demanda**: item desconhecido (inclusive de outra categoria), obrigatório ausente/vazio, tipo errado, número negativo/acima de 10⁹ ou texto acima de 500 caracteres → `400` com `errors[].campo = "checklist.<id>"`, sem gravar nada. Opcional: registros sem checklist continuam aceitos. Gravado como JSON `{versao, categoria, itens}` (coluna `FISCALIZACAO.CHECKLIST`, `IS JSON`) e devolvido em `DemandaDetalhe.fiscalizacao.checklist` (`ChecklistPreenchido`).
+- **Envio de foto:** `POST /api/demandas/{id}/fotos` (`multipart/form-data`, parte `arquivo`). Perfis FISCAL (só o **fiscal designado**; outro fiscal → `403`), GESTOR e ADMIN; ANALISTA/CONSULTA → `403`. Só com a demanda `EM_ANDAMENTO` (senão `409`); no máximo 20 fotos por demanda (`409`). Tipo reconhecido pelos **magic bytes** em `StorageService.validarImagem` — JPEG (`FF D8 FF`), PNG (`89 50 4E 47 0D 0A 1A 0A`) ou WebP (`RIFF....WEBP`); qualquer outro conteúdo, mesmo com extensão `.jpg`, → `415`. Acima de 10 MB → `413`. O arquivo é gravado **intacto** em `${STORAGE_DIR}/AAAA/MM/<uuid>` (nada é removido do EXIF), com SHA-256; o nome original é saneado e só vai para o banco. Resposta `201` + `Location` com `FotoFiscalizacao`.
+- **EXIF:** lido com `metadata-extractor` (Apache 2.0): `exifDataHora` (`DateTimeOriginal`, ou `DateTime`; horário local da câmera) e `exifLatitude`/`exifLongitude`. EXIF ausente/corrompido → campos nulos (nunca erro). O EXIF é declarado pelo próprio arquivo: **informativo, sem valor de prova e nunca usado em autorização**. `distanciaKm`: até a borda do polígono da demanda (`0` se dentro) quando há `areaGeometria`; senão Haversine até `latitude`/`longitude`; nula sem referência. `gpsForaMt` sinaliza GPS fora da caixa envolvente de MT (aceito, não bloqueado). `conferencia`: `CONFERE` (≤ 1 km), `DIVERGENTE`, `FORA_MT`, `SEM_GPS` ou `SEM_REFERENCIA`.
+- **Leitura:** `GET /api/demandas/{id}/fotos` (metadados, mais antigas primeiro) e `GET /api/demandas/{id}/fotos/{fotoId}/arquivo` (tipo da imagem, `Content-Disposition: attachment`, `nosniff`) — qualquer perfil com acesso à demanda (FISCAL fora da equipe/atribuição → `403`; foto de outra demanda → `404`).
+- **Exclusão:** `DELETE /api/demandas/{id}/fotos/{fotoId}` → `204`, só por **quem enviou** (`403` para os demais, inclusive GESTOR/ADMIN) e antes da conclusão (`FINALIZADA` → `409`); o arquivo sai do volume após o commit.
+- **Rastreabilidade:** envio e exclusão entram no histórico da demanda (tipo `ATIVIDADE`, texto `[Foto] …` com o resultado da conferência) e na auditoria (`UPLOAD_FOTO_FISCALIZACAO` / `EXCLUIR_FOTO_FISCALIZACAO`, com prefixo do SHA-256). O envio conta na categoria `UPLOAD` do limite de requisições (`429` + `Retry-After`).
 
 ## Uso pelo frontend
 
