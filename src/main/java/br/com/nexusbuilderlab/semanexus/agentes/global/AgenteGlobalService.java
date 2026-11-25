@@ -35,6 +35,7 @@ import br.com.nexusbuilderlab.semanexus.security.UsuarioAutenticado;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -130,7 +131,9 @@ public class AgenteGlobalService {
                 ResultadoAgente r = executor.executar(definicao(ator, consultas), tarefa(ator, pergunta, hoje),
                         entidade);
                 String texto = limpar(r.resposta().path("resposta").asText(""));
-                String motivo = motivoDescarte(texto, consultas, hoje);
+                // Sem nenhuma chamada de ferramenta a resposta não tem apoio em dados: regras locais.
+                String motivo = r.passos().isEmpty() ? "nenhuma ferramenta consultada"
+                        : motivoDescarte(texto, consultas, hoje);
                 if (motivo == null) {
                     String modo = configuracao.provedor() == AgentesConfiguracao.Provedor.ANTHROPIC
                             ? AgentesController.MODO_CLAUDE : AgentesController.MODO_LOCAL;
@@ -183,10 +186,12 @@ public class AgenteGlobalService {
         Optional<Municipio> municipio = ferramentas.municipioNoTexto(pergunta);
         String nomeMunicipio = municipio.map(Municipio::getNome).orElse(null);
         List<Supplier<Consulta>> r = new ArrayList<>();
-        if (contem(t, "prazo", "venc", "atrasad")) {
+        boolean prazo = contem(t, "prazo", "venc", "atrasad");
+        if (prazo) {
             r.add(() -> ferramentas.prazosCriticos(ator, null, null));
         }
-        if (contem(t, "inpe", "foco", "queimad", "incendio", "deter", "alerta")) {
+        // "alerta de prazo" é prazo; "alerta" só vai ao INPE fora desse contexto.
+        if (contem(t, "inpe", "foco", "queimad", "incendio", "deter") || (contem(t, "alerta") && !prazo)) {
             r.add(() -> ferramentas.alertasInpe(nomeMunicipio, null, null));
         }
         if (contem(t, "document", "parecer", "laudo", "relatorio", "portaria", "oficio", "nota tecnica",
@@ -345,9 +350,23 @@ public class AgenteGlobalService {
         }
         List<Double> permitidos = new ArrayList<>(NumerosTexto.doTexto(DATA.format(hoje)));
         for (Consulta c : consultas) {
-            permitidos.addAll(NumerosTexto.coletar(json.valueToTree(c.dados())));
+            permitidos.addAll(NumerosTexto.coletar(semEco(json.valueToTree(c.dados()))));
         }
         return NumerosTexto.conferem(texto, permitidos) ? null : "número que não está nos dados das ferramentas";
+    }
+
+    /**
+     * Remove dos dados os parâmetros escolhidos pelo modelo e só ecoados pela ferramenta (consulta, texto do filtro,
+     * período): um número que o modelo digitou na chamada não pode validar a própria resposta.
+     */
+    static JsonNode semEco(JsonNode dados) {
+        if (dados instanceof ObjectNode o) {
+            o.remove(List.of("consulta", "de", "ate"));
+            if (o.get("filtros") instanceof ObjectNode f) {
+                f.remove("texto");
+            }
+        }
+        return dados;
     }
 
     // ------------------------------------------------------------------ resposta

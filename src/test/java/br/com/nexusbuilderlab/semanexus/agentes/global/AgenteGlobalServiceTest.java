@@ -329,6 +329,39 @@ class AgenteGlobalServiceTest {
         verify(auditoria, atLeastOnce()).registrar(eq("AGENTE_EXECUCAO"), any(), any(), any());
     }
 
+    @Test
+    void numeroDigitadoPeloModeloNaChamadaNaoValidaAResposta() throws Exception {
+        modelo.ferramenta("buscar_documentos", "{\"consulta\":\"queimada 777\"}");
+        modelo.finalTexto("Há 777 documentos sobre queimada.");
+
+        RespostaAssistenteGlobal r = service().perguntar(fiscal, "documentos sobre queimada");
+
+        assertThat(r.modo()).isEqualTo("DEMONSTRATIVO");
+        assertThat(r.resposta()).doesNotContain("777 documentos");
+        assertThat(r.avisos()).anyMatch(a -> a.contains("descartada"));
+    }
+
+    @Test
+    void respostaDaIaSemNenhumaFerramentaCaiNoModoDemonstrativo() {
+        modelo.finalTexto("Olá! Está tudo em dia.");
+
+        RespostaAssistenteGlobal r = service().perguntar(fiscal, "prazos vencidos");
+
+        assertThat(r.modo()).isEqualTo("DEMONSTRATIVO");
+        assertThat(r.resposta()).startsWith(AgenteGlobalService.PREFIXO_DEMO);
+        assertThat(r.ferramentas()).containsExactly("prazos_criticos");
+    }
+
+    @Test
+    void alertaDePrazoVaiParaPrazosENaoParaInpe() {
+        modelo.disponivel = false;
+
+        RespostaAssistenteGlobal r = service().perguntar(fiscal, "Tenho alertas de prazo?");
+
+        assertThat(r.ferramentas()).containsExactly("prazos_criticos");
+        verify(referencia, never()).porMunicipio(any());
+    }
+
     // ------------------------------------------------------------------ apoio
 
     @Test
