@@ -3,6 +3,7 @@ package br.com.nexusbuilderlab.semanexus.demo;
 import br.com.nexusbuilderlab.semanexus.demo.DemoMassaDocumentos.DocSeed;
 import br.com.nexusbuilderlab.semanexus.demo.DemoMassaGerador.DemandaSeed;
 import br.com.nexusbuilderlab.semanexus.demo.DemoMassaGerador.MunicipioRef;
+import br.com.nexusbuilderlab.semanexus.docia.documento.DocumentoSpecification;
 import br.com.nexusbuilderlab.semanexus.docia.documento.TextExtractor;
 import br.com.nexusbuilderlab.semanexus.docia.documento.TipoArquivo;
 import br.com.nexusbuilderlab.semanexus.docia.storage.StorageService;
@@ -261,13 +262,14 @@ public class DemoMassaService {
                     gravados.add(chave);
                     TipoArquivo tipo = TipoArquivo.porNome(s.nomeArquivo()).orElseThrow();
                     LocalDate dataDoc = hoje.minusDays(s.idadeDias());
+                    String texto = extrator.extrair(tipo, bytes);
                     jdbc.update("INSERT INTO DOCUMENTO (TITULO, DESCRICAO, CATEGORIA, TIPO, DATA_DOCUMENTO, "
                                     + "MUNICIPIO_ID, PALAVRAS_CHAVE, NOME_ARQUIVO, MIME, TAMANHO, STORAGE_KEY, SHA256, "
-                                    + "TEXTO_EXTRAIDO, RESPONSAVEL_ID, CRIADO_EM) "
-                                    + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                                    + "TEXTO_EXTRAIDO, TEXTO_BUSCA, RESPONSAVEL_ID, CRIADO_EM) "
+                                    + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                             s.titulo(), s.descricao(), s.categoria(), s.tipo(), Date.valueOf(dataDoc),
                             s.municipioId(), s.palavrasChave(), s.nomeArquivo(), tipo.mime(), bytes.length, chave,
-                            sha256(bytes), extrator.extrair(tipo, bytes), analista,
+                            sha256(bytes), texto, DocumentoSpecification.textoBusca(texto), analista,
                             Timestamp.valueOf(dataDoc.atTime(10, 0)));
                     docId = idDocumento(s);
                     novos++;

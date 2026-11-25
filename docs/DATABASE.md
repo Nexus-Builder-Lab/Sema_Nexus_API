@@ -48,6 +48,10 @@ Conexão: `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOU
 |---|---|---|
 | `DOCUMENTO_TRECHO` | `ID` identity, `DOCUMENTO_ID`, `ORDEM NUMBER(5)`, `TEXTO VARCHAR2(2000 CHAR)`, `EMBEDDING VECTOR(768, FLOAT32)`, `MODELO VARCHAR2(100)`, `CRIADO_EM` | `PK_DOCUMENTO_TRECHO`, `UK_DOCUMENTO_TRECHO (DOCUMENTO_ID, MODELO, ORDEM)`, `FK_DOCTRECHO_DOCUMENTO` (`ON DELETE CASCADE`), `CK_DOCTRECHO_ORDEM`; `IX_DOCTRECHO_MODELO (MODELO, DOCUMENTO_ID)`. Tabela **derivada** do `DOCUMENTO`: a API divide cada documento em trechos (~900 caracteres, 1º trecho = título/descrição/palavras-chave) e grava o embedding do modelo local (`nomic-embed-text`, 768 dimensões) com `TO_VECTOR(?, 768, FLOAT32)` (literal enviado como CLOB). Indexação no upload (após o commit, em segundo plano) e preenchimento idempotente ao iniciar e a cada `EMBEDDINGS_REINDEXAR_SEGUNDOS` (documentos ativos sem trechos do modelo). Busca **exata** `VECTOR_DISTANCE(EMBEDDING, ?, COSINE)` com o trecho mais próximo por documento ativo; sem índice vetorial (HNSW/IVF exigiriam `VECTOR_MEMORY_SIZE` e o acervo demonstrativo é pequeno). Pode ser apagada e reconstruída a qualquer momento |
 
+### DocIA — busca lexical em textos longos (Implementado — Issue #164, `V11__documento_texto_busca.sql`)
+
+`DOCUMENTO.TEXTO_BUSCA CLOB` é coluna **derivada**: o `TEXTO_EXTRAIDO` em minúsculas e sem acentos, normalizado pela API (`java.text.Normalizer`, mesma regra do termo pesquisado). A busca compara `TEXTO_BUSCA LIKE ? ESCAPE '\'` direto no CLOB, sem `TRANSLATE`/`LOWER`, que convertem o CLOB para VARCHAR2 e falhavam com ORA-64203/ORA-22835 acima de 4000 bytes (minuta acentuada de ~4 KB). Título, descrição e palavras-chave (VARCHAR2) seguem com `TRANSLATE`. Preenchida no upload (mesma transação) e na massa demonstrativa; documentos antigos ou gravados por fora (`TEXTO_BUSCA` nulo com texto extraído) são preenchidos na subida da API (`IndiceBuscaDocumentos`, idempotente; falha não impede a subida). **Regra:** nunca aplicar função de texto (`TRANSLATE`, `LOWER`, `UPPER`, `REPLACE`) sobre coluna CLOB em SQL de busca.
+
 ### Flux (Implementado, Issue #11) e demais módulos (Planejado)
 
 | Tabela | Colunas principais | Restrições / índices | Issue |
@@ -57,7 +61,7 @@ Conexão: `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOU
 | `DEMANDA_HISTORICO` | `ID`, `DEMANDA_ID`, `TIPO`, `STATUS_ANTERIOR`, `STATUS_NOVO`, `TEXTO`, `USUARIO_ID`, `DATA` | `IX (DEMANDA_ID, DATA)` | #11 ✅ |
 | `DISTRIBUICAO` | `ID`, `DEMANDA_ID`, `EQUIPE_ID`, `FISCAL_ID`, `DATA`, `PRAZO`, `OBSERVACOES`, `USUARIO_ID` | histórico de (re)distribuições | #11 ✅ |
 | `FISCALIZACAO` | `ID`, `DEMANDA_ID` (UK), `DATA`, `EQUIPE_ID`, `ATIVIDADES`, `RESULTADO`, `EVIDENCIAS`, `RECOMENDACOES`, `REGISTRADO_POR` | 1:1 com a demanda no MVP | #11 ✅ |
-| `DOCUMENTO` | `ID`, `TITULO`, `DESCRICAO`, `CATEGORIA`, `TIPO`, `DATA_DOCUMENTO`, `MUNICIPIO_ID`, `PALAVRAS_CHAVE`, `NOME_ARQUIVO`, `MIME`, `TAMANHO`, `STORAGE_KEY`, `SHA256`, `TEXTO_EXTRAIDO` (CLOB), `RESPONSAVEL_ID`, `EXCLUIDO_EM` | arquivo **fora** do banco; índices em `CATEGORIA`, `DATA_DOCUMENTO` | #15 ✅ |
+| `DOCUMENTO` | `ID`, `TITULO`, `DESCRICAO`, `CATEGORIA`, `TIPO`, `DATA_DOCUMENTO`, `MUNICIPIO_ID`, `PALAVRAS_CHAVE`, `NOME_ARQUIVO`, `MIME`, `TAMANHO`, `STORAGE_KEY`, `SHA256`, `TEXTO_EXTRAIDO` (CLOB), `TEXTO_BUSCA` (CLOB, #164), `RESPONSAVEL_ID`, `EXCLUIDO_EM` | arquivo **fora** do banco; índices em `CATEGORIA`, `DATA_DOCUMENTO` | #15 ✅ |
 | `DOCUMENTO_DEMANDA` | `DOCUMENTO_ID`, `DEMANDA_ID`, `VINCULADO_EM`, `VINCULADO_POR` | PK composta | #15 ✅ (migration `V4__docia.sql`) |
 | `NOTIFICACAO` (P1) | `ID`, `USUARIO_ID`, `TIPO`, `TITULO`, `MENSAGEM`, `DEMANDA_ID`, `CHAVE`, `LIDA`, `CRIADA_EM`, `LIDA_EM` | UK `(USUARIO_ID, CHAVE)` evita duplicidade (V6) | #25 |
 
