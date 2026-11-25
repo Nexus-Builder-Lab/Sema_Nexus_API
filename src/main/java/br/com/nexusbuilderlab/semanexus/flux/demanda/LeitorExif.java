@@ -1,17 +1,20 @@
 package br.com.nexusbuilderlab.semanexus.flux.demanda;
 
 import com.drew.imaging.jpeg.JpegMetadataReader;
-import com.drew.imaging.webp.WebpMetadataReader;
+import com.drew.lang.ByteArrayReader;
 import com.drew.lang.GeoLocation;
 import com.drew.metadata.Directory;
 import com.drew.metadata.Metadata;
 import com.drew.metadata.exif.ExifIFD0Directory;
+import com.drew.metadata.exif.ExifReader;
 import com.drew.metadata.exif.ExifSubIFDDirectory;
 import com.drew.metadata.exif.GpsDirectory;
 import java.io.ByteArrayInputStream;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * Lê data/hora e GPS do EXIF com {@code metadata-extractor} (Apache 2.0; Issue #145). Melhor esforço: EXIF ausente,
@@ -65,16 +68,47 @@ final class LeitorExif {
 
     /**
      * Só JPEG e WebP têm leitura de EXIF. PNG é deliberadamente ignorado: o leitor de PNG da biblioteca descompacta
-     * chunks zTXt/iTXt inteiros, sem limite (bomba de descompressão → OutOfMemoryError). Nunca usar
-     * {@code ImageMetadataReader}, que escolhe o leitor pelo conteúdo e alcançaria o PNG.
+     * chunks zTXt/iTXt inteiros, sem limite (bomba de descompressão → OutOfMemoryError). No WebP os chunks RIFF são
+     * percorridos diretamente sobre {@code c} antes de qualquer alocação, evitando {@code WebpMetadataReader}/
+     * {@code RiffReader} que alocam {@code new byte[chunkSize]} pelo cabeçalho declarado. Nunca usar
+     * {@code ImageMetadataReader}, que escolhe o leitor pelo conteúdo e alcançaria leitores inseguros.
      */
     private static Metadata lerMetadados(byte[] c) throws Exception {
         if (c.length >= 3 && (c[0] & 0xFF) == 0xFF && (c[1] & 0xFF) == 0xD8) {
-            return JpegMetadataReader.readMetadata(new ByteArrayInputStream(c));
+            return JpegMetadataReader.readMetadata(new ByteArrayInputStream(c), List.of(new ExifReader()));
         }
         if (c.length >= 12 && c[0] == 'R' && c[1] == 'I' && c[2] == 'F' && c[3] == 'F'
                 && c[8] == 'W' && c[9] == 'E' && c[10] == 'B' && c[11] == 'P') {
-            return WebpMetadataReader.readMetadata(new ByteArrayInputStream(c));
+            return lerExifWebp(c);
+        }
+        return null;
+    }
+
+    private static Metadata lerExifWebp(byte[] c) {
+        int pos = 12;
+        while (pos <= c.length - 8) {
+            long tamanho = Integer.toUnsignedLong(
+                    (c[pos + 4] & 0xFF)
+                            | ((c[pos + 5] & 0xFF) << 8)
+                            | ((c[pos + 6] & 0xFF) << 16)
+                            | ((c[pos + 7] & 0xFF) << 24));
+            int dadosInicio = pos + 8;
+            long restante = (long) c.length - dadosInicio;
+            if (tamanho < 0 || tamanho > restante) {
+                return null;
+            }
+            if (c[pos] == 'E' && c[pos + 1] == 'X' && c[pos + 2] == 'I' && c[pos + 3] == 'F' && tamanho > 0) {
+                byte[] chunk = Arrays.copyOfRange(c, dadosInicio, dadosInicio + (int) tamanho);
+                int base = ExifReader.startsWithJpegExifPreamble(chunk) ? 6 : 0;
+                Metadata metadados = new Metadata();
+                new ExifReader().extract(new ByteArrayReader(chunk, base), metadados);
+                return metadados;
+            }
+            long proximo = (long) dadosInicio + tamanho + (tamanho & 1L);
+            if (proximo > c.length || proximo <= pos) {
+                return null;
+            }
+            pos = (int) proximo;
         }
         return null;
     }

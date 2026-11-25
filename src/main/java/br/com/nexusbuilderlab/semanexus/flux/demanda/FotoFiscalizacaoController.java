@@ -89,12 +89,13 @@ public class FotoFiscalizacaoController {
 
     @Operation(summary = "Baixa o arquivo da foto",
             description = "Qualquer perfil autenticado com acesso à demanda (FISCAL só no seu escopo). "
-                    + "`Content-Disposition: attachment` com nome saneado e `X-Content-Type-Options: nosniff`.",
-            responses = @ApiResponse(responseCode = "200", description = "Conteúdo da imagem",
-                    content = {
-                        @Content(mediaType = "image/jpeg", schema = @Schema(type = "string", format = "binary")),
-                        @Content(mediaType = "image/png", schema = @Schema(type = "string", format = "binary")),
-                        @Content(mediaType = "image/webp", schema = @Schema(type = "string", format = "binary"))}))
+                    + "`Content-Disposition: attachment` com nome saneado e `X-Content-Type-Options: nosniff`.")
+    @ApiResponse(responseCode = "200", description = "Conteúdo da imagem",
+            content = {
+                @Content(mediaType = "image/jpeg", schema = @Schema(type = "string", format = "binary")),
+                @Content(mediaType = "image/png", schema = @Schema(type = "string", format = "binary")),
+                @Content(mediaType = "image/webp", schema = @Schema(type = "string", format = "binary"))})
+    @ApiResponse(responseCode = "403", description = "Sem permissão")
     @GetMapping(value = "/{id}/fotos/{fotoId}/arquivo")
     public ResponseEntity<byte[]> baixar(@AuthenticationPrincipal UsuarioAutenticado ator, @PathVariable Long id,
                                          @PathVariable Long fotoId) {

@@ -297,6 +297,55 @@ class FotoFiscalizacaoServiceTest {
         assertThat((System.nanoTime() - ini) / 1_000_000).isLessThan(2000L);
     }
 
+    @Test
+    void webpBombaNaoAlocaChunkGigante() throws IOException {
+        byte[] bomba256Mb = new byte[] {
+            'R', 'I', 'F', 'F', (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, 0x7F,
+            'W', 'E', 'B', 'P',
+            'E', 'X', 'I', 'F', 0x00, 0x00, 0x00, 0x10
+        };
+        byte[] bomba2Gb = new byte[] {
+            'R', 'I', 'F', 'F', (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF,
+            'W', 'E', 'B', 'P',
+            'V', 'P', '8', ' ', 0x01, 0x00, 0x00, 0x00, 0x00, 0x00,
+            'E', 'X', 'I', 'F', (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, 0x7F
+        };
+
+        long ini = System.nanoTime();
+        assertThat(LeitorExif.ler(bomba256Mb)).isEqualTo(LeitorExif.Exif.VAZIO);
+        assertThat(LeitorExif.ler(bomba2Gb)).isEqualTo(LeitorExif.Exif.VAZIO);
+        assertThat((System.nanoTime() - ini) / 1_000_000).isLessThan(1000L);
+
+        // WebP válido com chunk VP8 ímpar (padding de 1 byte) seguido de chunk EXIF real (reaproveitando APP1 do JPEG).
+        byte[] jpg = recurso("gps-cuiaba.jpg");
+        int app1Inicio = -1;
+        int app1Tam = 0;
+        for (int i = 2; i < jpg.length - 8; i++) {
+            if ((jpg[i] & 0xFF) == 0xFF && (jpg[i + 1] & 0xFF) == 0xE1) {
+                app1Tam = ((jpg[i + 2] & 0xFF) << 8) | (jpg[i + 3] & 0xFF);
+                app1Inicio = i + 4;
+                app1Tam -= 2;
+                break;
+            }
+        }
+        assertThat(app1Inicio).isGreaterThan(0);
+        java.io.ByteArrayOutputStream webp = new java.io.ByteArrayOutputStream();
+        webp.write("RIFF".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+        webp.write(new byte[] {0, 0, 0, 0}); // tamanho RIFF ignorado pelo leitor seguro
+        webp.write("WEBP".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+        webp.write("VP8 ".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+        webp.write(new byte[] {3, 0, 0, 0, 1, 2, 3, 0}); // 3 bytes + 1 byte padding par RIFF
+        webp.write("EXIF".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+        webp.write(new byte[] {
+            (byte) (app1Tam & 0xFF), (byte) ((app1Tam >> 8) & 0xFF),
+            (byte) ((app1Tam >> 16) & 0xFF), (byte) ((app1Tam >> 24) & 0xFF)
+        });
+        webp.write(jpg, app1Inicio, app1Tam);
+        LeitorExif.Exif extraido = LeitorExif.ler(webp.toByteArray());
+        assertThat(extraido.temGps()).isTrue();
+        assertThat(extraido.latitude()).isCloseTo(-15.601, org.assertj.core.data.Offset.offset(0.005));
+    }
+
     private static void chunkPng(java.io.ByteArrayOutputStream out, String tipo, byte[] dados) throws IOException {
         java.io.DataOutputStream o = new java.io.DataOutputStream(out);
         o.writeInt(dados.length);
