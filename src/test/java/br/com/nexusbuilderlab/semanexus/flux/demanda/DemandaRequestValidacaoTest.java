@@ -19,7 +19,7 @@ class DemandaRequestValidacaoTest {
 
     private static DemandaRequest pedido(String titulo, String lat, String lng, LocalDate data) {
         return new DemandaRequest(titulo, "Descrição fictícia", Origem.DENUNCIA, null, 5103403, null,
-                lat == null ? null : new BigDecimal(lat), lng == null ? null : new BigDecimal(lng), data, null, null, null);
+                lat == null ? null : new BigDecimal(lat), lng == null ? null : new BigDecimal(lng), null, null, data, null, null, null);
     }
 
     private Set<String> campos(DemandaRequest p) {

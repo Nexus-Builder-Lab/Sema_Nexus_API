@@ -12,6 +12,7 @@ import jakarta.validation.constraints.PastOrPresent;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Map;
 
 /**
  * Corpo de cadastro e de edição de demanda de fiscalização. O município precisa ser de MT e as
@@ -36,6 +37,13 @@ public record DemandaRequest(
         @DecimalMin("-18.1") @DecimalMax("-7.3") BigDecimal latitude,
         @Schema(description = "Longitude (-61,7 a -50,2)", example = "-56.097", nullable = true)
         @DecimalMin("-61.7") @DecimalMax("-50.2") BigDecimal longitude,
+        @Schema(description = "Área afetada em hectares (> 0). Com areaGeometria, a API calcula a área e rejeita (400) "
+                + "se a informada divergir mais de 2%; a área gravada é sempre a calculada", example = "42.35", nullable = true)
+        @DecimalMin(value = "0.01", message = "A área deve ser maior que zero.") @DecimalMax("9999999999.99") BigDecimal areaHa,
+        @Schema(description = "Polígono GeoJSON (Polygon/MultiPolygon, WGS84 [lon, lat]) da área afetada: anéis fechados, "
+                + "vértices dentro de MT, até 2000 vértices e 200 KB. Sem latitude/longitude, a API preenche com o centroide",
+                types = {"object", "null"})
+        Map<String, Object> areaGeometria,
         @Schema(description = "Data de recebimento (não pode ser futura)", example = "2026-11-10")
         @NotNull @PastOrPresent LocalDate dataRecebimento,
         @Schema(description = "Prioridade sugerida; é confirmada na triagem", example = "ALTA", nullable = true)
@@ -44,5 +52,17 @@ public record DemandaRequest(
                 example = "2026-12-10", nullable = true)
         LocalDate prazoSugerido,
         @Schema(description = "Observações livres", nullable = true)
-        @Size(max = 2000) String observacoes) {
+        @Size(max = 2000) String observacoes,
+        @Schema(description = "Somente na edição: true remove a área afetada (areaHa e areaGeometria). Sem areaHa/areaGeometria "
+                + "e sem este indicador, a área existente é MANTIDA", example = "false", nullable = true)
+        Boolean removerArea) {
+
+    /** Construtor sem {@code removerArea} (cadastro e edição que não mexem na área). */
+    public DemandaRequest(String titulo, String descricao, Origem origem, CategoriaFiscalizacao categoria,
+                          Integer municipioId, String localidade, BigDecimal latitude, BigDecimal longitude,
+                          BigDecimal areaHa, Map<String, Object> areaGeometria, LocalDate dataRecebimento,
+                          Prioridade prioridade, LocalDate prazoSugerido, String observacoes) {
+        this(titulo, descricao, origem, categoria, municipioId, localidade, latitude, longitude, areaHa, areaGeometria,
+                dataRecebimento, prioridade, prazoSugerido, observacoes, null);
+    }
 }
