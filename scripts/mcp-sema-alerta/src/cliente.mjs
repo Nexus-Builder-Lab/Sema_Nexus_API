@@ -9,6 +9,18 @@ export class ErroApi extends Error {
   constructor(mensagem, status) { super(mensagem); this.status = status; }
 }
 
+async function lerLimitado(resp, max, chave) {
+  const partes = [];
+  let total = 0;
+  if (!resp.body) return '';
+  for await (const parte of resp.body) {
+    total += parte.length;
+    if (total > max) { try { await resp.body.cancel(); } catch { /* ignora */ } throw new ErroApi(`Resposta acima do limite de ${max} bytes em ${chave}; refine os filtros.`, 0); }
+    partes.push(parte);
+  }
+  return Buffer.concat(partes).toString('utf8');
+}
+
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
 
 export function criarCliente(env = process.env, opcoes = {}) {
@@ -36,9 +48,11 @@ export function criarCliente(env = process.env, opcoes = {}) {
       if (e.name === 'TimeoutError') throw new ErroApi(`Tempo esgotado (${timeoutMs} ms) em ${chave}`, 0);
       throw new ErroApi(`Falha de conexao com a API em ${chave}`, 0);
     }
-    const texto = (await resp.text()).slice(0, maxBytes);
+    const texto = await lerLimitado(resp, maxBytes, chave);
     let json = null;
-    try { json = texto ? JSON.parse(texto) : null; } catch { /* corpo nao JSON */ }
+    try { json = texto ? JSON.parse(texto) : null; } catch {
+      if (resp.status >= 200 && resp.status < 300) throw new ErroApi(`Resposta invalida (nao JSON) em ${chave}.`, 0);
+    }
     return { status: resp.status, json, retryAfter: resp.headers.get('retry-after') };
   }
 

@@ -8,7 +8,7 @@ import { criarServidor } from '../src/index.mjs';
 
 const TOKEN = 'jwt-secreto-de-teste';
 const reqs = [];
-let srv, base, modo403 = false, n429 = 0, expirar = false;
+let srv, base, modo403 = false, modoGrande = false, n429 = 0, expirar = false;
 
 before(async () => {
   srv = http.createServer((req, res) => {
@@ -21,7 +21,8 @@ before(async () => {
     if (n429 > 0) { n429--; res.statusCode = 429; res.setHeader('Retry-After', '0'); res.end('{}'); return; }
     if (modo403) { res.statusCode = 403; res.end(JSON.stringify({ title: 'Forbidden', detail: 'perfil sem acesso' })); return; }
     if (req.url.startsWith('/api/intelligence/referencia/por-municipio')) {
-      res.end(JSON.stringify([{ municipioId: 1, total: 3 }, { municipioId: 2, total: 9 }])); return;
+      if (modoGrande) { res.end('x'.repeat(2_000_000)); return; }
+      res.end(JSON.stringify({ total: 12, itens: [{ municipioId: 1, total: 3 }, { municipioId: 2, total: 9 }] })); return;
     }
     res.end(JSON.stringify({ ok: true, url: req.url }));
   });
@@ -101,6 +102,15 @@ test('401 refaz o login uma vez; 429 respeita Retry-After', async () => {
   n429 = 1;
   const r2 = await c.callTool({ name: 'resumo_indicadores', arguments: {} });
   assert.ok(!r2.isError);
+});
+
+test('resposta grande demais vira erro explicito', async () => {
+  modoGrande = true;
+  const c = await par();
+  const r = await c.callTool({ name: 'alertas_inpe_municipio', arguments: { municipioId: 1 } });
+  modoGrande = false;
+  assert.equal(r.isError, true);
+  assert.match(r.content[0].text, /acima do limite/);
 });
 
 test('token e senha nunca aparecem na saida', async () => {

@@ -13,7 +13,7 @@ O cliente so emite `GET` em uma lista fixa de caminhos; o unico `POST` e o login
 | `SEMA_API_URL` | base da API (padrao `http://127.0.0.1:3000/api`; direto na API: `http://127.0.0.1:<API_PORT>/api`) |
 | `SEMA_TOKEN` | JWT ja obtido (nao e renovado) |
 | `SEMA_USUARIO` / `SEMA_SENHA` | login normal |
-| `SEMA_PERFIL_DEMO` | ex.: `GESTOR`; usa `/api/auth/demo/{perfil}` (so API em modo demo) |
+| `SEMA_PERFIL_DEMO` | ex.: `GESTOR`; usa `/api/auth/demo/{perfil}`; tem precedencia sobre `SEMA_USUARIO`/`SEMA_SENHA` e so funciona com a API no profile demo (fora dele, 404) |
 
 ## Uso e teste
 ```
@@ -23,3 +23,5 @@ node --test        # servidor HTTP falso; sem rede externa
 
 ## Ativar no Claude Code (NAO esta ativado neste repositorio)
 Copie `mcp.json.exemplo` para o `.mcp.json` do seu projeto (ou use `claude mcp add`), exporte as variaveis no seu shell (nunca no Git) e aprove o servidor no Claude Code.
+
+`municipioId` e o codigo IBGE. Respostas acima de 1 MB geram erro explicito.

@@ -47,12 +47,11 @@ export const ferramentas = [
   {
     nome: 'alertas_inpe_municipio',
     descricao: 'Pontos de referencia do INPE (focos/alertas) agregados por municipio, com periodo opcional.',
-    schema: { municipioId: z.number().int().positive(), de: data.optional(), ate: data.optional(), tipo: ENUM.optional() },
+    schema: { municipioId: z.number().int().positive().describe('Codigo IBGE do municipio (ex.: 5103403)'), de: data.optional(), ate: data.optional(), tipo: ENUM.optional() },
     chamar: async (c, a) => {
       const r = await c.get('/intelligence/referencia/por-municipio', { tipo: a.tipo, de: a.de, ate: a.ate });
-      const lista = Array.isArray(r) ? r : (r?.itens ?? r?.municipios ?? null);
-      if (!Array.isArray(lista)) return r;
-      return lista.filter((m) => Number(m.municipioId ?? m.codigoIbge ?? m.municipio?.id) === a.municipioId);
+      if (!Array.isArray(r?.itens)) throw new Error('Resposta inesperada da API (campo itens ausente).');
+      return { ...r, itens: r.itens.filter((m) => Number(m.municipioId) === a.municipioId) };
     },
   },
 ];
