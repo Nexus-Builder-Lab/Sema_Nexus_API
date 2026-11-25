@@ -605,3 +605,10 @@
 - **Decisões técnicas:** sem Oracle direto nem escrita; segredos só em variáveis de ambiente e nunca em log/erro; saída limitada a 20.000 caracteres; Java intocado (sem migration).
 - **Testes:** `node --test` → 5 testes, 0 falhas (endpoints e Bearer corretos por ferramenta, apenas GET + login, entrada inválida e caminho fora da lista recusados, 403 exibido, 401 refaz login, 429, token/senha ausentes da saída). `npm audit`: 0 vulnerabilidades. Smoke contra a API local não executado (API não respondeu em 127.0.0.1:18081).
 - **Pendências:** smoke com o perfil demo no Docker (validador).
+
+## 2026-11-25 · GH-143 · Área afetada no cadastro/edição de demanda (PE-10A-API)
+- **Status:** PR solicitado (subagente implementador, pacote de evoluções de 24/11/2026).
+- **O que foi feito:** `DemandaRequest` ganhou `areaHa?` e `areaGeometria?`; `GeometriaArea` (common/geo) valida o GeoJSON (tipo, anéis fechados, >= 4 pontos, NaN, caixa de MT das constantes do `ReferenciaSateliteLoader`, <= 2000 vértices, <= 200 KB) e calcula a área em ha (esfera, Chamberlain-Duquette, furos subtraídos); `DemandaService` grava área/geometria (colunas V7, entidade agora gravável) e preenche lat/lon com o centroide quando ausentes; histórico/auditoria incluem "área afetada".
+- **Decisões técnicas:** `areaHa` informada divergente > 2% da calculada gera 400 (não sobrescreve em silêncio); na edição, sem `areaHa`/`areaGeometria` a área existente é mantida e `removerArea: true` a remove (o formulário atual da Web não envia a área). `prazoSugerido` já era gravado e devolvido em `DemandaDetalhe`; agora há teste de ida e volta (cadastro e edição). Sem migration.
+- **Testes:** novo `GeometriaAreaTest` (6: área x fórmula fechada, furo, MultiPolygon, inválidas, > 2000 vértices, tolerância) e 4 casos em `DemandaServiceTest` (cálculo/centroide/prazoSugerido, divergência 400, fora de MT 400, edição com histórico); suítes afetadas verdes.
+- **Pendências:** validar no Docker/Oracle (CLOB e coluna AREA_HA) no validador.
