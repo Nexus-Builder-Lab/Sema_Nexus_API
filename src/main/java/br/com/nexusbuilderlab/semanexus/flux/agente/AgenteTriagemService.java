@@ -95,10 +95,20 @@ public class AgenteTriagemService {
     private final ExecutorAgente executor;
     private final AgentesConfiguracao configuracao;
     private final AnaliseEspacial espacial;
+    private final br.com.nexusbuilderlab.semanexus.agentes.AcoesSugeridas acoes;
 
     public AgenteTriagemService(DemandaService demandas, MunicipioRepository municipios,
                                 ReferenciaSateliteService referencia, ExecutorAgente executor,
                                 AgentesConfiguracao configuracao, AnaliseEspacial espacial) {
+        this(demandas, municipios, referencia, executor, configuracao, espacial, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public AgenteTriagemService(DemandaService demandas, MunicipioRepository municipios,
+                                ReferenciaSateliteService referencia, ExecutorAgente executor,
+                                AgentesConfiguracao configuracao, AnaliseEspacial espacial,
+                                br.com.nexusbuilderlab.semanexus.agentes.AcoesSugeridas acoes) {
+        this.acoes = acoes;
         this.espacial = espacial;
         this.demandas = demandas;
         this.municipios = municipios;
@@ -125,6 +135,11 @@ public class AgenteTriagemService {
 
     /** Sugestão de uma demanda já verificada, emitindo os eventos do agente ao {@code observador} (Issue #135). */
     public SugestaoTriagem sugerir(UsuarioAutenticado ator, DemandaDetalhe d, ObservadorAgente observador) {
+        SugestaoTriagem s = sugerirBase(ator, d, observador);
+        return acoes == null ? s : s.comAcoes(acoes.paraTriagem(ator, d, s.duplicatas(), s.espacial()));
+    }
+
+    private SugestaoTriagem sugerirBase(UsuarioAutenticado ator, DemandaDetalhe d, ObservadorAgente observador) {
         Long id = d.id();
         String regiao = municipios.findById(d.municipio().id()).map(Municipio::getRegiao).orElse(null);
         String[] n = RegrasTriagem.nucleo(regiao);

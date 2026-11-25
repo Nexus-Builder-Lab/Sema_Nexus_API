@@ -3,6 +3,8 @@ package br.com.nexusbuilderlab.semanexus.flux.agente;
 import java.time.LocalDate;
 import java.util.List;
 
+import br.com.nexusbuilderlab.semanexus.agentes.AcaoSugerida;
+
 import br.com.nexusbuilderlab.semanexus.core.catalogo.CategoriaFiscalizacao;
 import br.com.nexusbuilderlab.semanexus.core.catalogo.Prioridade;
 import br.com.nexusbuilderlab.semanexus.core.catalogo.StatusDemanda;
@@ -23,7 +25,21 @@ public record SugestaoTriagem(
         @Schema(description = "Demandas abertas que podem tratar do mesmo fato") List<Duplicata> duplicatas,
         @Schema(description = "O que o agente consultou para chegar à sugestão") List<String> evidencias,
         @Schema(description = "Avisos (ex.: IA indisponível, campo completado pelas regras locais)") List<String> avisos,
-        @Schema(description = "Evidência espacial para exibição (distâncias em km, raio, contagens e documentos relacionados)", nullable = true) EvidenciaEspacial espacial) {
+        @Schema(description = "Evidência espacial para exibição (distâncias em km, raio, contagens e documentos relacionados)", nullable = true) EvidenciaEspacial espacial,
+        @Schema(description = "Action Cards opcionais (abrir duplicata, ver no mapa) derivados e validados no servidor; "
+                + "nada e gravado ao sugerir (Issue #136)") List<AcaoSugerida> acoesSugeridas) {
+
+    public SugestaoTriagem(String modo, String modelo, DecisaoTriagem decisao, CategoriaFiscalizacao categoria,
+                           Prioridade prioridade, Nucleo nucleo, String justificativa, List<Duplicata> duplicatas,
+                           List<String> evidencias, List<String> avisos, EvidenciaEspacial espacial) {
+        this(modo, modelo, decisao, categoria, prioridade, nucleo, justificativa, duplicatas, evidencias, avisos,
+                espacial, List.of());
+    }
+
+    public SugestaoTriagem comAcoes(List<AcaoSugerida> acoes) {
+        return new SugestaoTriagem(modo, modelo, decisao, categoria, prioridade, nucleo, justificativa, duplicatas,
+                evidencias, avisos, espacial, acoes == null ? List.of() : List.copyOf(acoes));
+    }
 
 
     @Schema(description = "Evidência espacial (raio em torno da coordenada/área da demanda); nula só quando não foi calculada",
