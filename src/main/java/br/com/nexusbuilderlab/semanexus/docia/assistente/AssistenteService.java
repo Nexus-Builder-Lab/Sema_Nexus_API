@@ -151,15 +151,16 @@ public class AssistenteService {
         if (termos(normalizada).isEmpty() || (permitidos != null && permitidos.isEmpty())) {
             return semInformacao();
         }
-        List<ReferenciaDocumento> contexto = (permitidos == null ? busca.buscar(pergunta, MAX_DOCUMENTOS)
-                : busca.buscar(pergunta, MAX_DOCUMENTOS, permitidos)).stream()
+        BuscaDocumentos.Resultado resultado = busca.pesquisar(pergunta, MAX_DOCUMENTOS, permitidos);
+        List<ReferenciaDocumento> contexto = resultado.achados().stream()
                 .map(a -> new ReferenciaDocumento(a.documento().getId(), a.documento().getTitulo(), a.trecho(),
-                        a.aderencia()))
+                        a.aderencia(), a.similaridadeSemantica()))
                 .toList();
         if (contexto.isEmpty()) {
-            return semInformacao();
+            return semInformacao().comRecuperacao(resultado.recuperacao());
         }
-        return provider.responder(pergunta, contexto);
+        RespostaAssistente r = provider.responder(pergunta, contexto);
+        return r == null ? null : r.comRecuperacao(resultado.recuperacao());
     }
 
     private RespostaAssistente semInformacao() {
