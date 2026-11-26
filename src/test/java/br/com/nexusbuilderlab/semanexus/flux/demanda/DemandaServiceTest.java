@@ -106,7 +106,7 @@ class DemandaServiceTest {
 
     private static DemandaRequest pedido(Integer municipio, LocalDate recebimento, LocalDate prazo) {
         return new DemandaRequest("Título da demanda", "Descrição fictícia", Origem.DENUNCIA, null, municipio, null,
-                null, null, recebimento, null, prazo, null);
+                null, null, null, null, recebimento, null, prazo, null);
     }
 
     private Demanda demanda(long id, StatusDemanda status) {
@@ -215,7 +215,7 @@ class DemandaServiceTest {
     @Test
     void coordenadaIncompletaGeraErroNoCampoFaltante() {
         DemandaRequest p = new DemandaRequest("Título da demanda", "Descrição", Origem.DENUNCIA, null, 5103403, null,
-                new BigDecimal("-15.6"), null, HOJE, null, null, null);
+                new BigDecimal("-15.6"), null, null, null, HOJE, null, null, null);
         DadosInvalidosException e = catchThrowableOfType(DadosInvalidosException.class, () -> service.cadastrar(ator, p));
         assertThat(e.getErros()).extracting("campo").containsExactly("longitude");
     }
@@ -240,6 +240,79 @@ class DemandaServiceTest {
                 .containsExactlyInAnyOrder("municipioId", "dataRecebimento", "prazoSugerido");
     }
 
+    // ---------------------------------------------------------------- área afetada (#143)
+
+    private static java.util.Map<String, Object> quadrado(double lon0, double lat0, double lon1, double lat1) {
+        return br.com.nexusbuilderlab.semanexus.common.geo.GeometriaAreaTest.poligono(
+                br.com.nexusbuilderlab.semanexus.common.geo.GeometriaAreaTest.anel(lon0, lat0, lon1, lat1));
+    }
+
+    private DemandaRequest comArea(BigDecimal ha, java.util.Map<String, Object> geometria, BigDecimal lat, BigDecimal lon,
+                                   LocalDate prazoSugerido) {
+        return new DemandaRequest("Título da demanda", "Descrição fictícia", Origem.DENUNCIA, null, 5103403, null,
+                lat, lon, ha, geometria, HOJE.minusDays(2), null, prazoSugerido, null);
+    }
+
+    @Test
+    void cadastroComGeometriaCalculaAreaECentroideEDevolvePrazoSugerido() {
+        DemandaDetalhe r = service.cadastrar(ator, comArea(null, quadrado(-56.1, -15.6, -56.0, -15.5), null, null, HOJE.plusDays(10)));
+        assertThat(r.areaHa().doubleValue()).isBetween(11_500.0, 12_300.0);
+        assertThat(r.areaGeometria()).containsEntry("type", "Polygon");
+        assertThat(r.latitude().doubleValue()).isBetween(-15.6, -15.5);
+        assertThat(r.longitude().doubleValue()).isBetween(-56.1, -56.0);
+        assertThat(r.prazoSugerido()).isEqualTo(HOJE.plusDays(10));
+    }
+
+    @Test
+    void areaInformadaDivergenteDaCalculadaResponde400() {
+        DadosInvalidosException e = catchThrowableOfType(DadosInvalidosException.class,
+                () -> service.cadastrar(ator, comArea(new BigDecimal("500"), quadrado(-56.1, -15.6, -56.0, -15.5), null, null, null)));
+        assertThat(e.getErros()).extracting("campo").containsExactly("areaHa");
+    }
+
+    @Test
+    void geometriaForaDeMtResponde400ESemGeometriaAreaInformadaEGravada() {
+        DadosInvalidosException e = catchThrowableOfType(DadosInvalidosException.class,
+                () -> service.cadastrar(ator, comArea(null, quadrado(-70, -15.6, -69.9, -15.5), null, null, null)));
+        assertThat(e.getErros()).extracting("campo").containsExactly("areaGeometria");
+        assertThat(service.cadastrar(ator, comArea(new BigDecimal("12.50"), null, null, null, null)).areaHa())
+                .isEqualByComparingTo("12.50");
+    }
+
+    @Test
+    void edicaoComNovaAreaRegistraNoHistoricoEPrazoSugeridoEditavel() {
+        Demanda d = demanda(1, StatusDemanda.PENDENTE);
+        when(demandas.buscarParaEscrita(1L)).thenReturn(Optional.of(d));
+        DemandaDetalhe r = service.editar(ator, 1L, comArea(null, quadrado(-56.1, -15.6, -56.0, -15.5), null, null, HOJE.plusDays(5)));
+        assertThat(r.areaHa()).isNotNull();
+        assertThat(r.prazoSugerido()).isEqualTo(HOJE.plusDays(5));
+        ArgumentCaptor<DemandaHistorico> h = ArgumentCaptor.forClass(DemandaHistorico.class);
+        verify(historicos).save(h.capture());
+        assertThat(h.getValue().getTexto()).contains("área afetada").contains("prazo sugerido");
+    }
+
+    @Test
+    void edicaoSemAreaMantemAExistenteEFlagRemove() {
+        Demanda d = demanda(1, StatusDemanda.PENDENTE);
+        when(demandas.buscarParaEscrita(1L)).thenReturn(Optional.of(d));
+        service.editar(ator, 1L, comArea(null, quadrado(-56.1, -15.6, -56.0, -15.5), null, null, null));
+        BigDecimal ha = d.getAreaHa();
+        String geo = d.getAreaGeometria();
+        assertThat(ha).isNotNull();
+
+        DemandaDetalhe mantida = service.editar(ator, 1L, comArea(null, null, null, null, null));
+        assertThat(mantida.areaHa()).isEqualByComparingTo(ha);
+        assertThat(d.getAreaGeometria()).isEqualTo(geo);
+
+        DemandaDetalhe nova = service.editar(ator, 1L, comArea(null, quadrado(-56.1, -15.6, -56.05, -15.55), null, null, null));
+        assertThat(nova.areaHa()).isLessThan(ha);
+
+        DemandaDetalhe removida = service.editar(ator, 1L, new DemandaRequest("Título da demanda", "Descrição fictícia",
+                Origem.DENUNCIA, null, 5103403, null, null, null, null, null, HOJE.minusDays(2), null, null, null, true));
+        assertThat(removida.areaHa()).isNull();
+        assertThat(removida.areaGeometria()).isNull();
+    }
+
     // ---------------------------------------------------------------- edição
 
     @Test
@@ -249,7 +322,7 @@ class DemandaServiceTest {
             when(demandas.buscarParaEscrita(1L)).thenReturn(Optional.of(d));
 
             DemandaDetalhe r = service.editar(ator, 1L, new DemandaRequest("Novo título", "Descrição fictícia",
-                    Origem.DENUNCIA, null, 5103403, null, null, null, HOJE.minusDays(2), null, null, null));
+                    Origem.DENUNCIA, null, 5103403, null, null, null, null, null, HOJE.minusDays(2), null, null, null));
             assertThat(r.titulo()).isEqualTo("Novo título");
             assertThat(r.status()).isEqualTo(status);
         }
@@ -270,7 +343,7 @@ class DemandaServiceTest {
     void edicaoSemMudancasNaoGravaHistoricoNemAuditoria() {
         when(demandas.buscarParaEscrita(1L)).thenReturn(Optional.of(demanda(1, StatusDemanda.PENDENTE)));
         service.editar(ator, 1L, new DemandaRequest("Título da demanda", "Descrição fictícia", Origem.DENUNCIA, null,
-                5103403, null, null, null, HOJE.minusDays(2), null, null, null));
+                5103403, null, null, null, null, null, HOJE.minusDays(2), null, null, null));
         verify(historicos, never()).save(any());
         verify(auditoria, never()).registrar(anyString(), anyString(), any(), any());
     }

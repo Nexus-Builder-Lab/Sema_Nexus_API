@@ -1,0 +1,17 @@
+{
+  "name": "mcp-sema-alerta",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Servidor MCP local SOMENTE LEITURA do SEMA ALERTA (consulta a API real com JWT de usuario)",
+  "type": "module",
+  "license": "UNLICENSED",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node src/index.mjs",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "zod": "4.6.7"
+  }
+}

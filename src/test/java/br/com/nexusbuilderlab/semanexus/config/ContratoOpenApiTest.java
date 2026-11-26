@@ -46,6 +46,9 @@ class ContratoOpenApiTest {
             "POST /api/demandas/{id}/devolucao",
             "GET /api/demandas/{id}/documentos", "POST /api/demandas/{id}/documentos",
             "DELETE /api/demandas/{id}/documentos/{documentoId}",
+            // Checklist e fotos da fiscalização (Issue #145)
+            "GET /api/demandas/checklists", "POST /api/demandas/{id}/fotos", "GET /api/demandas/{id}/fotos",
+            "GET /api/demandas/{id}/fotos/{fotoId}/arquivo", "DELETE /api/demandas/{id}/fotos/{fotoId}",
             "GET /api/flux/prazos", "GET /api/flux/prazos/resumo", "GET /api/flux/produtividade",
             // DocIA (contrato)
             "POST /api/documentos", "POST /api/documentos/pre-analise", "GET /api/documentos", "GET /api/documentos/busca", "GET /api/documentos/{id}", "GET /api/documentos/{id}/arquivo",
@@ -68,6 +71,7 @@ class ContratoOpenApiTest {
             "GET /api/intelligence/sentinela/briefing",
             // Assistente Global (Issue #139)
             "POST /api/agentes/assistente-global",
+            "POST /api/sistema/agentes/avaliar", "POST /api/docia/respostas/{execucaoId}/avaliacao",
             // Core — auditoria (implementado)
             "GET /api/auditoria", "GET /api/auditoria/integridade",
             // Core — gestão de usuários, setores e equipes (Issue #24)

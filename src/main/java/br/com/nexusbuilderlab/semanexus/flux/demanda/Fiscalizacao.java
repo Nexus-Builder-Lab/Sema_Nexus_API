@@ -57,6 +57,11 @@ public class Fiscalizacao {
     @Column(name = "RECOMENDACOES")
     private String recomendacoes;
 
+    /** Checklist estruturado em JSON (Issue #145), validado por {@link ChecklistFiscalizacao}. */
+    @Lob
+    @Column(name = "CHECKLIST")
+    private String checklist;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "REGISTRADO_POR", nullable = false, updatable = false)
     private Usuario registradoPor;
@@ -128,6 +133,15 @@ public class Fiscalizacao {
 
     public Usuario getRegistradoPor() {
         return registradoPor;
+    }
+
+    public String getChecklist() {
+        return checklist;
+    }
+
+    /** Checklist já validado (JSON) ou {@code null}. */
+    public void setChecklist(String checklist) {
+        this.checklist = checklist;
     }
 
     public LocalDateTime getRegistradoEm() {

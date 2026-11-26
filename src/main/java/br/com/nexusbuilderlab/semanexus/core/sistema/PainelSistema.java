@@ -5,13 +5,22 @@ import java.util.List;
 import java.util.Map;
 
 import br.com.nexusbuilderlab.semanexus.agentes.MetricasAgentes;
+import br.com.nexusbuilderlab.semanexus.agentes.governanca.GovernancaIa;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
 /** Painel do sistema (Issue #114): verificações ao vivo e operação dos agentes. Nunca contém segredos. */
 @Schema(description = "Painel do sistema (somente ADMIN): saúde ao vivo dos componentes e operação dos agentes")
 public record PainelSistema(LocalDateTime geradoEm, Sistema sistema, List<Verificacao> verificacoes,
-                            List<AgentePainel> agentes) {
+                            List<AgentePainel> agentes,
+                            @Schema(description = "Governança de IA (Issue #131): concordância Humano × IA por agente "
+                                    + "e categoria e feedback do DocIA nos últimos 30 dias; nula se indisponível",
+                                    nullable = true) GovernancaIa governanca) {
+
+    public PainelSistema(LocalDateTime geradoEm, Sistema sistema, List<Verificacao> verificacoes,
+                         List<AgentePainel> agentes) {
+        this(geradoEm, sistema, verificacoes, agentes, null);
+    }
 
     public enum Estado { OK, ATENCAO, INDISPONIVEL }
 

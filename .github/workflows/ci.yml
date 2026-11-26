@@ -105,6 +105,20 @@ jobs:
           path: openapi.json
           retention-days: 30
 
+  mcp-sema-alerta:
+    name: Servidor MCP somente leitura (node --test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Instalar e testar
+        working-directory: scripts/mcp-sema-alerta
+        run: |
+          npm ci
+          node --test
+
   scripts-demo:
     name: Scripts demo-up/down/reset (docker simulado)
     runs-on: ubuntu-latest
