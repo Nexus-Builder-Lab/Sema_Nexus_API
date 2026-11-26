@@ -52,6 +52,14 @@ public class DistribuicaoService {
         this.notificacoes = notificacoes;
     }
 
+    /** Governança de IA (Issue #131), opcional: registra a sugestão/decisão para a concordância Humano × IA. */
+    private br.com.nexusbuilderlab.semanexus.agentes.governanca.GovernancaIaService governanca;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setGovernanca(br.com.nexusbuilderlab.semanexus.agentes.governanca.GovernancaIaService governanca) {
+        this.governanca = governanca;
+    }
+
     /** Distribui a demanda: 409 se fora de AGUARDANDO_DISTRIBUICAO; 400 para prazo, equipe ou fiscal inválidos. */
     @Transactional
     public DemandaDetalhe distribuir(UsuarioAutenticado ator, Long id, DistribuicaoRequest pedido) {
@@ -93,6 +101,12 @@ public class DistribuicaoService {
         historicos.save(new DemandaHistorico(demanda, TipoHistorico.DISTRIBUICAO, anterior, novo, texto, autor));
         auditoria.registrar("DISTRIBUIR", DemandaService.ENTIDADE, String.valueOf(id),
                 "Demanda " + demanda.getNumero() + ": " + texto);
+        if (governanca != null) { // Issue #131: compara com a última sugestão do agente (nunca falha a distribuição)
+            governanca.registrarDecisao(br.com.nexusbuilderlab.semanexus.agentes.governanca.GovernancaIaService
+                    .AGENTE_DISTRIBUICAO, id, ator.id(), demanda.getCategoria() == null ? null
+                    : demanda.getCategoria().name(), CamposAvaliacao.distribuicao(equipe.getId(), fiscal.getId(),
+                    pedido.prazo()), null);
+        }
         if (!fiscal.getId().equals(autor.getId())) {
             notificacoes.notificar(fiscal.getId(), TipoNotificacao.DISTRIBUICAO,
                     "Demanda distribuída a você: " + demanda.getNumero(),

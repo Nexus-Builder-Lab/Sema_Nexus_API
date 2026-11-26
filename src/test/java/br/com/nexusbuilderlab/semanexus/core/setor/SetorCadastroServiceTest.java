@@ -67,7 +67,12 @@ class SetorCadastroServiceTest {
 
         assertThat(dto.nome()).isEqualTo("Outro");
         assertThat(dto.ativo()).isTrue();
-        verify(auditoria).registrar(eq("ATUALIZAR"), eq("SETOR"), eq("1"), any());
+        var alteracoes = org.mockito.ArgumentCaptor.forClass(
+                br.com.nexusbuilderlab.semanexus.core.auditoria.Alteracoes.class);
+        verify(auditoria).registrarAlteracao(eq("ATUALIZAR"), eq("SETOR"), eq("1"), any(), alteracoes.capture());
+        // Antes → depois só do campo alterado (Issue #148).
+        assertThat(alteracoes.getValue().antes()).containsOnlyKeys("nome");
+        assertThat(alteracoes.getValue().depois()).containsEntry("nome", "Outro");
     }
 
     @Test

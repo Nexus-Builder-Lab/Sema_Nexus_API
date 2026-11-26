@@ -57,7 +57,7 @@ class IndicadorOracleTest {
 
     private Long cadastrarId(UsuarioAutenticado ator, int municipio, CategoriaFiscalizacao categoria, LocalDate data) {
         return demandas.cadastrar(ator, new DemandaRequest("Indicador " + UUID.randomUUID(), "Descrição fictícia",
-                Origem.DENUNCIA, categoria, municipio, null, null, null, data, null, null, null)).id();
+                Origem.DENUNCIA, categoria, municipio, null, null, null, null, null, data, null, null, null)).id();
     }
 
     private void cadastrar(UsuarioAutenticado ator, int municipio, CategoriaFiscalizacao categoria, LocalDate data) {

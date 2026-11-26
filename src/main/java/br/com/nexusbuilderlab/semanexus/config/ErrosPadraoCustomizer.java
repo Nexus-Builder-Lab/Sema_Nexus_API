@@ -22,6 +22,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -69,6 +70,7 @@ public class ErrosPadraoCustomizer {
             } else if (p.hasParameterAnnotation(RequestBody.class)
                     || p.hasParameterAnnotation(ModelAttribute.class)
                     || p.hasParameterAnnotation(RequestParam.class)
+                    || p.hasParameterAnnotation(RequestHeader.class)
                     || p.hasParameterAnnotation(org.springdoc.core.annotations.ParameterObject.class)
                     || Pageable.class.isAssignableFrom(p.getParameterType())) {
                 temParametros = true;

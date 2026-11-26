@@ -69,7 +69,7 @@ class DemandaOracleTest {
     private DemandaDetalhe cadastrar(UsuarioAutenticado ator, String titulo, int municipio,
                                      CategoriaFiscalizacao categoria, Prioridade prioridade, LocalDate recebimento) {
         return service.cadastrar(ator, new DemandaRequest(titulo, "Descrição fictícia", Origem.DENUNCIA, categoria,
-                municipio, null, null, null, recebimento, prioridade, null, null));
+                municipio, null, null, null, null, null, recebimento, prioridade, null, null));
     }
 
     @Test
@@ -165,11 +165,34 @@ class DemandaOracleTest {
         DemandaDetalhe criada = cadastrar(ator, "Para editar e excluir", CUIABA, null, null, hoje());
 
         DemandaDetalhe editada = service.editar(ator, criada.id(), new DemandaRequest("Título editado", "Descrição fictícia",
-                Origem.DENUNCIA, null, CUIABA, null, null, null, hoje(), null, null, null));
+                Origem.DENUNCIA, null, CUIABA, null, null, null, null, null, hoje(), null, null, null));
         assertThat(editada.titulo()).isEqualTo("Título editado");
         service.excluir(ator, criada.id());
         assertThat(service.listar(ator, filtro("Título editado", null, null, null, null, null, null, null),
                 PageRequest.of(0, 10)).content()).extracting(DemandaResumo::id).doesNotContain(criada.id());
+    }
+
+    @Test
+    void poligonoGravaMantemEmEdicaoSemAreaERemoveComFlag() {
+        UsuarioAutenticado ator = novoAtor(Perfil.ADMIN);
+        var geo = br.com.nexusbuilderlab.semanexus.common.geo.GeometriaAreaTest.poligono(
+                br.com.nexusbuilderlab.semanexus.common.geo.GeometriaAreaTest.anel(-56.10, -15.60, -56.09, -15.59));
+        DemandaDetalhe criada = service.cadastrar(ator, new DemandaRequest("Área com polígono", "Descrição fictícia",
+                Origem.DENUNCIA, null, CUIABA, null, null, null, null, geo, hoje(), null, null, null));
+        assertThat(criada.areaHa()).isPositive();
+        assertThat(criada.areaGeometria()).containsEntry("type", "Polygon");
+        assertThat(criada.latitude()).isNotNull();
+
+        DemandaDetalhe soTitulo = service.editar(ator, criada.id(), new DemandaRequest("Só o título mudou", "Descrição fictícia",
+                Origem.DENUNCIA, null, CUIABA, null, criada.latitude(), criada.longitude(), null, null, hoje(), null, null, null));
+        assertThat(soTitulo.areaHa()).isEqualByComparingTo(criada.areaHa());
+        assertThat(soTitulo.areaGeometria()).isEqualTo(criada.areaGeometria());
+
+        DemandaDetalhe removida = service.editar(ator, criada.id(), new DemandaRequest("Só o título mudou", "Descrição fictícia",
+                Origem.DENUNCIA, null, CUIABA, null, criada.latitude(), criada.longitude(), null, null, hoje(), null, null, null,
+                true));
+        assertThat(removida.areaHa()).isNull();
+        assertThat(removida.areaGeometria()).isNull();
     }
 
     private static DemandaFiltro filtro(String q, Integer municipio, CategoriaFiscalizacao categoria,

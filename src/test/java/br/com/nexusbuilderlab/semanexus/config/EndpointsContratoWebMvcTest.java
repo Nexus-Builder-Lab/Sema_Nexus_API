@@ -123,6 +123,8 @@ class EndpointsContratoWebMvcTest {
     @MockitoBean
     br.com.nexusbuilderlab.semanexus.flux.demanda.ConclusaoService conclusao;
     @MockitoBean
+    br.com.nexusbuilderlab.semanexus.flux.demanda.IdempotenciaSincronizacaoService idempotencia;
+    @MockitoBean
     IndicadorService indicadores;
     @MockitoBean
     DashboardService dashboard;

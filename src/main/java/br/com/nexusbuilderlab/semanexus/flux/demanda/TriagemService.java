@@ -81,7 +81,22 @@ public class TriagemService {
                 classificar ? TipoHistorico.TRIAGEM : TipoHistorico.COMPLEMENTACAO, anterior, novo, texto, autor));
         auditoria.registrar(classificar ? "TRIAGEM_CONCLUIR" : "TRIAGEM_COMPLEMENTAR", DemandaService.ENTIDADE,
                 String.valueOf(id), "Demanda " + demanda.getNumero() + ": " + texto);
+        if (governanca != null) { // Issue #131: compara com a última sugestão do agente (nunca falha a triagem)
+            governanca.registrarDecisao(br.com.nexusbuilderlab.semanexus.agentes.governanca.GovernancaIaService
+                    .AGENTE_TRIAGEM, id, ator.id(), demanda.getCategoria() == null ? null
+                    : demanda.getCategoria().name(), CamposAvaliacao.triagem(pedido.decisao(),
+                    classificar ? pedido.categoria() : null, classificar ? pedido.prioridade() : null),
+                    CamposAvaliacao.DECISIVO_TRIAGEM);
+        }
         return demandaService.detalhar(ator, id);
+    }
+
+    /** Governança de IA (Issue #131), opcional: registra a sugestão/decisão para a concordância Humano × IA. */
+    private br.com.nexusbuilderlab.semanexus.agentes.governanca.GovernancaIaService governanca;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setGovernanca(br.com.nexusbuilderlab.semanexus.agentes.governanca.GovernancaIaService governanca) {
+        this.governanca = governanca;
     }
 
     private static void validarClassificacao(TriagemRequest pedido) {

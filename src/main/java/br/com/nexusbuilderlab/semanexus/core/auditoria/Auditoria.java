@@ -12,7 +12,8 @@ import org.hibernate.annotations.Immutable;
 
 /**
  * Registro de auditoria (append-only). O usuário é guardado só pelo ID para não carregar
- * associações em consultas de log. A gravação centralizada e a consulta chegam na Issue #14.
+ * associações em consultas de log. A gravação centralizada e a consulta chegam na Issue #14; a cadeia SHA-256
+ * e os valores antes/depois, na Issue #148.
  */
 @Entity
 @Immutable
@@ -42,6 +43,24 @@ public class Auditoria {
     @Column(name = "DETALHE", length = 4000, updatable = false)
     private String detalhe;
 
+    /** Valores anteriores dos campos alterados (JSON objeto; só nas edições, Issue #148). */
+    @Column(name = "VALOR_ANTERIOR", length = 4000, updatable = false)
+    private String valorAnterior;
+
+    /** Valores novos dos campos alterados (JSON objeto; só nas edições, Issue #148). */
+    @Column(name = "VALOR_NOVO", length = 4000, updatable = false)
+    private String valorNovo;
+
+    /** Selagem da cadeia (gravada pelo {@link SeladorAuditoria} após o commit; nunca pelo JPA). */
+    @Column(name = "SEQ_CADEIA", insertable = false, updatable = false)
+    private Long seqCadeia;
+
+    @Column(name = "HASH_ANTERIOR", length = 64, insertable = false, updatable = false)
+    private String hashAnterior;
+
+    @Column(name = "HASH_REGISTRO", length = 64, insertable = false, updatable = false)
+    private String hashRegistro;
+
     protected Auditoria() {
     }
 
@@ -51,6 +70,13 @@ public class Auditoria {
         this.entidade = entidade;
         this.entidadeId = entidadeId;
         this.detalhe = detalhe;
+    }
+
+    public Auditoria(Long usuarioId, String acao, String entidade, String entidadeId, String detalhe,
+                     String valorAnterior, String valorNovo) {
+        this(usuarioId, acao, entidade, entidadeId, detalhe);
+        this.valorAnterior = valorAnterior;
+        this.valorNovo = valorNovo;
     }
 
     @PrePersist
@@ -86,5 +112,25 @@ public class Auditoria {
 
     public String getDetalhe() {
         return detalhe;
+    }
+
+    public String getValorAnterior() {
+        return valorAnterior;
+    }
+
+    public String getValorNovo() {
+        return valorNovo;
+    }
+
+    public Long getSeqCadeia() {
+        return seqCadeia;
+    }
+
+    public String getHashAnterior() {
+        return hashAnterior;
+    }
+
+    public String getHashRegistro() {
+        return hashRegistro;
     }
 }

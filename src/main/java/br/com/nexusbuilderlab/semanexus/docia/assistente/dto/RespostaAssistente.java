@@ -27,7 +27,17 @@ public record RespostaAssistente(
         Recuperacao recuperacao,
         @Schema(description = "Action Cards opcionais derivados no servidor do que o agente citou (Issue #136); "
                 + "vazio quando não há. Nada é gravado: a pessoa confirma na tela.")
-        List<AcaoSugerida> acoesSugeridas) {
+        List<AcaoSugerida> acoesSugeridas,
+        @Schema(description = "Identificador desta execução do assistente (Issue #131), usado no feedback opcional "
+                + "`POST /api/docia/respostas/{execucaoId}/avaliacao` (só pelo autor da pergunta). Nulo se não foi "
+                + "possível registrar.", nullable = true, example = "3f1c2b7e-8a3d-4a51-9d0e-2b6f9c1e7a10")
+        String execucaoId) {
+
+    public RespostaAssistente(String resposta, String modo, List<ReferenciaDocumento> referencias, String agente,
+                              String modelo, List<String> passos, Recuperacao recuperacao,
+                              List<AcaoSugerida> acoesSugeridas) {
+        this(resposta, modo, referencias, agente, modelo, passos, recuperacao, acoesSugeridas, null);
+    }
 
     public RespostaAssistente(String resposta, String modo, List<ReferenciaDocumento> referencias, String agente,
                               String modelo, List<String> passos) {
@@ -42,7 +52,13 @@ public record RespostaAssistente(
     /** Mesma resposta com os Action Cards (Issue #136). */
     public RespostaAssistente comAcoes(List<AcaoSugerida> acoes) {
         return new RespostaAssistente(resposta, modo, referencias, agente, modelo, passos, recuperacao,
-                acoes == null ? List.of() : List.copyOf(acoes));
+                acoes == null ? List.of() : List.copyOf(acoes), execucaoId);
+    }
+
+    /** Mesma resposta com o identificador da execução (Issue #131). */
+    public RespostaAssistente comExecucao(String id) {
+        return new RespostaAssistente(resposta, modo, referencias, agente, modelo, passos, recuperacao, acoesSugeridas,
+                id);
     }
 
     /** Respostas sem agente (demonstrativa extrativa ou provider externo). */
@@ -53,6 +69,7 @@ public record RespostaAssistente(
 
     /** Mesma resposta com o modo de recuperação informado. */
     public RespostaAssistente comRecuperacao(Recuperacao r) {
-        return new RespostaAssistente(resposta, modo, referencias, agente, modelo, passos, r, acoesSugeridas);
+        return new RespostaAssistente(resposta, modo, referencias, agente, modelo, passos, r, acoesSugeridas,
+                execucaoId);
     }
 }

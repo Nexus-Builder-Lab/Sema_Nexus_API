@@ -139,7 +139,21 @@ public class AgenteTriagemService {
     /** Sugestão de uma demanda já verificada, emitindo os eventos do agente ao {@code observador} (Issue #135). */
     public SugestaoTriagem sugerir(UsuarioAutenticado ator, DemandaDetalhe d, ObservadorAgente observador) {
         SugestaoTriagem s = sugerirBase(ator, d, observador);
+        if (governanca != null && ator != null) {
+            governanca.registrarSugestao(br.com.nexusbuilderlab.semanexus.agentes.governanca.GovernancaIaService
+                    .AGENTE_TRIAGEM, d.id(), ator.id(), s.modo(),
+                    br.com.nexusbuilderlab.semanexus.flux.demanda.CamposAvaliacao.triagem(s.decisao(), s.categoria(),
+                            s.prioridade()));
+        }
         return acoes == null ? s : s.comAcoes(acoes.paraTriagem(ator, d, s.duplicatas(), s.espacial()));
+    }
+
+    /** Governança de IA (Issue #131), opcional: registra a sugestão/decisão para a concordância Humano × IA. */
+    private br.com.nexusbuilderlab.semanexus.agentes.governanca.GovernancaIaService governanca;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setGovernanca(br.com.nexusbuilderlab.semanexus.agentes.governanca.GovernancaIaService governanca) {
+        this.governanca = governanca;
     }
 
     private SugestaoTriagem sugerirBase(UsuarioAutenticado ator, DemandaDetalhe d, ObservadorAgente observador) {

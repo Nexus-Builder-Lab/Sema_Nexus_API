@@ -10,6 +10,8 @@ import br.com.nexusbuilderlab.semanexus.common.exception.GlobalExceptionHandler.
 import br.com.nexusbuilderlab.semanexus.common.exception.RecursoNaoEncontradoException;
 import br.com.nexusbuilderlab.semanexus.common.geo.GeoJson;
 import br.com.nexusbuilderlab.semanexus.common.geo.Geodesia;
+import br.com.nexusbuilderlab.semanexus.common.geo.GeometriaArea;
+import br.com.nexusbuilderlab.semanexus.core.auditoria.Alteracoes;
 import br.com.nexusbuilderlab.semanexus.core.auditoria.AuditService;
 import br.com.nexusbuilderlab.semanexus.core.catalogo.StatusDemanda;
 import br.com.nexusbuilderlab.semanexus.core.equipe.Equipe;
@@ -38,6 +40,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -111,11 +114,12 @@ public class DemandaService {
     public DemandaDetalhe cadastrar(UsuarioAutenticado ator, DemandaRequest pedido) {
         LocalDate hoje = hoje();
         Municipio municipio = validar(pedido, hoje);
+        AreaResolvida area = resolverArea(pedido, null);
         Usuario autor = usuario(ator);
 
         Demanda demanda = new Demanda(numeracao.proximoNumero(hoje.getYear()), autor);
         demanda.setStatus(StatusDemanda.PENDENTE);
-        aplicar(demanda, pedido, municipio);
+        aplicar(demanda, pedido, municipio, area);
         demandas.save(demanda);
 
         registrarHistorico(demanda, TipoHistorico.CADASTRO, null, StatusDemanda.PENDENTE,
@@ -138,16 +142,19 @@ public class DemandaService {
                     + "(status atual: " + demanda.getStatus().rotulo() + ").");
         }
         Municipio municipio = validar(pedido, hoje);
+        AreaResolvida area = resolverArea(pedido, demanda);
         Usuario autor = usuario(ator);
 
-        List<String> alterados = camposAlterados(demanda, pedido);
-        aplicar(demanda, pedido, municipio);
+        List<String> alterados = camposAlterados(demanda, pedido, area);
+        Map<String, Object> antes = retrato(demanda);
+        aplicar(demanda, pedido, municipio, area);
         demandas.saveAndFlush(demanda);
         if (!alterados.isEmpty()) {
             String texto = "Campos alterados: " + String.join(", ", alterados) + ".";
             registrarHistorico(demanda, TipoHistorico.EDICAO, demanda.getStatus(), demanda.getStatus(), texto, autor);
-            auditoria.registrar("EDITAR", ENTIDADE, String.valueOf(demanda.getId()),
-                    "Demanda " + demanda.getNumero() + " editada. " + texto);
+            auditoria.registrarAlteracao("EDITAR", ENTIDADE, String.valueOf(demanda.getId()),
+                    "Demanda " + demanda.getNumero() + " editada. " + texto,
+                    Alteracoes.entre(antes, retrato(demanda)));
         }
         return detalhe(demanda, hoje);
     }
@@ -306,22 +313,80 @@ public class DemandaService {
         return municipio;
     }
 
-    private static void aplicar(Demanda demanda, DemandaRequest pedido, Municipio municipio) {
+    /** Área e coordenadas finais da demanda (área sempre calculada pela API quando há geometria). */
+    private record AreaResolvida(BigDecimal ha, String geometria, BigDecimal latitude, BigDecimal longitude) {
+    }
+
+    /**
+     * Valida areaHa/areaGeometria. Com geometria: área calculada no servidor (divergência maior que 2% da informada
+     * gera 400) e, sem lat/lon, o centroide (dentro de MT) as preenche. Sem geometria, areaHa é gravada como veio. Na edição, sem areaHa/areaGeometria a área existente é mantida; `removerArea: true` a remove.
+     */
+    private static AreaResolvida resolverArea(DemandaRequest pedido, Demanda existente) {
+        BigDecimal lat = pedido.latitude();
+        BigDecimal lon = pedido.longitude();
+        if (existente != null && pedido.areaHa() == null && pedido.areaGeometria() == null
+                && !Boolean.TRUE.equals(pedido.removerArea())) {
+            return new AreaResolvida(existente.getAreaHa(), existente.getAreaGeometria(), lat, lon);
+        }
+        if (pedido.areaGeometria() == null) {
+            return new AreaResolvida(pedido.areaHa(), null, lat, lon);
+        }
+        GeometriaArea.Resultado r;
+        try {
+            r = GeometriaArea.analisar(pedido.areaGeometria());
+        } catch (IllegalArgumentException e) {
+            throw new DadosInvalidosException("areaGeometria", e.getMessage());
+        }
+        if (pedido.areaHa() != null && !GeometriaArea.compativel(pedido.areaHa(), r.areaHa())) {
+            throw new DadosInvalidosException("areaHa", "A área informada (" + pedido.areaHa().toPlainString()
+                    + " ha) diverge mais de 2% da calculada pela geometria (" + r.areaHa().toPlainString() + " ha).");
+        }
+        if (lat == null && lon == null && r.centroide() != null
+                && GeometriaArea.dentroDeMt(r.centroide()[0], r.centroide()[1])) {
+            lat = BigDecimal.valueOf(r.centroide()[0]).setScale(6, java.math.RoundingMode.HALF_UP);
+            lon = BigDecimal.valueOf(r.centroide()[1]).setScale(6, java.math.RoundingMode.HALF_UP);
+        }
+        return new AreaResolvida(r.areaHa(), r.json(), lat, lon);
+    }
+
+    private static void aplicar(Demanda demanda, DemandaRequest pedido, Municipio municipio, AreaResolvida area) {
         demanda.setTitulo(pedido.titulo().trim());
         demanda.setDescricao(pedido.descricao().trim());
         demanda.setOrigem(pedido.origem());
         demanda.setCategoria(pedido.categoria());
         demanda.setMunicipio(municipio);
         demanda.setLocalidade(vazioParaNulo(pedido.localidade()));
-        demanda.setLatitude(pedido.latitude());
-        demanda.setLongitude(pedido.longitude());
+        demanda.setLatitude(area.latitude());
+        demanda.setLongitude(area.longitude());
+        demanda.setAreaHa(area.ha());
+        demanda.setAreaGeometria(area.geometria());
         demanda.setDataRecebimento(pedido.dataRecebimento());
         demanda.setPrioridade(pedido.prioridade());
         demanda.setPrazoSugerido(pedido.prazoSugerido());
         demanda.setObservacoes(vazioParaNulo(pedido.observacoes()));
     }
 
-    private static List<String> camposAlterados(Demanda d, DemandaRequest p) {
+    /** Valores editáveis da demanda, para o antes → depois da auditoria (Issue #148). */
+    private static Map<String, Object> retrato(Demanda d) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("titulo", d.getTitulo());
+        m.put("descricao", d.getDescricao());
+        m.put("origem", d.getOrigem());
+        m.put("categoria", d.getCategoria());
+        m.put("municipioId", d.getMunicipio() == null ? null : d.getMunicipio().getId());
+        m.put("localidade", d.getLocalidade());
+        m.put("latitude", d.getLatitude());
+        m.put("longitude", d.getLongitude());
+        m.put("areaHa", d.getAreaHa());
+        m.put("areaGeometria", GeoJson.resumo(d.getAreaGeometria()));
+        m.put("dataRecebimento", d.getDataRecebimento());
+        m.put("prioridade", d.getPrioridade());
+        m.put("prazoSugerido", d.getPrazoSugerido());
+        m.put("observacoes", d.getObservacoes());
+        return m;
+    }
+
+    private static List<String> camposAlterados(Demanda d, DemandaRequest p, AreaResolvida area) {
         List<String> campos = new ArrayList<>();
         if (!Objects.equals(d.getTitulo(), p.titulo().trim())) campos.add("título");
         if (!Objects.equals(d.getDescricao(), p.descricao().trim())) campos.add("descrição");
@@ -329,8 +394,12 @@ public class DemandaService {
         if (d.getCategoria() != p.categoria()) campos.add("categoria");
         if (!Objects.equals(d.getMunicipio().getId(), p.municipioId())) campos.add("município");
         if (!Objects.equals(d.getLocalidade(), vazioParaNulo(p.localidade()))) campos.add("localidade");
-        if (!mesmoNumero(d.getLatitude(), p.latitude()) || !mesmoNumero(d.getLongitude(), p.longitude())) {
+        if (!mesmoNumero(d.getLatitude(), area.latitude()) || !mesmoNumero(d.getLongitude(), area.longitude())) {
             campos.add("coordenadas");
+        }
+        if (!mesmoNumero(d.getAreaHa(), area.ha())
+                || !Objects.equals(GeoJson.geometria(d.getAreaGeometria()), GeoJson.geometria(area.geometria()))) {
+            campos.add("área afetada");
         }
         if (!Objects.equals(d.getDataRecebimento(), p.dataRecebimento())) campos.add("data de recebimento");
         if (d.getPrioridade() != p.prioridade()) campos.add("prioridade");
@@ -409,7 +478,7 @@ public class DemandaService {
     private static FiscalizacaoDetalhe fiscalizacao(Fiscalizacao f) {
         return new FiscalizacaoDetalhe(f.getId(), f.getData(), equipeRef(f.getEquipe()), f.getAtividades(),
                 f.getResultado(), f.getEvidencias(), f.getRecomendacoes(), UsuarioRef.de(f.getRegistradoPor()),
-                f.getRegistradoEm());
+                f.getRegistradoEm(), ChecklistFiscalizacao.ler(f.getChecklist()));
     }
 
     private static MunicipioRef municipioRef(Municipio m) {

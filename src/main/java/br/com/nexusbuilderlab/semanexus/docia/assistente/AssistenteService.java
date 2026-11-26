@@ -104,6 +104,10 @@ public class AssistenteService {
     public RespostaAssistente responder(UsuarioAutenticado ator, PerguntaRequest pedido, Set<Long> permitidos,
                                         ObservadorAgente observador) {
         RespostaAssistente r = responder(pedido, permitidos, observador);
+        if (r != null && governanca != null && ator != null) {
+            // Issue #131: execução registrada para o feedback opcional UTIL/IMPRECISA do autor da pergunta.
+            r = r.comExecucao(governanca.registrarResposta(ator.id(), r.agente()));
+        }
         if (acoes == null || r.referencias() == null || r.referencias().isEmpty()) {
             return r;
         }
@@ -170,6 +174,19 @@ public class AssistenteService {
     private String modo() {
         return provider instanceof ExternalAssistenteProvider ? ExternalAssistenteProvider.MODO
                 : DemoAssistenteProvider.MODO;
+    }
+
+    /** Governança de IA (Issue #131), opcional. */
+    private br.com.nexusbuilderlab.semanexus.agentes.governanca.GovernancaIaService governanca;
+
+    @Autowired(required = false)
+    public void setGovernanca(br.com.nexusbuilderlab.semanexus.agentes.governanca.GovernancaIaService governanca) {
+        this.governanca = governanca;
+    }
+
+    /** Pergunta sobre legislação, multas ou procedimentos oficiais (recusada sem consultar a IA). Issue #131. */
+    public static boolean recusavel(String pergunta) {
+        return pergunta != null && RECUSAVEL.matcher(DocumentoSpecification.normalizar(pergunta.strip())).find();
     }
 
     static List<String> termos(String normalizada) {

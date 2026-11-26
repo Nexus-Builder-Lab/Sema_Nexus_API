@@ -15,6 +15,9 @@ import br.com.nexusbuilderlab.semanexus.flux.demanda.dto.TriagemRequest;
 import br.com.nexusbuilderlab.semanexus.security.Autorizacao;
 import br.com.nexusbuilderlab.semanexus.security.UsuarioAutenticado;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
+import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -35,6 +38,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -43,7 +47,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 /**
  * Flux (demandas de fiscalização). Cadastro, edição, listagem, detalhes, histórico e exclusão estão implementados
  * (#11); triagem e distribuição estão implementadas (#12); acompanhamento, fiscalização, conclusão e devolução estão implementados (#13).
- * `docs/ARCHITECTURE.md` §5.
+ * Operações de sincronização em campo aceitam chave opcional {@code Idempotency-Key} (#147). `docs/ARCHITECTURE.md` §5.
  */
 @RestController
 @PreAuthorize(Autorizacao.AUTENTICADO)
@@ -52,22 +56,30 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
         + "acompanhamento, fiscalização, conclusão e devolução")
 public class DemandaController {
 
+    private static final String DESC_CHAVE_IDEMPOTENCIA =
+            "Chave opcional de idempotência para evitar duplicidade em reenvios da sincronização em campo "
+                    + "(1 a 128 caracteres `[A-Za-z0-9._:-]`, recomendado UUID v4). Escopo por "
+                    + "`(usuário, operação, demanda, chave)`: reenvio com mesmo conteúdo devolve a resposta original "
+                    + "com cabeçalho `Idempotency-Replayed: true`; reutilização com conteúdo divergente responde `409 problem+json`.";
+
     private final DemandaService service;
     private final TriagemService triagem;
     private final DistribuicaoService distribuicao;
     private final AcompanhamentoService acompanhamento;
     private final FiscalizacaoService fiscalizacaoService;
     private final ConclusaoService conclusao;
+    private final IdempotenciaSincronizacaoService idempotencia;
 
     public DemandaController(DemandaService service, TriagemService triagem, DistribuicaoService distribuicao,
                               AcompanhamentoService acompanhamento, FiscalizacaoService fiscalizacaoService,
-                              ConclusaoService conclusao) {
+                              ConclusaoService conclusao, IdempotenciaSincronizacaoService idempotencia) {
         this.service = service;
         this.triagem = triagem;
         this.distribuicao = distribuicao;
         this.acompanhamento = acompanhamento;
         this.fiscalizacaoService = fiscalizacaoService;
         this.conclusao = conclusao;
+        this.idempotencia = idempotencia;
     }
 
     // ----------------------------------------------------------------- Issue #11 — cadastro e consulta
@@ -162,32 +174,91 @@ public class DemandaController {
         return distribuicao.distribuir(ator, id, pedido);
     }
 
-    // ----------------------------------------------------------------- Issue #13 — acompanhamento e conclusão
+    // ----------------------------------------------------------------- Issue #13 — acompanhamento e conclusão (e #147 — idempotência)
 
     @Operation(summary = "Inicia a execução (DISTRIBUIDA → EM_ANDAMENTO)",
-            description = "Perfis: fiscal designado, GESTOR, ADMIN. Fiscal que não é o designado recebe 403; fora de DISTRIBUIDA responde 409. Simulação demonstrativa: não gera auto de infração nem substitui sistemas oficiais.")
+            description = "Perfis: fiscal designado, GESTOR, ADMIN. Fiscal que não é o designado recebe 403; fora de DISTRIBUIDA responde 409. "
+                    + "Aceita opcionalmente `Idempotency-Key` (Issue #147) para reenvios seguros na sincronização do modo campo. "
+                    + "Simulação demonstrativa: não gera auto de infração nem substitui sistemas oficiais.")
+    @ApiResponse(responseCode = "200", description = "Execução iniciada (ou resposta original em replay idempotente)",
+            headers = @Header(name = ChaveIdempotencia.CABECALHO_REPLAY,
+                    description = "Presente com valor `true` quando a resposta veio de um reenvio idempotente."),
+            content = @Content(schema = @Schema(implementation = DemandaDetalhe.class)))
     @PreAuthorize(Autorizacao.ADMIN_GESTOR_FISCAL)
     @PostMapping("/{id}/inicio")
-    public DemandaDetalhe iniciarExecucao(@AuthenticationPrincipal UsuarioAutenticado ator, @PathVariable Long id) {
-        return acompanhamento.iniciar(ator, id);
+    public ResponseEntity<DemandaDetalhe> iniciarExecucao(
+            @AuthenticationPrincipal UsuarioAutenticado ator,
+            @PathVariable Long id,
+            @Parameter(name = ChaveIdempotencia.CABECALHO, in = ParameterIn.HEADER, required = false,
+                    description = DESC_CHAVE_IDEMPOTENCIA,
+                    schema = @Schema(type = "string", minLength = 1, maxLength = ChaveIdempotencia.TAMANHO_MAXIMO,
+                            pattern = ChaveIdempotencia.PADRAO_CHAVE, example = "550e8400-e29b-41d4-a716-446655440000"))
+            @RequestHeader(value = ChaveIdempotencia.CABECALHO, required = false) String idempotencyKey) {
+        if (idempotencyKey != null) {
+            ChaveIdempotencia.validarChave(idempotencyKey);
+            return resposta(idempotencia.iniciar(ator, id, idempotencyKey));
+        }
+        return ResponseEntity.ok(acompanhamento.iniciar(ator, id));
     }
 
     @Operation(summary = "Registra uma atividade de acompanhamento no histórico (demanda EM_ANDAMENTO)",
-            description = "Perfis: fiscal designado, GESTOR, ADMIN. 403 para fiscal não designado; 409 fora de EM_ANDAMENTO. Simulação demonstrativa: não gera auto de infração nem substitui sistemas oficiais.")
-    @ApiResponse(responseCode = "201", description = "Atividade registrada")
+            description = "Perfis: fiscal designado, GESTOR, ADMIN. 403 para fiscal não designado; 409 fora de EM_ANDAMENTO. "
+                    + "Aceita opcionalmente `Idempotency-Key` (Issue #147): reenvio com mesma chave e payload devolve `201` com o mesmo `HistoricoItem` sem duplicar; "
+                    + "mesma chave com outro payload responde `409 problem+json`. Simulação demonstrativa: não gera auto de infração nem substitui sistemas oficiais.")
+    @ApiResponse(responseCode = "201", description = "Atividade registrada (ou resposta original em replay idempotente)",
+            headers = @Header(name = ChaveIdempotencia.CABECALHO_REPLAY,
+                    description = "Presente com valor `true` quando a resposta veio de um reenvio idempotente."),
+            content = @Content(schema = @Schema(implementation = HistoricoItem.class)))
     @PreAuthorize(Autorizacao.ADMIN_GESTOR_FISCAL)
     @PostMapping("/{id}/atividades")
-    @ResponseStatus(HttpStatus.CREATED)
-    public HistoricoItem registrarAtividade(@AuthenticationPrincipal UsuarioAutenticado ator, @PathVariable Long id, @Valid @RequestBody AtividadeRequest pedido) {
-        return acompanhamento.registrarAtividade(ator, id, pedido);
+    public ResponseEntity<HistoricoItem> registrarAtividade(
+            @AuthenticationPrincipal UsuarioAutenticado ator,
+            @PathVariable Long id,
+            @Parameter(name = ChaveIdempotencia.CABECALHO, in = ParameterIn.HEADER, required = false,
+                    description = DESC_CHAVE_IDEMPOTENCIA,
+                    schema = @Schema(type = "string", minLength = 1, maxLength = ChaveIdempotencia.TAMANHO_MAXIMO,
+                            pattern = ChaveIdempotencia.PADRAO_CHAVE, example = "550e8400-e29b-41d4-a716-446655440001"))
+            @RequestHeader(value = ChaveIdempotencia.CABECALHO, required = false) String idempotencyKey,
+            @Valid @RequestBody AtividadeRequest pedido) {
+        if (idempotencyKey != null) {
+            ChaveIdempotencia.validarChave(idempotencyKey);
+            return resposta(idempotencia.registrarAtividade(ator, id, pedido, idempotencyKey));
+        }
+        return ResponseEntity.status(HttpStatus.CREATED).body(acompanhamento.registrarAtividade(ator, id, pedido));
     }
 
     @Operation(summary = "Registra a fiscalização (EM_ANDAMENTO → AGUARDANDO_CONCLUSAO)",
-            description = "Perfis: fiscal designado, GESTOR, ADMIN. Exige registro completo (400 por campo); 403 para fiscal não designado; 409 fora de EM_ANDAMENTO. Simulação demonstrativa: não gera auto de infração nem substitui sistemas oficiais.")
+            description = "Perfis: fiscal designado, GESTOR, ADMIN. Exige registro completo (400 por campo); 403 para fiscal não designado; 409 fora de EM_ANDAMENTO. "
+                    + "Aceita opcionalmente `Idempotency-Key` (Issue #147): reenvio com mesma chave e payload devolve `200` com a mesma `DemandaDetalhe` sem duplicar histórico/auditoria; "
+                    + "mesma chave com outro payload responde `409 problem+json`. Simulação demonstrativa: não gera auto de infração nem substitui sistemas oficiais.")
+    @ApiResponse(responseCode = "200", description = "Fiscalização registrada (ou resposta original em replay idempotente)",
+            headers = @Header(name = ChaveIdempotencia.CABECALHO_REPLAY,
+                    description = "Presente com valor `true` quando a resposta veio de um reenvio idempotente."),
+            content = @Content(schema = @Schema(implementation = DemandaDetalhe.class)))
     @PreAuthorize(Autorizacao.ADMIN_GESTOR_FISCAL)
     @PostMapping("/{id}/fiscalizacao")
-    public DemandaDetalhe registrarFiscalizacao(@AuthenticationPrincipal UsuarioAutenticado ator, @PathVariable Long id, @Valid @RequestBody FiscalizacaoRequest pedido) {
-        return fiscalizacaoService.registrar(ator, id, pedido);
+    public ResponseEntity<DemandaDetalhe> registrarFiscalizacao(
+            @AuthenticationPrincipal UsuarioAutenticado ator,
+            @PathVariable Long id,
+            @Parameter(name = ChaveIdempotencia.CABECALHO, in = ParameterIn.HEADER, required = false,
+                    description = DESC_CHAVE_IDEMPOTENCIA,
+                    schema = @Schema(type = "string", minLength = 1, maxLength = ChaveIdempotencia.TAMANHO_MAXIMO,
+                            pattern = ChaveIdempotencia.PADRAO_CHAVE, example = "550e8400-e29b-41d4-a716-446655440002"))
+            @RequestHeader(value = ChaveIdempotencia.CABECALHO, required = false) String idempotencyKey,
+            @Valid @RequestBody FiscalizacaoRequest pedido) {
+        if (idempotencyKey != null) {
+            ChaveIdempotencia.validarChave(idempotencyKey);
+            return resposta(idempotencia.registrarFiscalizacao(ator, id, pedido, idempotencyKey));
+        }
+        return ResponseEntity.ok(fiscalizacaoService.registrar(ator, id, pedido));
+    }
+
+    private static <T> ResponseEntity<T> resposta(IdempotenciaSincronizacaoService.ResultadoIdempotente<T> r) {
+        ResponseEntity.BodyBuilder builder = ResponseEntity.status(r.statusHttp());
+        if (r.repetida()) {
+            builder.header(ChaveIdempotencia.CABECALHO_REPLAY, "true");
+        }
+        return builder.body(r.corpo());
     }
 
     @Operation(summary = "Conclui a demanda (AGUARDANDO_CONCLUSAO → FINALIZADA)",

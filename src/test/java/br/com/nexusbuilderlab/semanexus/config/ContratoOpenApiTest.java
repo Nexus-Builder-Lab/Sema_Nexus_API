@@ -35,7 +35,7 @@ class ContratoOpenApiTest {
             "GET /api/catalogos/municipios", "GET /api/catalogos/biomas", "GET /api/catalogos/categorias",
             "GET /api/catalogos/origens", "GET /api/catalogos/prioridades", "GET /api/catalogos/status",
             "GET /api/setores", "GET /api/equipes", "GET /api/equipes/{id}/membros",
-            "GET /api/notificacoes", "GET /api/notificacoes/nao-lidas/contagem", "PATCH /api/notificacoes/{id}/lida",
+            "GET /api/notificacoes", "GET /api/notificacoes/stream", "GET /api/notificacoes/nao-lidas/contagem", "PATCH /api/notificacoes/{id}/lida",
             // Flux (contrato)
             "POST /api/demandas", "PUT /api/demandas/{id}", "GET /api/demandas", "GET /api/demandas/{id}",
             "DELETE /api/demandas/{id}", "GET /api/demandas/{id}/historico",
@@ -46,6 +46,11 @@ class ContratoOpenApiTest {
             "POST /api/demandas/{id}/devolucao",
             "GET /api/demandas/{id}/documentos", "POST /api/demandas/{id}/documentos",
             "DELETE /api/demandas/{id}/documentos/{documentoId}",
+            // Checklist e fotos da fiscalização (Issue #145)
+            "GET /api/demandas/checklists", "POST /api/demandas/{id}/fotos", "GET /api/demandas/{id}/fotos",
+            "GET /api/demandas/{id}/fotos/{fotoId}/arquivo", "DELETE /api/demandas/{id}/fotos/{fotoId}",
+            // Dossiê em PDF (Issue #146)
+            "GET /api/demandas/{id}/dossie.pdf",
             "GET /api/flux/prazos", "GET /api/flux/prazos/resumo", "GET /api/flux/produtividade",
             // DocIA (contrato)
             "POST /api/documentos", "POST /api/documentos/pre-analise", "GET /api/documentos", "GET /api/documentos/busca", "GET /api/documentos/{id}", "GET /api/documentos/{id}/arquivo",
@@ -72,8 +77,9 @@ class ContratoOpenApiTest {
             "GET /api/intelligence/sentinela/briefing",
             // Assistente Global (Issue #139)
             "POST /api/agentes/assistente-global",
+            "POST /api/sistema/agentes/avaliar", "POST /api/docia/respostas/{execucaoId}/avaliacao",
             // Core — auditoria (implementado)
-            "GET /api/auditoria",
+            "GET /api/auditoria", "GET /api/auditoria/integridade",
             // Core — gestão de usuários, setores e equipes (Issue #24)
             "GET /api/usuarios", "POST /api/usuarios", "GET /api/usuarios/{id}", "PUT /api/usuarios/{id}",
             "PATCH /api/usuarios/{id}/ativacao", "POST /api/setores", "PUT /api/setores/{id}",
@@ -192,6 +198,21 @@ class ContratoOpenApiTest {
                 .isEqualTo("#/components/schemas/LoginResponse");
         assertThat(contrato().path("components").path("schemas").path("LoginResponse").path("properties").fieldNames())
                 .toIterable().contains("token", "expiresIn", "usuario");
+    }
+
+    @Test
+    void auditoriaEncadeadaENotificacoesSseNoContrato() throws Exception {
+        JsonNode stream = operacao("GET /api/notificacoes/stream");
+        assertThat(stream.path("responses").path("200").path("content").has("text/event-stream")).isTrue();
+        assertThat(stream.path("responses").path("503").path("content").has("application/problem+json")).isTrue();
+        assertThat(stream.path("description").asText()).contains("conectado").contains("notificacao")
+                .contains("Authorization");
+        JsonNode integridade = operacao("GET /api/auditoria/integridade");
+        assertThat(integridade.path("responses").has("200")).isTrue();
+        assertThat(contrato().path("components").path("schemas").path("IntegridadeAuditoria").path("properties")
+                .has("primeiraFalha")).isTrue();
+        assertThat(contrato().path("components").path("schemas").path("AuditoriaDto").path("properties")
+                .has("valorAnterior")).isTrue();
     }
 
     @Test
@@ -323,11 +344,43 @@ class ContratoOpenApiTest {
     }
 
     @Test
+    void dossiePdfDeclaraApplicationPdfE403E404() throws Exception {
+        JsonNode respostas = operacao("GET /api/demandas/{id}/dossie.pdf").path("responses");
+        JsonNode pdf = respostas.path("200").path("content").path("application/pdf").path("schema");
+        assertThat(pdf.path("format").asText()).isEqualTo("binary");
+        assertThat(respostas.has("403")).isTrue();
+        assertThat(respostas.has("404")).isTrue();
+    }
+
+    @Test
     void todosOsEndpointsTemTagEResumo() throws Exception {
         for (String chave : ENDPOINTS_P0) {
             JsonNode op = operacao(chave);
             assertThat(op.path("tags")).as("tags de %s", chave).isNotEmpty();
             assertThat(op.path("summary").asText()).as("summary de %s", chave).isNotBlank();
+        }
+    }
+
+    @Test
+    void sincronizacaoEmCampoDocumentaIdempotencyKeyEErros() throws Exception {
+        for (String chave : List.of(
+                "POST /api/demandas/{id}/inicio",
+                "POST /api/demandas/{id}/atividades",
+                "POST /api/demandas/{id}/fiscalizacao")) {
+            JsonNode op = operacao(chave);
+            JsonNode headerParam = null;
+            for (JsonNode p : op.path("parameters")) {
+                if ("header".equals(p.path("in").asText()) && "Idempotency-Key".equals(p.path("name").asText())) {
+                    headerParam = p;
+                    break;
+                }
+            }
+            assertThat(headerParam).as("Idempotency-Key em %s", chave).isNotNull();
+            assertThat(headerParam.path("required").asBoolean(true)).as("opcional em %s", chave).isFalse();
+            assertThat(headerParam.path("schema").path("minLength").asInt()).isEqualTo(1);
+            assertThat(headerParam.path("schema").path("maxLength").asInt()).isEqualTo(128);
+            assertThat(op.path("responses").has("400")).as("400 em %s", chave).isTrue();
+            assertThat(op.path("responses").has("409")).as("409 em %s", chave).isTrue();
         }
     }
 }
