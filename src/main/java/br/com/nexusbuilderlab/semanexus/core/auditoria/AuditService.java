@@ -53,6 +53,8 @@ public class AuditService {
                     + "|eyJ[A-Za-z0-9_-]{5,}\\.[A-Za-z0-9_-]{5,}\\.[A-Za-z0-9_-]*");
     private static final Pattern CHAVE_SENSIVEL = Pattern.compile(
             "(?i)(?:senha|password|token|secret|segredo|authorization)\\w*");
+    /** Rótulos fixos e sem segredo gravados por {@code UsuarioService} na redefinição de senha. */
+    private static final Set<String> MARCADORES_SEGUROS = Set.of("(mantida)", "(redefinida)");
 
     private final AuditoriaRepository repositorio;
     private final UsuarioRepository usuarios;
@@ -193,7 +195,7 @@ public class AuditService {
             return null;
         }
         if (chave != null && CHAVE_SENSIVEL.matcher(chave).find()) {
-            return "***";
+            return MARCADORES_SEGUROS.contains(valor) ? valor : "***";
         }
         return sanear(valor);
     }

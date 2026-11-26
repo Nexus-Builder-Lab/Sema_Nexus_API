@@ -103,13 +103,15 @@ public class AuthService {
      */
     @Transactional
     public void logout(Long usuarioId, String jti, Instant expiraEm) {
+        // Revoga primeiro (inclusive o cache local) para impedir reconexão SSE imediata com o mesmo token.
+        boolean revogadoAgora = jti == null || revogacao.revogar(jti, usuarioId, expiraEm);
         // Streams de notificação abertos com este token terminam junto com ele.
         if (jti != null && canalNotificacoes != null) {
             canalNotificacoes.encerrarDoToken(jti);
         }
         // Dois logouts simultâneos do mesmo token: só o que revogou de fato registra a auditoria (o outro também
         // responde 204 — o token já está invalidado).
-        if (jti != null && !revogacao.revogar(jti, usuarioId, expiraEm)) {
+        if (!revogadoAgora) {
             return;
         }
         auditoria.registrarComo(usuarioId, "LOGOUT", ENTIDADE, String.valueOf(usuarioId), "Logout realizado.");

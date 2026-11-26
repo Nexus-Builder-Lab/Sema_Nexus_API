@@ -182,8 +182,9 @@ class NotificacaoStreamWebMvcTest {
         assertThat(canal.abertas()).isEqualTo(4);
 
         mvc.perform(get(STREAM).header(HttpHeaders.AUTHORIZATION, "Bearer " + token(Perfil.FISCAL, 714))
-                        .accept(MediaType.TEXT_EVENT_STREAM, MediaType.APPLICATION_PROBLEM_JSON))
-                .andExpect(status().isServiceUnavailable());
+                        .accept(MediaType.TEXT_EVENT_STREAM))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
         assertThat(canal.abertas()).isEqualTo(4);
     }
 

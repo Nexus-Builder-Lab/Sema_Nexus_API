@@ -57,7 +57,7 @@ public class NotificacaoController {
     @ApiResponse(responseCode = "401", description = "Sem token, token inválido, expirado ou revogado")
     @ApiResponse(responseCode = "503", description = "Conexões de notificação demais abertas")
     @PreAuthorize(Autorizacao.AUTENTICADO)
-    @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @GetMapping("/stream")
     public ResponseEntity<SseEmitter> stream(@AuthenticationPrincipal UsuarioAutenticado ator,
                                              HttpServletRequest request) {
         long naoLidas = service.contarNaoLidas(ator).naoLidas();

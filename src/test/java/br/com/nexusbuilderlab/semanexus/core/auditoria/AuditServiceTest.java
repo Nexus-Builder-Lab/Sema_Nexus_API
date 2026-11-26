@@ -223,4 +223,19 @@ class AuditServiceTest {
                 .isLessThanOrEqualTo(Alteracoes.LIMITE_BYTES);
         new com.fasterxml.jackson.databind.ObjectMapper().readTree(a.getValorNovo());
     }
+
+    @Test
+    void alteracaoPreservaMarcadoresDeSenhaMasMascaraSenhaReal() {
+        servico.registrarAlteracao("ATUALIZAR", "USUARIO", "2", "Usuário atualizado.", Alteracoes.nova()
+                .campo("senha", "(mantida)", "(redefinida)")
+                .campo("senhaSecreta", "segredoAntigo", "segredoNovo"));
+
+        ArgumentCaptor<Auditoria> captor = ArgumentCaptor.forClass(Auditoria.class);
+        verify(repositorio).save(captor.capture());
+        Auditoria a = captor.getValue();
+        assertThat(a.getValorAnterior()).contains("\"senha\":\"(mantida)\"").contains("\"senhaSecreta\":\"***\"")
+                .doesNotContain("segredoAntigo");
+        assertThat(a.getValorNovo()).contains("\"senha\":\"(redefinida)\"").contains("\"senhaSecreta\":\"***\"")
+                .doesNotContain("segredoNovo");
+    }
 }

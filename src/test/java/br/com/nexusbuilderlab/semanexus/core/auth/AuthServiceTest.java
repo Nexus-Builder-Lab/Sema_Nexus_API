@@ -147,7 +147,9 @@ class AuthServiceTest {
 
         servico.logout(5L, "jti-de-teste", expira);
 
-        verify(canal).encerrarDoToken("jti-de-teste");
+        var ordem = org.mockito.Mockito.inOrder(revogacao, canal);
+        ordem.verify(revogacao).revogar("jti-de-teste", 5L, expira);
+        ordem.verify(canal).encerrarDoToken("jti-de-teste");
     }
 
     @Test

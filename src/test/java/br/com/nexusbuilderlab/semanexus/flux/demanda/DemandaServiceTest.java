@@ -311,6 +311,27 @@ class DemandaServiceTest {
                 Origem.DENUNCIA, null, 5103403, null, null, null, null, null, HOJE.minusDays(2), null, null, null, true));
         assertThat(removida.areaHa()).isNull();
         assertThat(removida.areaGeometria()).isNull();
+
+        var alteracoes = ArgumentCaptor.forClass(br.com.nexusbuilderlab.semanexus.core.auditoria.Alteracoes.class);
+        verify(auditoria, times(4)).registrarAlteracao(eq("EDITAR"), eq("DEMANDA"), eq("1"), anyString(),
+                alteracoes.capture());
+        var criadaAlt = alteracoes.getAllValues().get(0);
+        assertThat(criadaAlt.antes()).containsEntry("areaHa", null).containsEntry("areaGeometria", null);
+        assertThat(criadaAlt.depois().get("areaHa")).isNotBlank();
+        assertThat(criadaAlt.depois().get("areaGeometria")).startsWith("Polygon (");
+
+        var mantidaAlt = alteracoes.getAllValues().get(1);
+        assertThat(mantidaAlt.antes()).doesNotContainKeys("areaHa", "areaGeometria");
+        assertThat(mantidaAlt.depois()).doesNotContainKeys("areaHa", "areaGeometria");
+
+        var editadaAlt = alteracoes.getAllValues().get(2);
+        assertThat(editadaAlt.antes().get("areaHa")).isNotEqualTo(editadaAlt.depois().get("areaHa"));
+        assertThat(editadaAlt.antes().get("areaGeometria")).isNotEqualTo(editadaAlt.depois().get("areaGeometria"));
+
+        var removidaAlt = alteracoes.getAllValues().get(3);
+        assertThat(removidaAlt.antes().get("areaHa")).isNotBlank();
+        assertThat(removidaAlt.antes().get("areaGeometria")).startsWith("Polygon (");
+        assertThat(removidaAlt.depois()).containsEntry("areaHa", null).containsEntry("areaGeometria", null);
     }
 
     // ---------------------------------------------------------------- edição

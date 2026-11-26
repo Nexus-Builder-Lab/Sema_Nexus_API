@@ -361,6 +361,8 @@ public class DemandaService {
         m.put("localidade", d.getLocalidade());
         m.put("latitude", d.getLatitude());
         m.put("longitude", d.getLongitude());
+        m.put("areaHa", d.getAreaHa());
+        m.put("areaGeometria", GeoJson.resumo(d.getAreaGeometria()));
         m.put("dataRecebimento", d.getDataRecebimento());
         m.put("prioridade", d.getPrioridade());
         m.put("prazoSugerido", d.getPrazoSugerido());
