@@ -335,4 +335,54 @@ class AgenteTriagemServiceTest {
         });
         assertThat(s.modo()).isEqualTo("DEMONSTRATIVO");
     }
+
+    @Test
+    void triagemConsultaCamadasPublicasNoModoDemonstrativoENaFerramentaSemGravarNada() throws Exception {
+        var camadas = mock(br.com.nexusbuilderlab.semanexus.intelligence.camada.CamadaPublicaService.class);
+        var itemUc = new br.com.nexusbuilderlab.semanexus.intelligence.camada.CamadaPublicaDto.ItemSobreposicao(
+                1L, br.com.nexusbuilderlab.semanexus.intelligence.camada.TipoCamadaPublica.UNIDADE_CONSERVACAO,
+                "UC-1", "Parque Estadual Cristalino", "Parque", "Estadual", null, true, 0.0,
+                "MMA/CNUC", "CC BY", LocalDate.of(2025, 8, 1), false);
+        var sob = new br.com.nexusbuilderlab.semanexus.intelligence.camada.CamadaPublicaDto.SobreposicaoCamadasPublicas(
+                false, "aviso", "COORDENADA", -11.86, -55.5, 10.0, List.of(itemUc), List.of(), List.of(),
+                new br.com.nexusbuilderlab.semanexus.intelligence.camada.CamadaPublicaDto.ResumoSobreposicao(
+                        true, 0.0, false, null, null, 1, 0, 0, List.of()));
+        when(camadas.sobreposicao(eq(null), eq(-11.86), eq(-55.5), eq(10.0))).thenReturn(sob);
+        when(demandas.detalhar(ator, 4L)).thenReturn(comCoordenada());
+        when(referencia.porMunicipio(any())).thenReturn(new PorMunicipioResponse("INPE", false, null, "", 1, List.of()));
+        Municipio m = mock(Municipio.class);
+        when(m.getRegiao()).thenReturn("Sinop");
+        when(municipios.findById(SINOP)).thenReturn(Optional.of(m));
+        when(demandas.listar(eq(ator), any(), any())).thenReturn(new PageResponse<>(List.of(), 0, 9, 0, 0));
+
+        // 1. Modo demonstrativo: eleva prioridade MEDIA -> ALTA por sobreposição em UC e registra evidência não oficial
+        ModeloRoteiro semIa = new ModeloRoteiro();
+        semIa.disponivel = false;
+        var svcSemIa = new AgenteTriagemService(demandas, municipios, referencia,
+                new ExecutorAgente(semIa, config, auditoria, json), config,
+                new AnaliseEspacial(demandas, referencia, mock(org.springframework.jdbc.core.JdbcTemplate.class), 90,
+                        camadas));
+
+        SugestaoTriagem sDemo = svcSemIa.sugerir(ator, 4L);
+        assertThat(sDemo.prioridade()).isEqualTo(Prioridade.ALTA);
+        assertThat(sDemo.espacial().camadasPublicas().resumo().dentroUc()).isTrue();
+        assertThat(sDemo.evidencias()).anyMatch(e -> e.contains("não oficiais SEMA") && e.contains("sobreposição direta"));
+        assertThat(sDemo.justificativa()).contains("Unidade de Conservação");
+
+        // 2. Agente com IA chamando ferramenta camadas_publicas_proximas (somente leitura)
+        ModeloRoteiro comIa = new ModeloRoteiro();
+        comIa.respostas.add(ferramenta("camadas_publicas_proximas", "{\"numero\":\"DEM-2026/0004\",\"raio_km\":10}"));
+        comIa.respostas.add(new ClienteModelo.RespostaModelo("stop", List.of(),
+                "{\"decisao\":\"CLASSIFICAR\",\"categoria\":\"RESIDUOS_POLUICAO\",\"prioridade\":\"ALTA\","
+                        + "\"justificativa\":\"Sobreposição em UC pública.\",\"duplicatas\":[]}", null, 50, 30, 0));
+        var svcIa = new AgenteTriagemService(demandas, municipios, referencia,
+                new ExecutorAgente(comIa, config, auditoria, json), config,
+                new AnaliseEspacial(demandas, referencia, mock(org.springframework.jdbc.core.JdbcTemplate.class), 90,
+                        camadas));
+
+        SugestaoTriagem sIa = svcIa.sugerir(ator, 4L);
+        assertThat(sIa.modo()).isEqualTo("LOCAL");
+        assertThat(sIa.evidencias()).anyMatch(e -> e.contains("camadas públicas") && e.contains("1 UC(s)"));
+        org.mockito.Mockito.verify(demandas, org.mockito.Mockito.never()).editar(any(), any(), any());
+    }
 }

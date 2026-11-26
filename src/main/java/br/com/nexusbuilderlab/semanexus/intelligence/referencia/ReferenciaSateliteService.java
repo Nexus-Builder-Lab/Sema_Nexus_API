@@ -1,6 +1,8 @@
 package br.com.nexusbuilderlab.semanexus.intelligence.referencia;
 
 import br.com.nexusbuilderlab.semanexus.common.exception.DadosInvalidosException;
+import br.com.nexusbuilderlab.semanexus.intelligence.camada.CamadaPublicaDto.SobreposicaoCamadasPublicas;
+import br.com.nexusbuilderlab.semanexus.intelligence.camada.CamadaPublicaService;
 import br.com.nexusbuilderlab.semanexus.intelligence.referencia.ReferenciaDto.ContagemMunicipio;
 import br.com.nexusbuilderlab.semanexus.intelligence.referencia.ReferenciaDto.Importacao;
 import br.com.nexusbuilderlab.semanexus.intelligence.referencia.ReferenciaDto.Metadados;
@@ -16,6 +18,8 @@ import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Comparator;
 import java.util.List;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,9 +32,17 @@ public class ReferenciaSateliteService {
     public static final int LIMITE_MAXIMO = 20000;
 
     private final ReferenciaSateliteRepository repository;
+    private final CamadaPublicaService camadasPublicas;
 
     public ReferenciaSateliteService(ReferenciaSateliteRepository repository) {
+        this(repository, null);
+    }
+
+    @Autowired
+    public ReferenciaSateliteService(ReferenciaSateliteRepository repository,
+                                     @Nullable CamadaPublicaService camadasPublicas) {
         this.repository = repository;
+        this.camadasPublicas = camadasPublicas;
     }
 
     /** Pontos mais próximos do centro na caixa e no período (pré-filtro espacial; refinamento é do chamador). */
@@ -92,9 +104,24 @@ public class ReferenciaSateliteService {
         } else {
             observacao = "Área afetada: não informada pela fonte para este alerta.";
         }
+        Map<String, Object> geometria = deter ? GeoJson.geometria(r.geometria()) : null;
+        SobreposicaoCamadasPublicas sobreposicao = sobreposicaoPara(geometria, p);
         return new PontoDetalhe(ReferenciaDto.FONTE, false, ReferenciaDto.AVISO, p, informada, campo, km2Fonte,
-                observacao,
-                deter ? GeoJson.geometria(r.geometria()) : null, atributos, r.importacao());
+                observacao, geometria, atributos, r.importacao(), sobreposicao);
+    }
+
+    private SobreposicaoCamadasPublicas sobreposicaoPara(Map<String, Object> geometria, Ponto p) {
+        if (camadasPublicas == null || (geometria == null && (p.latitude() == null || p.longitude() == null))) {
+            return null;
+        }
+        try {
+            return camadasPublicas.sobreposicao(geometria,
+                    p.latitude() == null ? null : p.latitude().doubleValue(),
+                    p.longitude() == null ? null : p.longitude().doubleValue(),
+                    null);
+        } catch (RuntimeException ignored) {
+            return null;
+        }
     }
 
     private static BigDecimal valorDaFonte(Map<String, Object> atributos, String campo, BigDecimal coluna) {

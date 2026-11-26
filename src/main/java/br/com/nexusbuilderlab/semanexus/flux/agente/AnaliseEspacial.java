@@ -22,14 +22,19 @@ import br.com.nexusbuilderlab.semanexus.flux.demanda.dto.DemandaDetalhe;
 import br.com.nexusbuilderlab.semanexus.flux.demanda.dto.DemandaFiltro;
 import br.com.nexusbuilderlab.semanexus.flux.demanda.dto.DemandaProxima;
 import br.com.nexusbuilderlab.semanexus.flux.demanda.dto.DemandaResumo;
+import br.com.nexusbuilderlab.semanexus.intelligence.camada.CamadaPublicaDto.SobreposicaoCamadasPublicas;
+import br.com.nexusbuilderlab.semanexus.intelligence.camada.CamadaPublicaService;
 import br.com.nexusbuilderlab.semanexus.intelligence.referencia.ReferenciaFiltro;
 import br.com.nexusbuilderlab.semanexus.intelligence.referencia.ReferenciaSateliteRepository.PontoEspacial;
 import br.com.nexusbuilderlab.semanexus.intelligence.referencia.ReferenciaSateliteService;
 import br.com.nexusbuilderlab.semanexus.intelligence.referencia.TipoReferencia;
 import br.com.nexusbuilderlab.semanexus.security.UsuarioAutenticado;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 
 /**
@@ -64,13 +69,22 @@ public class AnaliseEspacial {
     private final ReferenciaSateliteService referencia;
     private final JdbcTemplate jdbc;
     private final int janelaDias;
+    private final CamadaPublicaService camadasPublicas;
 
     public AnaliseEspacial(DemandaService demandas, ReferenciaSateliteService referencia, JdbcTemplate jdbc,
-                           @org.springframework.beans.factory.annotation.Value("${sema.triagem.espacial.janela-dias:90}") int janelaDias) {
+                           int janelaDias) {
+        this(demandas, referencia, jdbc, janelaDias, null);
+    }
+
+    @Autowired
+    public AnaliseEspacial(DemandaService demandas, ReferenciaSateliteService referencia, JdbcTemplate jdbc,
+                           @Value("${sema.triagem.espacial.janela-dias:90}") int janelaDias,
+                           @Nullable CamadaPublicaService camadasPublicas) {
         this.janelaDias = janelaDias;
         this.demandas = demandas;
         this.referencia = referencia;
         this.jdbc = jdbc;
+        this.camadasPublicas = camadasPublicas;
     }
 
     static double raio(Double pedido) {
@@ -94,7 +108,26 @@ public class AnaliseEspacial {
         Ponto p = ponto(d);
         List<Proxima> proximas = proximas(ator, d, raio);
         return new EvidenciaEspacial(p.origem(), p.lat(), p.lon(), raio, inpe(d, raio), proximas,
-                documentos(d, proximas));
+                documentos(d, proximas), camadasPublicas(d, p, raio));
+    }
+
+    /** Consulta sobreposição/proximidade com camadas públicas abertas (UCs, Terras Indígenas e hidrografia). */
+    public SobreposicaoCamadasPublicas camadasPublicas(DemandaDetalhe d, double raio) {
+        return camadasPublicas(d, ponto(d), raio);
+    }
+
+    private SobreposicaoCamadasPublicas camadasPublicas(DemandaDetalhe d, Ponto p, double raio) {
+        if (camadasPublicas == null || !p.temCoordenada()) {
+            return null;
+        }
+        if (d.camadasPublicas() != null && Double.compare(raio, CamadaPublicaService.RAIO_PADRAO_KM) == 0) {
+            return d.camadasPublicas();
+        }
+        try {
+            return camadasPublicas.sobreposicao(d.areaGeometria(), p.lat(), p.lon(), raio);
+        } catch (RuntimeException ignored) {
+            return null;
+        }
     }
 
     // -------------------------------------------------------------------------------------------- INPE

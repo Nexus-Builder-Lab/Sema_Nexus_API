@@ -154,4 +154,49 @@ class AnaliseEspacialTest {
             throw new IllegalStateException(e);
         }
     }
+
+    @Test
+    void analisarIncluiCamadasPublicasQuandoServicoPresente() {
+        totaisDoMunicipio();
+        var camadas = mock(br.com.nexusbuilderlab.semanexus.intelligence.camada.CamadaPublicaService.class);
+        var sob = new br.com.nexusbuilderlab.semanexus.intelligence.camada.CamadaPublicaDto.SobreposicaoCamadasPublicas(
+                false, "aviso", "COORDENADA", LAT, LON, 10.0, List.of(), List.of(), List.of(),
+                new br.com.nexusbuilderlab.semanexus.intelligence.camada.CamadaPublicaDto.ResumoSobreposicao(
+                        true, 0.0, false, null, 1.2, 1, 0, 1, List.of()));
+        when(camadas.sobreposicao(eq(null), eq(LAT), eq(LON), eq(10.0))).thenReturn(sob);
+        var analiseComCamadas = new AnaliseEspacial(demandas, ref, jdbc, 90, camadas);
+
+        var e = analiseComCamadas.analisar(ator, demanda(BigDecimal.valueOf(LAT), BigDecimal.valueOf(LON), null), null);
+
+        assertThat(e.camadasPublicas()).isNotNull();
+        assertThat(e.camadasPublicas().oficialSema()).isFalse();
+        assertThat(e.camadasPublicas().resumo().dentroUc()).isTrue();
+        assertThat(e.camadasPublicas().resumo().cursoAguaMaisProximoKm()).isEqualTo(1.2);
+    }
+
+    @Test
+    void camadasPublicasPreservaAreaGeometriaQuandoDemandaTemPontoEAreaParaQualquerRaio() {
+        var camadas = mock(br.com.nexusbuilderlab.semanexus.intelligence.camada.CamadaPublicaService.class);
+        Map<String, Object> area = quadrado(LON - 0.01, LAT - 0.01, 0.02);
+        var sob10 = new br.com.nexusbuilderlab.semanexus.intelligence.camada.CamadaPublicaDto.SobreposicaoCamadasPublicas(
+                false, "aviso", "AREA", LAT, LON, 10.0, List.of(), List.of(), List.of(),
+                new br.com.nexusbuilderlab.semanexus.intelligence.camada.CamadaPublicaDto.ResumoSobreposicao(
+                        true, 0.0, false, null, null, 1, 0, 0, List.of()));
+        var sob20 = new br.com.nexusbuilderlab.semanexus.intelligence.camada.CamadaPublicaDto.SobreposicaoCamadasPublicas(
+                false, "aviso", "AREA", LAT, LON, 20.0, List.of(), List.of(), List.of(),
+                new br.com.nexusbuilderlab.semanexus.intelligence.camada.CamadaPublicaDto.ResumoSobreposicao(
+                        true, 0.0, false, null, null, 1, 0, 0, List.of()));
+        when(camadas.sobreposicao(eq(area), eq(LAT), eq(LON), eq(20.0))).thenReturn(sob20);
+
+        DemandaDetalhe d = new DemandaDetalhe(4L, "DEM-2026/0004", "Queimada", "Fogo", Origem.values()[0], null,
+                new MunicipioRef(5107909, "Sinop", Bioma.AMAZONIA), null, BigDecimal.valueOf(LAT),
+                BigDecimal.valueOf(LON), null, area, LocalDate.now(), null, null, null, StatusDemanda.PENDENTE, false,
+                null, null, null, null, null, null, null, 0, null, null, null, sob10);
+        var analiseComCamadas = new AnaliseEspacial(demandas, ref, jdbc, 90, camadas);
+
+        assertThat(analiseComCamadas.camadasPublicas(d, 10.0)).isSameAs(sob10);
+        var res20 = analiseComCamadas.camadasPublicas(d, 20.0);
+        assertThat(res20).isSameAs(sob20);
+        org.mockito.Mockito.verify(camadas).sobreposicao(eq(area), eq(LAT), eq(LON), eq(20.0));
+    }
 }

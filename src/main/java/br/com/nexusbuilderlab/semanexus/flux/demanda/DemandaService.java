@@ -31,6 +31,8 @@ import br.com.nexusbuilderlab.semanexus.flux.demanda.dto.DemandaResumo;
 import br.com.nexusbuilderlab.semanexus.flux.demanda.dto.FiscalizacaoDetalhe;
 import br.com.nexusbuilderlab.semanexus.flux.demanda.dto.HistoricoItem;
 import br.com.nexusbuilderlab.semanexus.flux.demanda.dto.TipoHistorico;
+import br.com.nexusbuilderlab.semanexus.intelligence.camada.CamadaPublicaDto.SobreposicaoCamadasPublicas;
+import br.com.nexusbuilderlab.semanexus.intelligence.camada.CamadaPublicaService;
 import br.com.nexusbuilderlab.semanexus.security.UsuarioAutenticado;
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -43,10 +45,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.lang.Nullable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -74,11 +78,22 @@ public class DemandaService {
     private final AuditService auditoria;
     private final Clock clock;
     private final NotificacaoService notificacoes;
+    private final CamadaPublicaService camadasPublicas;
 
     public DemandaService(DemandaRepository demandas, DemandaHistoricoRepository historicos,
                           FiscalizacaoRepository fiscalizacoes, MunicipioRepository municipios,
                           EquipeRepository equipes, UsuarioRepository usuarios, NumeracaoService numeracao,
                           AuditService auditoria, Clock clock, NotificacaoService notificacoes) {
+        this(demandas, historicos, fiscalizacoes, municipios, equipes, usuarios, numeracao, auditoria, clock,
+                notificacoes, null);
+    }
+
+    @Autowired
+    public DemandaService(DemandaRepository demandas, DemandaHistoricoRepository historicos,
+                          FiscalizacaoRepository fiscalizacoes, MunicipioRepository municipios,
+                          EquipeRepository equipes, UsuarioRepository usuarios, NumeracaoService numeracao,
+                          AuditService auditoria, Clock clock, NotificacaoService notificacoes,
+                          @Nullable CamadaPublicaService camadasPublicas) {
         this.demandas = demandas;
         this.historicos = historicos;
         this.fiscalizacoes = fiscalizacoes;
@@ -89,6 +104,7 @@ public class DemandaService {
         this.auditoria = auditoria;
         this.clock = clock;
         this.notificacoes = notificacoes;
+        this.camadasPublicas = camadasPublicas;
     }
 
     // ------------------------------------------------------------------ escrita
@@ -432,14 +448,31 @@ public class DemandaService {
     private DemandaDetalhe detalhe(Demanda d, LocalDate hoje) {
         FiscalizacaoDetalhe fiscalizacao = d.getId() == null ? null
                 : fiscalizacoes.buscarPorDemanda(d.getId()).map(DemandaService::fiscalizacao).orElse(null);
+        Map<String, Object> areaGeom = GeoJson.geometria(d.getAreaGeometria());
+        SobreposicaoCamadasPublicas sobreposicao = sobreposicaoPara(d, areaGeom);
         return new DemandaDetalhe(d.getId(), d.getNumero(), d.getTitulo(), d.getDescricao(), d.getOrigem(),
                 d.getCategoria(), municipioRef(d.getMunicipio()), d.getLocalidade(), d.getLatitude(), d.getLongitude(),
-                d.getAreaHa(), GeoJson.geometria(d.getAreaGeometria()), d.getDataRecebimento(), d.getPrioridade(),
+                d.getAreaHa(), areaGeom, d.getDataRecebimento(), d.getPrioridade(),
                 d.getPrazoSugerido(), d.getPrazo(), d.getStatus(),
                 d.atrasada(hoje), equipeRef(d.getEquipe()), UsuarioRef.de(d.getFiscal()), d.getObservacoes(),
                 d.getResultadoFinal(), d.getJustificativaConclusao(), d.getConcluidaEm(), fiscalizacao,
                 // Documentos (DocIA) chegam na Issue #15; até lá nenhuma demanda tem documento associado.
-                0, UsuarioRef.de(d.getCriadoPor()), d.getCriadoEm(), d.getAtualizadoEm());
+                0, UsuarioRef.de(d.getCriadoPor()), d.getCriadoEm(), d.getAtualizadoEm(), sobreposicao);
+    }
+
+    private SobreposicaoCamadasPublicas sobreposicaoPara(Demanda d, Map<String, Object> areaGeom) {
+        boolean temPonto = d.getLatitude() != null && d.getLongitude() != null;
+        if (camadasPublicas == null || (areaGeom == null && !temPonto)) {
+            return null;
+        }
+        try {
+            return camadasPublicas.sobreposicao(areaGeom,
+                    temPonto ? d.getLatitude().doubleValue() : null,
+                    temPonto ? d.getLongitude().doubleValue() : null,
+                    null);
+        } catch (RuntimeException ignored) {
+            return null;
+        }
     }
 
     private static FiscalizacaoDetalhe fiscalizacao(Fiscalizacao f) {

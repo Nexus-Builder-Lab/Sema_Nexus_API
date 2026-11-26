@@ -69,6 +69,10 @@ class ContratoOpenApiTest {
             "GET /api/relatorios/demandas", "GET /api/relatorios/demandas.csv",
             "GET /api/intelligence/referencia/metadados", "GET /api/intelligence/referencia/pontos",
             "GET /api/intelligence/referencia/por-municipio", "GET /api/intelligence/referencia/pontos/{id}",
+            // Camadas públicas abertas offline de MT (Issue #144)
+            "GET /api/intelligence/referencia/camadas/metadados",
+            "GET /api/intelligence/referencia/camadas/geojson",
+            "GET /api/intelligence/referencia/camadas/sobreposicao",
             // Sentinela Territorial (Issue #138)
             "GET /api/intelligence/sentinela/briefing",
             // Assistente Global (Issue #139)
@@ -284,7 +288,9 @@ class ContratoOpenApiTest {
                 "ConclusaoRequest", "DevolucaoRequest", "DocumentoResumo", "DocumentoDetalhe", "VinculoDocumentoRequest",
                 "ResumoIndicadores", "SerieMensalItem", "ContagemItem", "ContagemMunicipio", "MapaResponse", "PontoMapa",
                 "DashboardResponse", "ItemCatalogo", "MunicipioDto", "SetorDto", "EquipeDto", "MembroDto",
-                "PageResponseDemandaResumo", "PageResponseDocumentoResumo")) {
+                "PageResponseDemandaResumo", "PageResponseDocumentoResumo",
+                "MetadadosCamadasPublicas", "ImportacaoCamadaPublica", "GeoJsonResponse",
+                "SobreposicaoCamadasPublicas")) {
             assertThat(schemas.has(dto)).as("schema %s", dto).isTrue();
         }
         // Validações Bean Validation aparecem no schema (usadas pelo Web para formulários e mocks).

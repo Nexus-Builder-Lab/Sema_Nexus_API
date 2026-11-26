@@ -84,13 +84,21 @@ final class RegrasTriagem {
     /** Com {@code espacial}, a contagem é a do raio em torno da coordenada (limiar menor: 5) e não a do município (50). */
     static Prioridade prioridade(CategoriaFiscalizacao categoria, String titulo, String descricao, long alertasInpe,
                                  boolean espacial) {
+        return prioridade(categoria, titulo, descricao, alertasInpe, espacial, false);
+    }
+
+    /** Com {@code sobreposicaoSensivel} (dentro de UC ou Terra Indígena pública), a prioridade sobe um nível. */
+    static Prioridade prioridade(CategoriaFiscalizacao categoria, String titulo, String descricao, long alertasInpe,
+                                 boolean espacial, boolean sobreposicaoSensivel) {
         Prioridade base = switch (categoria) {
             case QUEIMADA_INCENDIO, DESMATAMENTO_ILEGAL, MINERACAO_IRREGULAR -> Prioridade.ALTA;
             case null -> Prioridade.MEDIA;
             default -> Prioridade.MEDIA;
         };
         String t = normalizar(titulo + " " + descricao);
-        boolean agravante = AGRAVANTES.stream().anyMatch(t::contains) || alertasInpe >= (espacial ? LIMIAR_RAIO : 50);
+        boolean agravante = sobreposicaoSensivel
+                || AGRAVANTES.stream().anyMatch(t::contains)
+                || alertasInpe >= (espacial ? LIMIAR_RAIO : 50);
         if (!agravante) {
             return base;
         }

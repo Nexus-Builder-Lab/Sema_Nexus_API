@@ -38,7 +38,7 @@ Em qualquer falha (Ollama parado, modelo não baixado, erro, resposta inválida)
 
 | Agente | Módulo | Ferramentas | Issue |
 |---|---|---|---|
-| Agente de Triagem | SEMA Flux | `obter_demanda`, `buscar_demandas_semelhantes`, `alertas_inpe_municipio`, `alertas_inpe_raio_coordenada`, `demandas_proximas_coordenada`, `documentos_mesma_localidade` | #107, #132 (implementados) |
+| Agente de Triagem | SEMA Flux | `obter_demanda`, `buscar_demandas_semelhantes`, `alertas_inpe_municipio`, `alertas_inpe_raio_coordenada`, `demandas_proximas_coordenada`, `documentos_mesma_localidade`, `camadas_publicas_proximas` | #107, #132, #144 (implementados) |
 | Assistente DocIA | SEMA DocIA | `buscar_documentos`, `ler_documento` | #108 (implementado) |
 | Agente de Distribuição | SEMA Flux | `carga_trabalho_fiscais`, `demandas_ativas_na_regiao`, `tempo_medio_categoria` | #130 (implementado) |
 | Agente Copiloto de Minuta | SEMA Flux | `obter_dossie_demanda`, `ler_registro_fiscalizacao`, `resumo_documentos_vinculados`, `alertas_inpe_area` | #137 (implementado) |
@@ -254,12 +254,13 @@ A aderência textual vem da busca **textual** (a parte vetorial da busca híbrid
 - Uso real por um órgão público: o modelo local é uma boa base (dados não saem da rede); com provedor externo, exige contrato, análise de LGPD e governança de IA.
 - Futuro (P2): Agente de Prazos (agendado), Analista Ambiental (Intelligence) e Assistente SEMA ALERTA (multiagente).
 
-### Ferramentas geoespaciais do Agente de Triagem (Issue #132, Implementado)
+### Ferramentas geoespaciais do Agente de Triagem (Issues #132 e #144, Implementado)
 Somente leitura, com o perfil/escopo do usuário, parâmetros explícitos (`numero`, `raio_km`; raio padrão 10 km, máximo 50):
 - `alertas_inpe_raio_coordenada`: focos de calor num raio (pré-filtro por caixa no SQL + Haversine em Java), alertas DETER cujo polígono toca o raio (distância ponto→polígono em Java; `dentroDePoligonoDeter`, `menorDistanciaDeterKm`) a partir da coordenada ou do centroide de `areaGeometria`; sem ambos, devolve os totais do município (fallback).
 - `demandas_proximas_coordenada`: demandas não finalizadas no raio, da mais próxima à mais distante, **sem restringir por município** (duplicatas na divisa), respeitando o escopo do FISCAL; sem coordenada lista as do município.
 - `documentos_mesma_localidade`: documentos ativos do DocIA que citam a localidade (no município), vinculados a demandas próximas ou do mesmo município (documentos não têm coordenada própria).
-A resposta da sugestão traz `espacial` (referência COORDENADA/AREA/MUNICIPIO, raio, contagens INPE, demandas próximas com `distanciaKm`, documentos relacionados) calculada pela API com raio padrão, independentemente do que o modelo chamar. No modo demonstrativo, com coordenadas, as duplicatas e a prioridade usam a proximidade (limiar de 10 focos+alertas no raio, nos 90 dias anteriores ao recebimento; janela configurável por `sema.triagem.espacial.janela-dias`) e a evidência "Proximidade espacial" identifica isso.
+- `camadas_publicas_proximas` (Issue #144): verifica sobreposição e proximidade no raio com camadas públicas abertas offline de MT (UCs MMA/CNUC, Terras Indígenas FUNAI e hidrografia principal ANA, `oficialSema=false` e licença).
+A resposta da sugestão traz `espacial` (referência COORDENADA/AREA/MUNICIPIO, raio, contagens INPE, demandas próximas com `distanciaKm`, documentos relacionados e `camadasPublicas?`) calculada pela API com raio padrão, independentemente do que o modelo chamar. No modo demonstrativo, com coordenadas, as duplicatas e a prioridade usam a proximidade (limiar de 10 focos+alertas no raio, nos 90 dias anteriores ao recebimento; janela configurável por `sema.triagem.espacial.janela-dias`, além de sobreposição direta com UC ou Terra Indígena pública) e as evidências identificam isso. Nada é gravado pelo agente.
 
 ## Action Cards (Issue #136, Implementado)
 `acoesSugeridas[]` em `RespostaAssistente` e `SugestaoTriagem` (JSON e SSE `concluido`), montadas por `agentes/AcoesSugeridas` depois do agente, de forma determinística e só leitura:

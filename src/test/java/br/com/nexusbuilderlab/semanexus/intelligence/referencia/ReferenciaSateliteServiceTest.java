@@ -171,4 +171,23 @@ class ReferenciaSateliteServiceTest {
         assertThatThrownBy(() -> service.detalhe(77L))
                 .isInstanceOf(br.com.nexusbuilderlab.semanexus.common.exception.RecursoNaoEncontradoException.class);
     }
+
+    @Test
+    void detalheEnriquecePontoComCamadasPublicasQuandoServicoPresente() {
+        var camadas = mock(br.com.nexusbuilderlab.semanexus.intelligence.camada.CamadaPublicaService.class);
+        var svc = new ReferenciaSateliteService(repo, camadas);
+        when(repo.registro(9L)).thenReturn(java.util.Optional.of(registro("DESMATAMENTO", "0.1320",
+                "{\"areamunkm\":0.132}", POLIGONO)));
+        var sob = new br.com.nexusbuilderlab.semanexus.intelligence.camada.CamadaPublicaDto.SobreposicaoCamadasPublicas(
+                false, "aviso", "AREA", -11.872, -55.512, 10.0, List.of(), List.of(), List.of(),
+                new br.com.nexusbuilderlab.semanexus.intelligence.camada.CamadaPublicaDto.ResumoSobreposicao(
+                        false, null, true, 0.0, null, 0, 1, 0, List.of()));
+        when(camadas.sobreposicao(any(), any(), any(), eq(null))).thenReturn(sob);
+
+        var d = svc.detalhe(9L);
+
+        assertThat(d.camadasPublicas()).isNotNull();
+        assertThat(d.camadasPublicas().oficialSema()).isFalse();
+        assertThat(d.camadasPublicas().resumo().dentroTerraIndigena()).isTrue();
+    }
 }

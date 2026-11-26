@@ -581,4 +581,29 @@ class DemandaServiceTest {
         d.setPrazo(HOJE);
         assertThat(d.atrasada(HOJE)).isFalse();
     }
+
+    @Test
+    void detalheEnriqueceComCamadasPublicasQuandoHaCoordenadaOuArea() {
+        var camadas = mock(br.com.nexusbuilderlab.semanexus.intelligence.camada.CamadaPublicaService.class);
+        var svc = new DemandaService(demandas, historicos, fiscalizacoes, municipios, equipes, usuarios, numeracao,
+                auditoria, RELOGIO, mock(br.com.nexusbuilderlab.semanexus.core.notificacao.NotificacaoService.class),
+                camadas);
+        Demanda comCoord = demanda(1, StatusDemanda.PENDENTE);
+        comCoord.setLatitude(new BigDecimal("-15.600000"));
+        comCoord.setLongitude(new BigDecimal("-56.100000"));
+        Demanda semCoord = demanda(2, StatusDemanda.PENDENTE);
+        when(demandas.buscarDetalhe(1L)).thenReturn(Optional.of(comCoord));
+        when(demandas.buscarDetalhe(2L)).thenReturn(Optional.of(semCoord));
+        var sob = new br.com.nexusbuilderlab.semanexus.intelligence.camada.CamadaPublicaDto.SobreposicaoCamadasPublicas(
+                false, "aviso", "COORDENADA", -15.6, -56.1, 10.0, List.of(), List.of(), List.of(),
+                new br.com.nexusbuilderlab.semanexus.intelligence.camada.CamadaPublicaDto.ResumoSobreposicao(
+                        true, 0.0, false, null, null, 1, 0, 0, List.of()));
+        when(camadas.sobreposicao(eq(null), eq(-15.6), eq(-56.1), eq(null))).thenReturn(sob);
+
+        DemandaDetalhe r1 = svc.detalhar(ator, 1L);
+        assertThat(r1.camadasPublicas()).isNotNull();
+        assertThat(r1.camadasPublicas().oficialSema()).isFalse();
+        assertThat(r1.camadasPublicas().resumo().dentroUc()).isTrue();
+        assertThat(svc.detalhar(ator, 2L).camadasPublicas()).isNull();
+    }
 }

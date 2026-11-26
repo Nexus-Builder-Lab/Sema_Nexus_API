@@ -31,6 +31,8 @@ import br.com.nexusbuilderlab.semanexus.flux.demanda.dto.DecisaoTriagem;
 import br.com.nexusbuilderlab.semanexus.flux.demanda.dto.DemandaDetalhe;
 import br.com.nexusbuilderlab.semanexus.flux.demanda.dto.DemandaFiltro;
 import br.com.nexusbuilderlab.semanexus.flux.demanda.dto.DemandaResumo;
+import br.com.nexusbuilderlab.semanexus.intelligence.camada.CamadaPublicaDto.ItemSobreposicao;
+import br.com.nexusbuilderlab.semanexus.intelligence.camada.CamadaPublicaDto.SobreposicaoCamadasPublicas;
 import br.com.nexusbuilderlab.semanexus.intelligence.referencia.ReferenciaFiltro;
 import br.com.nexusbuilderlab.semanexus.intelligence.referencia.ReferenciaSateliteService;
 import br.com.nexusbuilderlab.semanexus.intelligence.referencia.TipoReferencia;
@@ -63,13 +65,14 @@ public class AgenteTriagemService {
 
             Procedimento obrigatório:
             1. Chame as ferramentas obter_demanda, buscar_demandas_semelhantes (mesmo_municipio=true) e \
-            alertas_inpe_municipio (podem ser chamadas juntas). Se a demanda tiver coordenada ou área, chame também \n            alertas_inpe_raio_coordenada e demandas_proximas_coordenada com raio_km=10 (e documentos_mesma_localidade \n            se precisar de contexto documental).
+            alertas_inpe_municipio (podem ser chamadas juntas). Se a demanda tiver coordenada ou área, chame também \n            alertas_inpe_raio_coordenada, demandas_proximas_coordenada e camadas_publicas_proximas com raio_km=10 \n            (e documentos_mesma_localidade se precisar de contexto documental).
             2. Com os resultados, responda com o JSON final.
 
             Categorias (use o código): DESMATAMENTO_ILEGAL, QUEIMADA_INCENDIO, RECURSOS_HIDRICOS, FAUNA_SILVESTRE, \
             PESCA_IRREGULAR, MINERACAO_IRREGULAR, RESIDUOS_POLUICAO, AREA_PRESERVACAO_PERMANENTE.
             Prioridades: BAIXA, MEDIA, ALTA, URGENTE. Queimada, desmatamento e mineração costumam ser ALTA; suba um \
-            nível se houver dano em andamento, área extensa ou muitos alertas do INPE no município.
+            nível se houver dano em andamento, área extensa, muitos alertas do INPE ou sobreposição com Unidade de \
+            Conservação ou Terra Indígena (dados públicos não oficiais da SEMA).
             Decisão: CLASSIFICAR quando o relato permite categoria e prioridade; SOLICITAR_COMPLEMENTACAO quando faltar \
             informação essencial (aí use categoria e prioridade NENHUMA).
             Duplicatas: só números (DEM-AAAA/NNNN) devolvidos pelas ferramentas (priorize as mais próximas em km) que pareçam o MESMO fato (mesmo \
@@ -300,8 +303,36 @@ public class AgenteTriagemService {
                     return new FerramentaAgente.Resultado(dados, "Buscou documentos da mesma localidade: "
                             + rel.size() + " encontrado(s).");
                 });
+        FerramentaAgente camadas = new FerramentaAgente("camadas_publicas_proximas",
+                "Verifica sobreposição/proximidade num raio em km com camadas públicas abertas offline de MT "
+                        + "(Unidades de Conservação MMA/CNUC, Terras Indígenas FUNAI e hidrografia principal ANA; oficialSema=false).",
+                Map.of("numero", pNumero, "raio_km", pRaio), List.of("numero", "raio_km"), e -> {
+                    double raio = AnaliseEspacial.raio(e.has("raio_km") ? e.path("raio_km").asDouble(0) : null);
+                    SobreposicaoCamadasPublicas sob = espPara.apply(raio).camadasPublicas();
+                    if (sob == null || "SEM_COORDENADA".equals(sob.referencia())) {
+                        return new FerramentaAgente.Resultado(
+                                Map.of("referencia", "SEM_COORDENADA", "oficialSema", false,
+                                        "mensagem", "Sem coordenada ou área para consultar sobreposição com camadas públicas."),
+                                "Sem coordenada: não consultou camadas públicas.");
+                    }
+                    var r = sob.resumo();
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("referencia", sob.referencia());
+                    m.put("raioKm", sob.raioKm());
+                    m.put("oficialSema", false);
+                    m.put("dentroDeUc", r.dentroUc());
+                    m.put("dentroDeTerraIndigena", r.dentroTerraIndigena());
+                    m.put("unidadesConservacao", resumoCamadas(sob.unidadesConservacao()));
+                    m.put("terrasIndigenas", resumoCamadas(sob.terrasIndigenas()));
+                    m.put("hidrografia", resumoCamadas(sob.hidrografia()));
+                    m.put("fontes", r.fontes());
+                    return new FerramentaAgente.Resultado(m,
+                            "Consultou camadas públicas no raio de " + formatar(sob.raioKm()) + " km: "
+                                    + r.totalUcsNoRaio() + " UC(s), " + r.totalTerrasIndigenasNoRaio()
+                                    + " Terra(s) Indígena(s) e " + r.totalCursosAguaNoRaio() + " curso(s) d'água.");
+                });
         return new DefinicaoAgente(NOME, configuracao.modeloTriagem(), INSTRUCOES,
-                List.of(obter, semelhantes, alertas, inpeRaio, proximas, docs), ESQUEMA, "low", 400, 1);
+                List.of(obter, semelhantes, alertas, inpeRaio, proximas, docs, camadas), ESQUEMA, "low", 400, 1);
     }
 
     private SugestaoTriagem deIa(DemandaDetalhe d, Nucleo nucleo, long[] inpe, ResultadoAgente r,
@@ -385,6 +416,14 @@ public class AgenteTriagemService {
                     + (i.dentroDePoligonoDeter() ? " (dentro de polígono DETER)" : "") + ", "
                     + esp.demandasProximas().size() + " demanda(s) aberta(s) próxima(s) e "
                     + esp.documentos().size() + " documento(s) relacionado(s).");
+            if (esp.camadasPublicas() != null && esp.camadasPublicas().resumo() != null) {
+                var r = esp.camadasPublicas().resumo();
+                evidencias.add("Camadas públicas abertas (não oficiais SEMA): "
+                        + r.totalUcsNoRaio() + " UC(s)" + (r.dentroUc() ? " (sobreposição direta)" : "") + ", "
+                        + r.totalTerrasIndigenasNoRaio() + " Terra(s) Indígena(s)"
+                        + (r.dentroTerraIndigena() ? " (sobreposição direta)" : "") + " e "
+                        + r.totalCursosAguaNoRaio() + " curso(s) d'água principais no raio.");
+            }
         } else {
             evidencias.add("Sem coordenada nem área: a análise usou o município " + d.municipio().nome() + ".");
         }
@@ -397,7 +436,9 @@ public class AgenteTriagemService {
         }
         // Com coordenada, vale a vizinhança (raio) em vez do município inteiro; os focos/DETER do raio pesam mais.
         long alertas = espacialOk ? esp.inpe().focosNoRaio() + esp.inpe().alertasDeterNoRaio() : inpe[0] + inpe[1];
-        Prioridade prioridade = RegrasTriagem.prioridade(categoria, d.titulo(), d.descricao(), alertas, espacialOk);
+        boolean sobreposicaoSensivel = temSobreposicaoSensivel(esp);
+        Prioridade prioridade = RegrasTriagem.prioridade(categoria, d.titulo(), d.descricao(), alertas, espacialOk,
+                sobreposicaoSensivel);
         List<Duplicata> duplicatas;
         if (espacialOk) {
             duplicatas = esp.demandasProximas().stream()
@@ -415,8 +456,33 @@ public class AgenteTriagemService {
         executor.registrarDemonstrativo(NOME, String.valueOf(d.id()),
                 "Sugestão: " + categoria.name() + ", " + prioridade.name() + ".");
         return new SugestaoTriagem(AgentesController.MODO_DEMONSTRATIVO, null, DecisaoTriagem.CLASSIFICAR,
-                categoria, prioridade, nucleo, justificativaRegras(categoria, prioridade, inpe),
+                categoria, prioridade, nucleo, justificativaRegras(categoria, prioridade, inpe, esp),
                 duplicatas, evidencias, avisos, esp);
+    }
+
+    private static boolean temSobreposicaoSensivel(EvidenciaEspacial esp) {
+        if (esp == null || esp.camadasPublicas() == null || esp.camadasPublicas().resumo() == null) {
+            return false;
+        }
+        var r = esp.camadasPublicas().resumo();
+        return r.dentroUc() || r.dentroTerraIndigena();
+    }
+
+    private static List<Map<String, Object>> resumoCamadas(List<ItemSobreposicao> itens) {
+        if (itens == null || itens.isEmpty()) {
+            return List.of();
+        }
+        return itens.stream().limit(5).map(x -> {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("nome", x.nome());
+            m.put("categoria", x.categoria());
+            m.put("esfera", x.esfera());
+            m.put("dentro", x.dentro());
+            m.put("distanciaKm", x.distanciaKm());
+            m.put("fonte", x.fonte());
+            m.put("oficialSema", false);
+            return m;
+        }).toList();
     }
 
     private static String formatar(double km) {
@@ -432,12 +498,33 @@ public class AgenteTriagemService {
     }
 
     private static String justificativaRegras(CategoriaFiscalizacao categoria, Prioridade prioridade, long[] inpe) {
+        return justificativaRegras(categoria, prioridade, inpe, null);
+    }
+
+    private static String justificativaRegras(CategoriaFiscalizacao categoria, Prioridade prioridade, long[] inpe,
+                                              EvidenciaEspacial esp) {
         if (categoria == null) {
             return "Faltam informações no relato para classificar a demanda.";
         }
-        return "O relato descreve ocorrência de " + categoria.rotulo().toLowerCase() + ". Prioridade "
-                + prioridade.rotulo().toLowerCase() + " considerando a gravidade e os dados públicos do INPE no município ("
-                + inpe[0] + " foco(s) de calor e " + inpe[1] + " alerta(s) de desmatamento).";
+        StringBuilder sb = new StringBuilder();
+        sb.append("O relato descreve ocorrência de ").append(categoria.rotulo().toLowerCase())
+                .append(". Prioridade ").append(prioridade.rotulo().toLowerCase())
+                .append(" considerando a gravidade e os dados públicos do INPE no município (")
+                .append(inpe[0]).append(" foco(s) de calor e ").append(inpe[1]).append(" alerta(s) de desmatamento)");
+        if (temSobreposicaoSensivel(esp)) {
+            var r = esp.camadasPublicas().resumo();
+            List<String> tags = new ArrayList<>();
+            if (r.dentroUc()) {
+                tags.add("Unidade de Conservação (CNUC/MMA)");
+            }
+            if (r.dentroTerraIndigena()) {
+                tags.add("Terra Indígena (FUNAI)");
+            }
+            sb.append(", além de sobreposição com ").append(String.join(" e ", tags))
+                    .append(" (camadas públicas não oficiais SEMA)");
+        }
+        sb.append(".");
+        return sb.toString();
     }
 
     // ------------------------------------------------------------------------------------------------ apoio
