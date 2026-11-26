@@ -354,4 +354,27 @@ class ContratoOpenApiTest {
             assertThat(op.path("summary").asText()).as("summary de %s", chave).isNotBlank();
         }
     }
+
+    @Test
+    void sincronizacaoEmCampoDocumentaIdempotencyKeyEErros() throws Exception {
+        for (String chave : List.of(
+                "POST /api/demandas/{id}/inicio",
+                "POST /api/demandas/{id}/atividades",
+                "POST /api/demandas/{id}/fiscalizacao")) {
+            JsonNode op = operacao(chave);
+            JsonNode headerParam = null;
+            for (JsonNode p : op.path("parameters")) {
+                if ("header".equals(p.path("in").asText()) && "Idempotency-Key".equals(p.path("name").asText())) {
+                    headerParam = p;
+                    break;
+                }
+            }
+            assertThat(headerParam).as("Idempotency-Key em %s", chave).isNotNull();
+            assertThat(headerParam.path("required").asBoolean(true)).as("opcional em %s", chave).isFalse();
+            assertThat(headerParam.path("schema").path("minLength").asInt()).isEqualTo(1);
+            assertThat(headerParam.path("schema").path("maxLength").asInt()).isEqualTo(128);
+            assertThat(op.path("responses").has("400")).as("400 em %s", chave).isTrue();
+            assertThat(op.path("responses").has("409")).as("409 em %s", chave).isTrue();
+        }
+    }
 }
