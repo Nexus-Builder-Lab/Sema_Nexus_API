@@ -49,6 +49,8 @@ class ContratoOpenApiTest {
             // Checklist e fotos da fiscalização (Issue #145)
             "GET /api/demandas/checklists", "POST /api/demandas/{id}/fotos", "GET /api/demandas/{id}/fotos",
             "GET /api/demandas/{id}/fotos/{fotoId}/arquivo", "DELETE /api/demandas/{id}/fotos/{fotoId}",
+            // Dossiê em PDF (Issue #146)
+            "GET /api/demandas/{id}/dossie.pdf",
             "GET /api/flux/prazos", "GET /api/flux/prazos/resumo", "GET /api/flux/produtividade",
             // DocIA (contrato)
             "POST /api/documentos", "POST /api/documentos/pre-analise", "GET /api/documentos", "GET /api/documentos/busca", "GET /api/documentos/{id}", "GET /api/documentos/{id}/arquivo",
@@ -317,6 +319,15 @@ class ContratoOpenApiTest {
     void downloadDeArquivoEBinario() throws Exception {
         JsonNode ok = operacao("GET /api/documentos/{id}/arquivo").path("responses").path("200").path("content");
         assertThat(ok.path("application/octet-stream").path("schema").path("format").asText()).isEqualTo("binary");
+    }
+
+    @Test
+    void dossiePdfDeclaraApplicationPdfE403E404() throws Exception {
+        JsonNode respostas = operacao("GET /api/demandas/{id}/dossie.pdf").path("responses");
+        JsonNode pdf = respostas.path("200").path("content").path("application/pdf").path("schema");
+        assertThat(pdf.path("format").asText()).isEqualTo("binary");
+        assertThat(respostas.has("403")).isTrue();
+        assertThat(respostas.has("404")).isTrue();
     }
 
     @Test
