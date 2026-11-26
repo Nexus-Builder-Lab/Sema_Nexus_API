@@ -148,7 +148,7 @@ class DocumentoOracleTest {
         Usuario u = usuarios.save(new Usuario("Analista Vinculo", "vi." + UUID.randomUUID() + "@exemplo.test", "hash", Perfil.ANALISTA));
         UsuarioAutenticado ator = UsuarioAutenticado.de(u);
         Long demandaId = demandas.cadastrar(ator, new DemandaRequest("Demanda para vínculo", "Descrição fictícia",
-                Origem.DENUNCIA, null, 5103403, null, null, null, LocalDate.now(), null, null, null)).id();
+                Origem.DENUNCIA, null, 5103403, null, null, null, null, null, LocalDate.now(), null, null, null)).id();
         Long docId = enviar(ator, "Doc a vincular", "texto", "Relatório").id();
 
         service.vincular(ator, demandaId, docId);

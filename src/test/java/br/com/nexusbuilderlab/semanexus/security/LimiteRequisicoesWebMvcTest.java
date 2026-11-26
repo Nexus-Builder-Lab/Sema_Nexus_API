@@ -93,4 +93,13 @@ class LimiteRequisicoesWebMvcTest {
                 .isNotNull();
         org.assertj.core.api.Assertions.assertThat(LimiteRequisicoesFilter.categoria("GET", "/api/documentos/pre-analise")).isNull();
     }
+
+    @Test
+    void envioDeFotoDeFiscalizacaoUsaOLimiteDeUpload() {
+        org.assertj.core.api.Assertions.assertThat(LimiteRequisicoesFilter.categoria("POST", "/api/demandas/42/fotos"))
+                .isEqualTo(LimiteRequisicoesFilter.categoria("POST", "/api/documentos"))
+                .isNotNull();
+        org.assertj.core.api.Assertions.assertThat(LimiteRequisicoesFilter.categoria("GET", "/api/demandas/42/fotos")).isNull();
+        org.assertj.core.api.Assertions.assertThat(LimiteRequisicoesFilter.categoria("POST", "/api/demandas/42/fotos/1")).isNull();
+    }
 }

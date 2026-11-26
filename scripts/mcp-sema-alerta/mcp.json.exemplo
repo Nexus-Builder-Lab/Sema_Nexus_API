@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "sema-alerta": {
+      "command": "node",
+      "args": ["scripts/mcp-sema-alerta/src/index.mjs"],
+      "env": {
+        "SEMA_API_URL": "http://127.0.0.1:3000/api",
+        "SEMA_PERFIL_DEMO": "CONSULTA"
+      }
+    }
+  }
+}

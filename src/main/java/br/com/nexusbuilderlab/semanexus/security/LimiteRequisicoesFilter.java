@@ -19,7 +19,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
  * Aplica o {@link LimitadorRequisicoes} aos endpoints sensíveis (Issue #134): login (inclusive o demonstrativo), agentes
- * de IA (sugestão de triagem e de distribuição, perguntas ao DocIA e explicação da comparação, minuta de vistoria, Assistente Global da Issue #139 — inclusive as versões SSE {@code /stream} da Issue #135) e envio de documento. Roda depois do {@link JwtAuthFilter}, para
+ * de IA (sugestão de triagem e de distribuição, perguntas ao DocIA e explicação da comparação, minuta de vistoria, Assistente Global da Issue #139 — inclusive as versões SSE {@code /stream} da Issue #135), envio de documento e de foto de fiscalização (Issue #145). Roda depois do {@link JwtAuthFilter}, para
  * contar por usuário quando há token. Excedido o limite: 429 {@code application/problem+json} com {@code Retry-After}.
  * Registrado só dentro da cadeia de segurança (como o {@link JwtAuthFilter}).
  */
@@ -32,7 +32,7 @@ public class LimiteRequisicoesFilter extends OncePerRequestFilter {
             "^/api/(demandas/[^/]+/(triagem/sugestao(/stream)?|distribuicao/sugestao)|docia/perguntas(/stream)?"
                     + "|demandas/[^/]+/minuta-vistoria|docia/comparacao/explicar"
                     + "|agentes/assistente-global)/?$");
-    private static final Pattern UPLOAD = Pattern.compile("^/api/documentos(/pre-analise)?/?$");
+    private static final Pattern UPLOAD = Pattern.compile("^/api/(documentos(/pre-analise)?|demandas/[^/]+/fotos)/?$");
 
     private final LimitadorRequisicoes limitador;
     private final ProxiesConfiaveis proxies;
