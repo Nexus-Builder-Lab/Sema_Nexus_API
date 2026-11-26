@@ -23,8 +23,9 @@ public class PainelSistemaController {
 
     @Operation(summary = "Painel do sistema (somente ADMIN)",
             description = "Verificações ao vivo (API, banco Oracle, IA dos agentes, dados públicos do INPE, "
-                    + "armazenamento) com estado OK/ATENCAO/INDISPONIVEL, latência e detalhes, e as métricas dos "
-                    + "agentes desde que a API subiu. Falha de um componente não derruba o painel. Nunca expõe "
+                    + "armazenamento) com estado OK/ATENCAO/INDISPONIVEL, latência e detalhes, as métricas dos "
+                    + "agentes desde que a API subiu e `governanca` (Issue #131: concordância Humano × IA por agente/"
+                    + "categoria e feedback do DocIA nos últimos 30 dias). Falha de um componente não derruba o painel. Nunca expõe "
                     + "chaves ou senhas.")
     @PreAuthorize(Autorizacao.SOMENTE_ADMIN)
     @GetMapping("/painel")

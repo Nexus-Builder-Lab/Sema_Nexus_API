@@ -139,6 +139,29 @@ class AuthServiceTest {
     }
 
     @Test
+    void logoutEncerraStreamsDeNotificacaoDoToken() {
+        var canal = org.mockito.Mockito.mock(br.com.nexusbuilderlab.semanexus.core.notificacao.CanalNotificacoes.class);
+        servico.setCanalNotificacoes(canal);
+        Instant expira = Instant.parse("2026-11-10T20:00:00Z");
+        when(revogacao.revogar("jti-de-teste", 5L, expira)).thenReturn(true);
+
+        servico.logout(5L, "jti-de-teste", expira);
+
+        var ordem = org.mockito.Mockito.inOrder(revogacao, canal);
+        ordem.verify(revogacao).revogar("jti-de-teste", 5L, expira);
+        ordem.verify(canal).encerrarDoToken("jti-de-teste");
+    }
+
+    @Test
+    void logoutEhTransacionalESetterNaoEh() throws NoSuchMethodException {
+        var logout = AuthService.class.getDeclaredMethod("logout", Long.class, String.class, Instant.class);
+        var setter = AuthService.class.getDeclaredMethod("setCanalNotificacoes",
+                br.com.nexusbuilderlab.semanexus.core.notificacao.CanalNotificacoes.class);
+        assertThat(logout.isAnnotationPresent(org.springframework.transaction.annotation.Transactional.class)).isTrue();
+        assertThat(setter.isAnnotationPresent(org.springframework.transaction.annotation.Transactional.class)).isFalse();
+    }
+
+    @Test
     void meRetornaResumoOuNaoEncontrado() {
         when(usuarios.findById(5L)).thenReturn(Optional.of(usuario));
         when(usuarios.findById(99L)).thenReturn(Optional.empty());

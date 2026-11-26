@@ -11,6 +11,8 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -31,11 +33,20 @@ public class NotificacaoService {
     private final NotificacaoRepository notificacoes;
     private final UsuarioRepository usuarios;
     private final Clock clock;
+    private final ApplicationEventPublisher eventos;
 
+    /** Testes: sem publicação de eventos. */
     public NotificacaoService(NotificacaoRepository notificacoes, UsuarioRepository usuarios, Clock clock) {
+        this(notificacoes, usuarios, clock, evento -> { });
+    }
+
+    @Autowired
+    public NotificacaoService(NotificacaoRepository notificacoes, UsuarioRepository usuarios, Clock clock,
+                              ApplicationEventPublisher eventos) {
         this.notificacoes = notificacoes;
         this.usuarios = usuarios;
         this.clock = clock;
+        this.eventos = eventos;
     }
 
     // ------------------------------------------------------------------ geração
@@ -47,8 +58,11 @@ public class NotificacaoService {
         if (usuarioId == null || notificacoes.existsByUsuarioIdAndChave(usuarioId, chave)) {
             return false;
         }
-        notificacoes.save(new Notificacao(usuarioId, tipo, limitar(titulo, 200), limitar(mensagem, 1000),
-                demandaId, chave, agora()));
+        Notificacao nova = new Notificacao(usuarioId, tipo, limitar(titulo, 200), limitar(mensagem, 1000),
+                demandaId, chave, agora());
+        notificacoes.save(nova);
+        // Entregue em tempo real (SSE) só ao dono e só depois do commit (CanalNotificacoes).
+        eventos.publishEvent(new NotificacaoCriada(usuarioId, NotificacaoDto.de(nova)));
         return true;
     }
 

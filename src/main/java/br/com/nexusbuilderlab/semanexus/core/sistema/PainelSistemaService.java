@@ -19,6 +19,8 @@ import br.com.nexusbuilderlab.semanexus.agentes.AgentesConfiguracao;
 import br.com.nexusbuilderlab.semanexus.agentes.AgentesController;
 import br.com.nexusbuilderlab.semanexus.agentes.ExecutorAgente;
 import br.com.nexusbuilderlab.semanexus.agentes.MetricasAgentes;
+import br.com.nexusbuilderlab.semanexus.agentes.governanca.GovernancaIa;
+import br.com.nexusbuilderlab.semanexus.agentes.governanca.GovernancaIaService;
 import br.com.nexusbuilderlab.semanexus.core.sistema.PainelSistema.AgentePainel;
 import br.com.nexusbuilderlab.semanexus.core.sistema.PainelSistema.Estado;
 import br.com.nexusbuilderlab.semanexus.core.sistema.PainelSistema.Sistema;
@@ -26,6 +28,7 @@ import br.com.nexusbuilderlab.semanexus.core.sistema.PainelSistema.Verificacao;
 import br.com.nexusbuilderlab.semanexus.intelligence.referencia.ReferenciaDto;
 import br.com.nexusbuilderlab.semanexus.intelligence.referencia.ReferenciaSateliteService;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.env.Environment;
 import org.springframework.jdbc.core.ConnectionCallback;
@@ -69,7 +72,26 @@ public class PainelSistemaService {
                 verificar("ia", "IA dos agentes", this::ia),
                 verificar("inpe", "Dados públicos do INPE (focos de calor e DETER)", this::inpe),
                 verificar("armazenamento", "Armazenamento de documentos", this::armazenamento));
-        return new PainelSistema(LocalDateTime.now(), sistema(), verificacoes, agentesDoPainel());
+        return new PainelSistema(LocalDateTime.now(), sistema(), verificacoes, agentesDoPainel(), governanca());
+    }
+
+    /** Governança de IA (Issue #131), opcional: falha vira nulo sem derrubar o painel. */
+    private GovernancaIaService governanca;
+
+    @Autowired(required = false)
+    public void setGovernanca(GovernancaIaService governanca) {
+        this.governanca = governanca;
+    }
+
+    GovernancaIa governanca() {
+        if (governanca == null) {
+            return null;
+        }
+        try {
+            return governanca.estatisticas(GovernancaIaService.PERIODO_PADRAO_DIAS);
+        } catch (RuntimeException e) {
+            return null;
+        }
     }
 
     /** Resultado parcial de uma verificação (estado, resumo e detalhes). */

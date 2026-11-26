@@ -117,7 +117,9 @@ class UsuarioServiceTest {
         when(usuarios.countByPerfilAndAtivoAndIdNot(Perfil.ADMIN, true, 1L)).thenReturn(1L);
 
         assertThat(service().alterarAtivacao(1L, false).ativo()).isFalse();
-        verify(auditoria).registrar(eq("DESATIVAR"), eq("USUARIO"), eq("1"), anyString());
+        verify(auditoria).registrarAlteracao(eq("DESATIVAR"), eq("USUARIO"), eq("1"), anyString(),
+                org.mockito.ArgumentMatchers.argThat(a -> "true".equals(a.antes().get("ativo"))
+                        && "false".equals(a.depois().get("ativo"))));
     }
 
     @Test
@@ -167,7 +169,35 @@ class UsuarioServiceTest {
         service().atualizar(2L, new UsuarioAtualizacaoRequest("N", "u2@exemplo.test", "novaSenha99", Perfil.FISCAL, null));
 
         assertThat(encoder.matches("novaSenha99", u.getSenhaHash())).isTrue();
-        verify(auditoria).registrar(eq("ATUALIZAR"), eq("USUARIO"), eq("2"), contains("senha redefinida"));
+        var alteracoes = org.mockito.ArgumentCaptor.forClass(
+                br.com.nexusbuilderlab.semanexus.core.auditoria.Alteracoes.class);
+        verify(auditoria).registrarAlteracao(eq("ATUALIZAR"), eq("USUARIO"), eq("2"), contains("senha redefinida"),
+                alteracoes.capture());
+        // A senha nunca aparece no antes/depois: só a indicação de redefinição.
+        assertThat(alteracoes.getValue().depois()).containsEntry("senha", "(redefinida)").containsEntry("nome", "N");
+        assertThat(alteracoes.getValue().depois().values()).doesNotContain("novaSenha99");
+    }
+
+    @Test
+    void atualizarComSenhaPreservaMarcadoresClarosNoAuditServiceReal() {
+        var auditoriaRepo = org.mockito.Mockito.mock(
+                br.com.nexusbuilderlab.semanexus.core.auditoria.AuditoriaRepository.class);
+        var selador = org.mockito.Mockito.mock(
+                br.com.nexusbuilderlab.semanexus.core.auditoria.SeladorAuditoria.class);
+        var auditReal = new AuditService(auditoriaRepo, usuarios, selador);
+        var servicoReal = new UsuarioService(usuarios, setores, encoder, auditReal);
+        Usuario u = usuario(2, Perfil.FISCAL, true);
+        when(usuarios.findById(2L)).thenReturn(Optional.of(u));
+        when(usuarios.findByEmail("u2@exemplo.test")).thenReturn(Optional.empty());
+
+        servicoReal.atualizar(2L, new UsuarioAtualizacaoRequest("N", "u2@exemplo.test", "novaSenha99",
+                Perfil.FISCAL, null));
+
+        var salvo = ArgumentCaptor.forClass(br.com.nexusbuilderlab.semanexus.core.auditoria.Auditoria.class);
+        verify(auditoriaRepo).save(salvo.capture());
+        assertThat(salvo.getValue().getValorAnterior()).contains("\"senha\":\"(mantida)\"");
+        assertThat(salvo.getValue().getValorNovo()).contains("\"senha\":\"(redefinida)\"");
+        assertThat(salvo.getValue().getValorNovo()).doesNotContain("novaSenha99", "***");
     }
 
     @Test

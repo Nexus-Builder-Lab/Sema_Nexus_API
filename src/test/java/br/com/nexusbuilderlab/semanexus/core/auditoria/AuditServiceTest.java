@@ -27,6 +27,9 @@ class AuditServiceTest {
     @Mock
     br.com.nexusbuilderlab.semanexus.core.usuario.UsuarioRepository usuarios;
 
+    @Mock
+    SeladorAuditoria selador;
+
     @InjectMocks
     AuditService servico;
 
@@ -115,5 +118,124 @@ class AuditServiceTest {
         ArgumentCaptor<Auditoria> captor = ArgumentCaptor.forClass(Auditoria.class);
         verify(repositorio).save(captor.capture());
         assertThat(captor.getValue().getDetalhe()).hasSize(AuditService.LIMITE_DETALHE);
+    }
+
+    @Test
+    void foraDeTransacaoPedeSelagemNaHora() {
+        servico.registrarComo(1L, "X", "Y", "1", null);
+
+        verify(selador).solicitarSelagem();
+    }
+
+    @Test
+    void emTransacaoPedeSelagemSoDepoisDoCommitENuncaNoRollback() {
+        org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
+        try {
+            servico.registrarComo(1L, "X", "Y", "1", null);
+            servico.registrarComo(1L, "X", "Y", "2", null);
+            org.mockito.Mockito.verifyNoInteractions(selador);
+
+            var syncs = org.springframework.transaction.support.TransactionSynchronizationManager.getSynchronizations();
+            syncs.forEach(org.springframework.transaction.support.TransactionSynchronization::afterCommit);
+            verify(selador, org.mockito.Mockito.times(2)).solicitarSelagem();
+        } finally {
+            org.springframework.transaction.support.TransactionSynchronizationManager.clearSynchronization();
+        }
+
+        org.mockito.Mockito.clearInvocations(selador);
+        org.springframework.transaction.support.TransactionSynchronizationManager.initSynchronization();
+        try {
+            servico.registrarComo(1L, "X", "Y", "3", null);
+            // Rollback: só afterCompletion(ROLLED_BACK), sem afterCommit.
+            org.springframework.transaction.support.TransactionSynchronizationManager.getSynchronizations()
+                    .forEach(t -> t.afterCompletion(
+                            org.springframework.transaction.support.TransactionSynchronization.STATUS_ROLLED_BACK));
+            org.mockito.Mockito.verifyNoInteractions(selador);
+        } finally {
+            org.springframework.transaction.support.TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    @Test
+    void alteracaoGravaAntesEDepoisSoDosCamposAlteradosESaneados() {
+        var principal = new UsuarioAutenticado(9L, "Fulano", "f@exemplo.test", Perfil.ADMIN);
+        SecurityContextHolder.getContext().setAuthentication(
+                UsernamePasswordAuthenticationToken.authenticated(principal, null, List.of()));
+
+        servico.registrarAlteracao("ATUALIZAR", "SETOR", "3", "Setor atualizado.", Alteracoes.nova()
+                .campo("nome", "Antigo", "Novo")
+                .campo("sigla", "ABC", "ABC")
+                .campo("token", "abc123", "xyz789"));
+
+        ArgumentCaptor<Auditoria> captor = ArgumentCaptor.forClass(Auditoria.class);
+        verify(repositorio).save(captor.capture());
+        Auditoria a = captor.getValue();
+        assertThat(a.getUsuarioId()).isEqualTo(9L);
+        assertThat(a.getValorAnterior()).contains("\"nome\":\"Antigo\"").doesNotContain("sigla", "abc123");
+        assertThat(a.getValorNovo()).contains("\"nome\":\"Novo\"").doesNotContain("xyz789");
+    }
+
+    @Test
+    void alteracaoSemCamposAlteradosGravaSoODetalhe() {
+        servico.registrarAlteracao("ATUALIZAR", "SETOR", "3", "nada mudou",
+                Alteracoes.nova().campo("nome", "Igual", "Igual"));
+
+        ArgumentCaptor<Auditoria> captor = ArgumentCaptor.forClass(Auditoria.class);
+        verify(repositorio).save(captor.capture());
+        assertThat(captor.getValue().getValorAnterior()).isNull();
+        assertThat(captor.getValue().getValorNovo()).isNull();
+    }
+
+    @Test
+    void dtoExpoeAntesDepoisComoObjeto() {
+        var a = new Auditoria(7L, "EDITAR", "DEMANDA", "1", "x", "{\"titulo\":\"A\"}", "{\"titulo\":\"B\"}");
+        when(repositorio.findTop50ByEntidadeAndEntidadeIdOrderByDataDescIdDesc("DEMANDA", "1")).thenReturn(List.of(a));
+
+        var dto = servico.historicoDaEntidade("DEMANDA", "1").get(0);
+
+        assertThat(dto.valorAnterior()).containsEntry("titulo", "A");
+        assertThat(dto.valorNovo()).containsEntry("titulo", "B");
+        assertThat(dto.hashRegistro()).isNull();
+    }
+
+    @Test
+    void alteracaoSaneiaSegredosAntesDeTruncarAoLimite() throws Exception {
+        String jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOjF9.assinaturaMuitoSecreta";
+        Alteracoes alt = Alteracoes.nova()
+                .campo("token", "a", "b")
+                .campo("observacao", "ok", "x".repeat(295) + " " + jwt);
+        for (int i = 0; i < 40; i++) {
+            alt.campo("campo" + i, "v".repeat(200), "w".repeat(200));
+        }
+
+        servico.registrarAlteracao("ATUALIZAR", "DEMANDA", "10", "ç".repeat(3000), alt);
+
+        ArgumentCaptor<Auditoria> captor = ArgumentCaptor.forClass(Auditoria.class);
+        verify(repositorio).save(captor.capture());
+        Auditoria a = captor.getValue();
+        assertThat(a.getDetalhe().getBytes(java.nio.charset.StandardCharsets.UTF_8).length)
+                .isLessThanOrEqualTo(AuditService.LIMITE_DETALHE);
+        assertThat(a.getValorAnterior()).doesNotContain("\"a\"");
+        assertThat(a.getValorNovo()).doesNotContain("\"b\"", "eyJhbGci", "assinaturaMuitoSecreta");
+        assertThat(a.getValorAnterior().getBytes(java.nio.charset.StandardCharsets.UTF_8).length)
+                .isLessThanOrEqualTo(Alteracoes.LIMITE_BYTES);
+        assertThat(a.getValorNovo().getBytes(java.nio.charset.StandardCharsets.UTF_8).length)
+                .isLessThanOrEqualTo(Alteracoes.LIMITE_BYTES);
+        new com.fasterxml.jackson.databind.ObjectMapper().readTree(a.getValorNovo());
+    }
+
+    @Test
+    void alteracaoPreservaMarcadoresDeSenhaMasMascaraSenhaReal() {
+        servico.registrarAlteracao("ATUALIZAR", "USUARIO", "2", "Usuário atualizado.", Alteracoes.nova()
+                .campo("senha", "(mantida)", "(redefinida)")
+                .campo("senhaSecreta", "segredoAntigo", "segredoNovo"));
+
+        ArgumentCaptor<Auditoria> captor = ArgumentCaptor.forClass(Auditoria.class);
+        verify(repositorio).save(captor.capture());
+        Auditoria a = captor.getValue();
+        assertThat(a.getValorAnterior()).contains("\"senha\":\"(mantida)\"").contains("\"senhaSecreta\":\"***\"")
+                .doesNotContain("segredoAntigo");
+        assertThat(a.getValorNovo()).contains("\"senha\":\"(redefinida)\"").contains("\"senhaSecreta\":\"***\"")
+                .doesNotContain("segredoNovo");
     }
 }

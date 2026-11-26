@@ -14,12 +14,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
+import br.com.nexusbuilderlab.semanexus.common.sse.RespostaSse;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -114,11 +115,7 @@ public class TransmissaoAgente implements DisposableBean {
                     "Muitas execuções de agente em andamento. Tente novamente em instantes.");
         }
         sessao.agendarBatimento(batimentos, batimentoMs);
-        return ResponseEntity.ok()
-                .header("X-Accel-Buffering", "no")
-                .cacheControl(CacheControl.noCache().noTransform())
-                .contentType(MediaType.TEXT_EVENT_STREAM)
-                .body(emissor);
+        return RespostaSse.de(emissor);
     }
 
     private <T> void executar(Sessao sessao, Function<ObservadorAgente, T> trabalho, Function<T, String> textoFinal) {

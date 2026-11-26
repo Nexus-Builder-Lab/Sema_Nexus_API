@@ -94,4 +94,34 @@ class NotificacaoServiceTest {
         assertThat(service.marcarLida(ator, 50L).lida()).isTrue();
         assertThat(service.contarNaoLidas(ator).naoLidas()).isEqualTo(3L);
     }
+
+    @Test
+    void notificacaoCriadaPublicaEventoParaODonoESoQuandoCria() {
+        List<Object> eventos = new java.util.ArrayList<>();
+        NotificacaoService comEventos = new NotificacaoService(repo, usuarios, relogio, eventos::add);
+        when(repo.existsByUsuarioIdAndChave(7L, "K")).thenReturn(false);
+        when(repo.existsByUsuarioIdAndChave(7L, "DUP")).thenReturn(true);
+
+        comEventos.notificar(7L, TipoNotificacao.DISTRIBUICAO, "Título", "m", 1L, "K");
+        comEventos.notificar(7L, TipoNotificacao.DISTRIBUICAO, "Título", "m", 1L, "DUP");
+
+        assertThat(eventos).singleElement().isInstanceOfSatisfying(NotificacaoCriada.class, e -> {
+            assertThat(e.usuarioId()).isEqualTo(7L);
+            assertThat(e.notificacao().titulo()).isEqualTo("Título");
+        });
+    }
+
+    @Test
+    void streamNuncaPassaDaExpiracaoDoToken() {
+        Clock agora = Clock.fixed(Instant.parse("2026-11-25T12:00:00Z"), ZoneOffset.UTC);
+        CanalNotificacoes canal = new CanalNotificacoes(java.time.Duration.ofMinutes(15),
+                java.time.Duration.ofSeconds(15), 3, 10, agora);
+        try {
+            assertThat(canal.timeoutMs(null)).isEqualTo(15 * 60_000L);
+            assertThat(canal.timeoutMs(Instant.parse("2026-11-25T12:02:00Z"))).isEqualTo(120_000L);
+            assertThat(canal.timeoutMs(Instant.parse("2026-11-25T13:00:00Z"))).isEqualTo(15 * 60_000L);
+        } finally {
+            canal.destroy();
+        }
+    }
 }
