@@ -30,7 +30,7 @@ class CorsProfileTest {
             mvc.perform(options("/api/auth/login")
                             .header(HttpHeaders.ORIGIN, "http://localhost:5173")
                             .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST")
-                            .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "authorization,content-type"))
+                            .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "authorization,content-type,idempotency-key"))
                     .andExpect(status().isOk())
                     .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "http://localhost:5173"));
         }

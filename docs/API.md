@@ -50,7 +50,7 @@ A ordem de avaliação é **autenticação (401) → perfil (403) → validaçã
 | GET | `/api/demandas/{id}/historico` | consulta | #11 | ✅ |
 | POST | `/api/demandas/{id}/triagem/iniciar` · `/triagem` (transição inválida 409; fiscal fora da equipe 400) | Admin, Gestor, Analista | #12 | ✅ |
 | POST | `/api/demandas/{id}/distribuicao` · GET `/api/equipes/{id}/demandas` | Admin, Gestor | #12 | ✅ |
-| POST | `/api/demandas/{id}/inicio` · `/atividades` · `/fiscalizacao` | fiscal designado, Gestor, Admin | #13 | ✅ |
+| POST | `/api/demandas/{id}/inicio` · `/atividades` · `/fiscalizacao` (cabeçalho opcional `Idempotency-Key`, #147) | fiscal designado, Gestor, Admin | #13 / #147 | ✅ |
 | POST | `/api/demandas/{id}/conclusao` · `/devolucao` | Gestor, Admin | #13 | ✅ |
 | GET | `/api/demandas/checklists` (modelos de checklist por categoria) | consulta | #145 | ✅ |
 | POST · GET · DELETE | `/api/demandas/{id}/fotos` (multipart) · `/fotos/{fotoId}/arquivo` · `/fotos/{fotoId}` | envio: fiscal designado, Gestor, Admin; leitura: escopo da demanda; exclusão: só quem enviou | #145 | ✅ |
@@ -180,6 +180,17 @@ Simulação demonstrativa (AMBIENTE DEMONSTRATIVO — DADOS FICTÍCIOS): não ge
 - **Leitura:** `GET /api/demandas/{id}/fotos` (metadados, mais antigas primeiro) e `GET /api/demandas/{id}/fotos/{fotoId}/arquivo` (tipo da imagem, `Content-Disposition: attachment`, `nosniff`) devolve o **arquivo original com todo o EXIF** (inclusive GPS) a quem tem acesso à demanda — qualquer perfil com acesso à demanda (FISCAL fora da equipe/atribuição → `403`; foto de outra demanda → `404`).
 - **Exclusão:** `DELETE /api/demandas/{id}/fotos/{fotoId}` → `204`, só por **quem enviou** (`403` para os demais, inclusive GESTOR/ADMIN) e antes da conclusão (`FINALIZADA` → `409`); o arquivo sai do volume após o commit.
 - **Rastreabilidade:** envio e exclusão entram no histórico da demanda (tipo `ATIVIDADE`, texto `[Foto] …` com o resultado da conferência) e na auditoria (`UPLOAD_FOTO_FISCALIZACAO` / `EXCLUIR_FOTO_FISCALIZACAO`, com prefixo do SHA-256). O envio conta na categoria `UPLOAD` do limite de requisições (`429` + `Retry-After`).
+
+## Idempotência na sincronização do modo campo (Implementado — Issue #147)
+
+- **Endpoints cobertos:** `POST /api/demandas/{id}/inicio` (`200 DemandaDetalhe`), `POST /api/demandas/{id}/atividades` (`201 HistoricoItem`) e `POST /api/demandas/{id}/fiscalizacao` (`200 DemandaDetalhe`).
+- **Cabeçalho de requisição (`Idempotency-Key`, opcional):** string ASCII de 1 a 128 caracteres no padrão `^[A-Za-z0-9._:-]{1,128}$` (recomendado UUID v4, ex.: `crypto.randomUUID()`). Quando ausente, a operação segue normalmente sem gravação em `CHAVE_IDEMPOTENCIA`. Quando presente e vazio, maior que 128 caracteres ou com caracteres fora do padrão (espaços, barras, controles etc.), responde **`400 problem+json`** com `errors[].campo = "Idempotency-Key"`.
+- **Escopo e validade:** a chave é isolada por `(usuarioId, operacao, demandaId, chave)` e vale por `IDEMPOTENCIA_TTL_HORAS` (padrão `24` horas; limpeza diária às 03:23 UTC). Reenvios de outros usuários, em outras demandas ou em operações distintas não colidem; o escopo do fiscal designado (`403`) continua sendo exigido antes da leitura/gravação da chave.
+- **Reenvio, replay e conflito (`409`):**
+  - **Mesma chave + mesmo payload canônico** (com chaves do `checklist` ordenadas de forma determinística): não duplica histórico, fiscalização nem auditoria e devolve o **mesmo status HTTP (`200` ou `201`) e o mesmo corpo JSON** da execução original, acrescidos do cabeçalho **`Idempotency-Replayed: true`** — mesmo que a demanda já tenha avançado de status depois do envio inicial.
+  - **Mesma chave + conteúdo diferente:** responde **`409 Conflict`** (`application/problem+json`, `type: https://semanexus.demo/problemas/conflito`).
+  - **Concorrência:** requisições simultâneas para a mesma demanda são serializadas pelo lock pessimista em `DEMANDA` no Oracle dentro da mesma transação; a primeira grava a operação e a chave juntas, e as seguintes devolvem o replay (ou `409` se o payload divergir). Erros de validação/estado (`400`/`403`/`404`/`409`) revertem a transação sem prender a chave.
+- **Consumo pelo Web (Issue Web#151):** gerar uma `Idempotency-Key` (UUID v4) por intenção de envio/rascunho offline; reutilizar a chave apenas em retentativas de rede do mesmo rascunho; após devolução (`AGUARDANDO_CONCLUSAO → EM_ANDAMENTO`), gerar uma nova chave para o novo envio da fiscalização; ao sincronizar demanda ainda `DISTRIBUIDA`, enviar `/inicio` antes de `/atividades` e `/fiscalizacao`, cada chamada com sua própria `Idempotency-Key`.
 
 ## Uso pelo frontend
 

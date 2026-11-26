@@ -51,6 +51,9 @@ semanexus:
     # Segredo HS256 SOMENTE por variável de ambiente (mínimo 32 caracteres). Obrigatório fora de dev/openapi.
     secret: ${JWT_SECRET:}
     expiration: 8h
+  idempotencia:
+    # Validade das chaves Idempotency-Key na sincronização em campo (horas, mínimo 1; Issue #147).
+    ttl-horas: ${IDEMPOTENCIA_TTL_HORAS:24}
 
 server:
   port: ${SERVER_PORT:8080}
