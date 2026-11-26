@@ -15,6 +15,7 @@ import br.com.nexusbuilderlab.semanexus.core.usuario.Usuario;
 import br.com.nexusbuilderlab.semanexus.core.usuario.UsuarioRepository;
 import br.com.nexusbuilderlab.semanexus.security.JwtService;
 import br.com.nexusbuilderlab.semanexus.security.RevogacaoTokenService;
+import br.com.nexusbuilderlab.semanexus.core.notificacao.CanalNotificacoes;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -25,6 +26,7 @@ import java.util.Optional;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -54,6 +56,7 @@ public class AuthService {
     private final AuditService auditoria;
     private final Environment ambiente;
     private final Clock clock;
+    private CanalNotificacoes canalNotificacoes;
     private final RevogacaoTokenService revogacao;
     /** Hash descartável para gastar o mesmo tempo de BCrypt quando o e-mail não existe (evita enumeração por tempo). */
     private final String hashFalso;
@@ -68,6 +71,12 @@ public class AuthService {
         this.clock = clock;
         this.revogacao = revogacao;
         this.hashFalso = encoder.encode("senha-descartavel-sem-uso");
+    }
+
+    /** Canal SSE de notificações (Issue #148); opcional para os testes unitários. */
+    @Autowired(required = false)
+    void setCanalNotificacoes(CanalNotificacoes canal) {
+        this.canalNotificacoes = canal;
     }
 
     @Transactional
@@ -94,9 +103,15 @@ public class AuthService {
      */
     @Transactional
     public void logout(Long usuarioId, String jti, Instant expiraEm) {
+        // Revoga primeiro (inclusive o cache local) para impedir reconexão SSE imediata com o mesmo token.
+        boolean revogadoAgora = jti == null || revogacao.revogar(jti, usuarioId, expiraEm);
+        // Streams de notificação abertos com este token terminam junto com ele.
+        if (jti != null && canalNotificacoes != null) {
+            canalNotificacoes.encerrarDoToken(jti);
+        }
         // Dois logouts simultâneos do mesmo token: só o que revogou de fato registra a auditoria (o outro também
         // responde 204 — o token já está invalidado).
-        if (jti != null && !revogacao.revogar(jti, usuarioId, expiraEm)) {
+        if (!revogadoAgora) {
             return;
         }
         auditoria.registrarComo(usuarioId, "LOGOUT", ENTIDADE, String.valueOf(usuarioId), "Logout realizado.");

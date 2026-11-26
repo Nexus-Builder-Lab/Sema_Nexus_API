@@ -3,6 +3,7 @@ package br.com.nexusbuilderlab.semanexus.core.equipe;
 import br.com.nexusbuilderlab.semanexus.common.exception.ConflitoException;
 import br.com.nexusbuilderlab.semanexus.common.exception.DadosInvalidosException;
 import br.com.nexusbuilderlab.semanexus.common.exception.RecursoNaoEncontradoException;
+import br.com.nexusbuilderlab.semanexus.core.auditoria.Alteracoes;
 import br.com.nexusbuilderlab.semanexus.core.auditoria.AuditService;
 import br.com.nexusbuilderlab.semanexus.core.equipe.dto.EquipeDto;
 import br.com.nexusbuilderlab.semanexus.core.equipe.dto.EquipeRequest;
@@ -13,6 +14,7 @@ import br.com.nexusbuilderlab.semanexus.core.setor.SetorRepository;
 import br.com.nexusbuilderlab.semanexus.core.usuario.Usuario;
 import br.com.nexusbuilderlab.semanexus.core.usuario.UsuarioRepository;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -84,6 +86,7 @@ public class EquipeService {
         Setor setor = setor(req.setorId());
         String nome = req.nome().trim();
         exigirNomeLivre(setor, nome, id);
+        Map<String, Object> antes = retrato(equipe);
         equipe.setNome(nome);
         equipe.setSetor(setor);
         if (req.ativo() != null) {
@@ -91,8 +94,9 @@ public class EquipeService {
         }
         definirResponsavel(equipe, req.responsavelId());
         equipes.save(equipe);
-        auditoria.registrar("ATUALIZAR", ENTIDADE, String.valueOf(id),
-                "Equipe atualizada: " + nome + (equipe.isAtivo() ? " (ativa)." : " (inativa)."));
+        auditoria.registrarAlteracao("ATUALIZAR", ENTIDADE, String.valueOf(id),
+                "Equipe atualizada: " + nome + (equipe.isAtivo() ? " (ativa)." : " (inativa)."),
+                Alteracoes.entre(antes, retrato(equipe)));
         return EquipeDto.de(equipe, equipe.getMembros().size());
     }
 
@@ -160,5 +164,15 @@ public class EquipeService {
 
     private Equipe obter(Long id) {
         return equipes.findById(id).orElseThrow(() -> RecursoNaoEncontradoException.de("Equipe", id));
+    }
+
+    /** Valores editáveis da equipe, para o antes → depois da auditoria (Issue #148). */
+    private static Map<String, Object> retrato(Equipe e) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("nome", e.getNome());
+        m.put("setorId", e.getSetor() == null ? null : e.getSetor().getId());
+        m.put("ativo", e.isAtivo());
+        m.put("responsavelId", e.getResponsavel() == null ? null : e.getResponsavel().getId());
+        return m;
     }
 }

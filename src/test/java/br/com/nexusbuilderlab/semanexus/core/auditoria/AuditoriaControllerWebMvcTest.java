@@ -49,6 +49,8 @@ class AuditoriaControllerWebMvcTest {
     UsuarioRepository usuarios;
     @MockitoBean
     AuditService auditService;
+    @MockitoBean
+    IntegridadeAuditoriaService integridade;
 
     private String bearer(Perfil perfil) {
         Usuario u = new Usuario("Usuário Teste", perfil.name().toLowerCase() + "@exemplo.test", "hash", perfil);
@@ -81,5 +83,46 @@ class AuditoriaControllerWebMvcTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].acao").value("CRIAR"))
                 .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    @Test
+    void integridadeSoParaAdmin() throws Exception {
+        for (Perfil p : List.of(Perfil.GESTOR, Perfil.FISCAL, Perfil.ANALISTA, Perfil.CONSULTA)) {
+            mvc.perform(get("/api/auditoria/integridade").header(HttpHeaders.AUTHORIZATION, bearer(p)))
+                    .andExpect(status().isForbidden())
+                    .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content()
+                            .contentTypeCompatibleWith("application/problem+json"));
+        }
+        mvc.perform(get("/api/auditoria/integridade")).andExpect(status().isUnauthorized());
+        org.mockito.Mockito.verifyNoInteractions(integridade);
+    }
+
+    @Test
+    void adminConfereIntegridade() throws Exception {
+        var falha = new br.com.nexusbuilderlab.semanexus.core.auditoria.dto.IntegridadeAuditoria.FalhaIntegridade(
+                3L, 42L, "HASH_DIVERGENTE", "alterado");
+        when(integridade.verificar()).thenReturn(new br.com.nexusbuilderlab.semanexus.core.auditoria.dto
+                .IntegridadeAuditoria(false, "VIOLADA", "SHA-256", 2, 5, 0, 7, "ab", falha, LocalDateTime.now()));
+
+        mvc.perform(get("/api/auditoria/integridade").header(HttpHeaders.AUTHORIZATION, bearer(Perfil.ADMIN)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.integra").value(false))
+                .andExpect(jsonPath("$.situacao").value("VIOLADA"))
+                .andExpect(jsonPath("$.registrosLegados").value(5))
+                .andExpect(jsonPath("$.primeiraFalha.auditoriaId").value(42))
+                .andExpect(jsonPath("$.primeiraFalha.motivo").value("HASH_DIVERGENTE"));
+    }
+
+    @Test
+    void listaExpoeAntesDepoisEHash() throws Exception {
+        var dto = new AuditoriaDto(1L, LocalDateTime.now(), 5L, "Fulano", "EDITAR", "DEMANDA", "42", "d",
+                java.util.Map.of("titulo", "A"), java.util.Map.of("titulo", "B"), 9L, "f".repeat(64));
+        when(auditService.consultar(any(), any())).thenReturn(new PageResponse<>(List.of(dto), 0, 20, 1, 1));
+
+        mvc.perform(get("/api/auditoria").header(HttpHeaders.AUTHORIZATION, bearer(Perfil.ADMIN)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].valorAnterior.titulo").value("A"))
+                .andExpect(jsonPath("$.content[0].valorNovo.titulo").value("B"))
+                .andExpect(jsonPath("$.content[0].seqCadeia").value(9));
     }
 }
