@@ -136,20 +136,21 @@ public class CamadaPublicaRepository {
         }
         sql.append(" ORDER BY NOME, ID FETCH FIRST ? ROWS ONLY");
         args.add(limite);
-        return jdbc.query(sql.toString(), (rs, i) -> mapFeicao(rs), args.toArray());
+        return jdbc.query(sql.toString(), (rs, i) -> mapFeicao(rs, true), args.toArray());
     }
 
-    /** Pré-filtro espacial por interseção de caixa envolvente usando {@code IX_CAMPUB_BBOX}. */
-    public List<Feicao> naCaixa(double latMin, double latMax, double lonMin, double lonMax, int limite) {
+    /** Pré-filtro espacial por camada e interseção de caixa envolvente usando {@code IX_CAMPUB_BBOX}. */
+    public List<Feicao> naCaixa(TipoCamadaPublica camada, double latMin, double latMax, double lonMin, double lonMax,
+                                int limite) {
         return jdbc.query(
-                "SELECT ID, IMPORTACAO_ID, CAMADA, CODIGO_ORIGEM, NOME, CATEGORIA, ESFERA, AREA_HA, ATRIBUTOS, GEOMETRIA "
-                        + "FROM CAMADA_PUBLICA_FEICAO WHERE LAT_MAX >= ? AND LAT_MIN <= ? "
-                        + "AND LON_MAX >= ? AND LON_MIN <= ? ORDER BY CAMADA, ID FETCH FIRST ? ROWS ONLY",
-                (rs, i) -> mapFeicao(rs),
-                latMin, latMax, lonMin, lonMax, limite);
+                "SELECT ID, IMPORTACAO_ID, CAMADA, CODIGO_ORIGEM, NOME, CATEGORIA, ESFERA, AREA_HA, GEOMETRIA "
+                        + "FROM CAMADA_PUBLICA_FEICAO WHERE CAMADA = ? AND LAT_MAX >= ? AND LAT_MIN <= ? "
+                        + "AND LON_MAX >= ? AND LON_MIN <= ? ORDER BY ID FETCH FIRST ? ROWS ONLY",
+                (rs, i) -> mapFeicao(rs, false),
+                camada.name(), latMin, latMax, lonMin, lonMax, limite);
     }
 
-    private static Feicao mapFeicao(java.sql.ResultSet rs) throws java.sql.SQLException {
+    private static Feicao mapFeicao(java.sql.ResultSet rs, boolean comAtributos) throws java.sql.SQLException {
         return new Feicao(
                 rs.getLong("ID"),
                 rs.getLong("IMPORTACAO_ID"),
@@ -159,7 +160,7 @@ public class CamadaPublicaRepository {
                 rs.getString("CATEGORIA"),
                 rs.getString("ESFERA"),
                 rs.getBigDecimal("AREA_HA"),
-                rs.getString("ATRIBUTOS"),
+                comAtributos ? rs.getString("ATRIBUTOS") : null,
                 rs.getString("GEOMETRIA"));
     }
 

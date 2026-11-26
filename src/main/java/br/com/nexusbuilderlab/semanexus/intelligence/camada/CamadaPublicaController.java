@@ -103,6 +103,10 @@ public class CamadaPublicaController {
         }
         if (demandaId != null) {
             DemandaDetalhe d = demandas.detalhar(ator, demandaId);
+            if (d.camadasPublicas() != null
+                    && (raioKm == null || Double.compare(raioKm, CamadaPublicaService.RAIO_PADRAO_KM) == 0)) {
+                return d.camadasPublicas();
+            }
             return service.sobreposicao(d, raioKm);
         }
         return service.sobreposicaoPonto(latitude, longitude, raioKm);

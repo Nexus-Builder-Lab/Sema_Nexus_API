@@ -2,9 +2,14 @@ package br.com.nexusbuilderlab.semanexus.intelligence.camada;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import br.com.nexusbuilderlab.semanexus.common.dto.MunicipioRef;
@@ -14,10 +19,13 @@ import br.com.nexusbuilderlab.semanexus.core.catalogo.StatusDemanda;
 import br.com.nexusbuilderlab.semanexus.core.municipio.Bioma;
 import br.com.nexusbuilderlab.semanexus.flux.demanda.dto.DemandaDetalhe;
 import br.com.nexusbuilderlab.semanexus.intelligence.camada.CamadaPublicaDto.Importacao;
+import br.com.nexusbuilderlab.semanexus.intelligence.camada.CamadaPublicaDto.ResumoSobreposicao;
+import br.com.nexusbuilderlab.semanexus.intelligence.camada.CamadaPublicaDto.SobreposicaoCamadasPublicas;
 import br.com.nexusbuilderlab.semanexus.intelligence.camada.CamadaPublicaRepository.Feicao;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -84,22 +92,27 @@ class CamadaPublicaServiceTest {
     void sobreposicaoCalculaDentroDeUcTiEProximidadeDeRioDeduplicada() {
         when(repo.importacoes()).thenReturn(importacoes());
         // Ponto (-15.55, -56.05) está dentro da UC, a ~2.2 km a oeste da TI e a ~1.1 km do Rio Cuiabá
-        when(repo.naCaixa(anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyInt())).thenReturn(List.of(
+        when(repo.naCaixa(eq(TipoCamadaPublica.UNIDADE_CONSERVACAO), anyDouble(), anyDouble(), anyDouble(), anyDouble(),
+                anyInt())).thenReturn(List.of(
                 new Feicao(1L, 1L, TipoCamadaPublica.UNIDADE_CONSERVACAO, "UC-1", "Parque Nacional Teste",
                         "Parque", "Federal", new BigDecimal("5000.00"), null,
                         "{\"type\":\"Polygon\",\"coordinates\":[[[-56.10,-15.60],[-56.00,-15.60],[-56.00,-15.50],[-56.10,-15.50],[-56.10,-15.60]]]}"),
+                new Feicao(5L, 1L, TipoCamadaPublica.UNIDADE_CONSERVACAO, "UC-2", "Parque Distante",
+                        "Parque", "Estadual", new BigDecimal("100.00"), null,
+                        "{\"type\":\"Polygon\",\"coordinates\":[[[-55.00,-15.00],[-54.90,-15.00],[-54.90,-14.90],[-55.00,-15.00]]]}")));
+        when(repo.naCaixa(eq(TipoCamadaPublica.TERRA_INDIGENA), anyDouble(), anyDouble(), anyDouble(), anyDouble(),
+                anyInt())).thenReturn(List.of(
                 new Feicao(2L, 2L, TipoCamadaPublica.TERRA_INDIGENA, "TI-1", "Terra Indígena Teste",
                         "Regularizada", "Federal (FUNAI)", new BigDecimal("12000.00"), null,
-                        "{\"type\":\"Polygon\",\"coordinates\":[[[-56.03,-15.60],[-55.95,-15.60],[-55.95,-15.50],[-56.03,-15.50],[-56.03,-15.60]]]}"),
+                        "{\"type\":\"Polygon\",\"coordinates\":[[[-56.03,-15.60],[-55.95,-15.60],[-55.95,-15.50],[-56.03,-15.50],[-56.03,-15.60]]]}")));
+        when(repo.naCaixa(eq(TipoCamadaPublica.HIDROGRAFIA), anyDouble(), anyDouble(), anyDouble(), anyDouble(),
+                anyInt())).thenReturn(List.of(
                 new Feicao(3L, 3L, TipoCamadaPublica.HIDROGRAFIA, "46", "Rio Cuiabá",
                         "Curso d'água", "Nível 2", null, null,
                         "{\"type\":\"LineString\",\"coordinates\":[[-56.05,-15.56],[-56.04,-15.56]]}"),
                 new Feicao(4L, 3L, TipoCamadaPublica.HIDROGRAFIA, "46", "Rio Cuiabá",
                         "Curso d'água", "Nível 2", null, null,
-                        "{\"type\":\"LineString\",\"coordinates\":[[-56.05,-15.58],[-56.04,-15.58]]}"),
-                new Feicao(5L, 1L, TipoCamadaPublica.UNIDADE_CONSERVACAO, "UC-2", "Parque Distante",
-                        "Parque", "Estadual", new BigDecimal("100.00"), null,
-                        "{\"type\":\"Polygon\",\"coordinates\":[[[-55.00,-15.00],[-54.90,-15.00],[-54.90,-14.90],[-55.00,-15.00]]]}")));
+                        "{\"type\":\"LineString\",\"coordinates\":[[-56.05,-15.58],[-56.04,-15.58]]}")));
 
         var sob = service.sobreposicaoPonto(-15.55, -56.05, 10.0);
 
@@ -121,9 +134,45 @@ class CamadaPublicaServiceTest {
     }
 
     @Test
+    void sobreposicaoConsultaCadaCamadaSeparadamenteSemTruncarPorHidrografia() {
+        when(repo.importacoes()).thenReturn(importacoes());
+        List<Feicao> muitosRios = new ArrayList<>();
+        for (int i = 0; i < CamadaPublicaService.LIMITE_CANDIDATOS_CAIXA; i++) {
+            muitosRios.add(new Feicao(1000L + i, 3L, TipoCamadaPublica.HIDROGRAFIA, "R-" + i, "Rio " + i,
+                    "Curso d'água", "Nível 3", null, null,
+                    "{\"type\":\"LineString\",\"coordinates\":[[-56.05,-15.56],[-56.04,-15.56]]}"));
+        }
+        when(repo.naCaixa(eq(TipoCamadaPublica.HIDROGRAFIA), anyDouble(), anyDouble(), anyDouble(), anyDouble(),
+                eq(CamadaPublicaService.LIMITE_CANDIDATOS_CAIXA))).thenReturn(muitosRios);
+        when(repo.naCaixa(eq(TipoCamadaPublica.UNIDADE_CONSERVACAO), anyDouble(), anyDouble(), anyDouble(), anyDouble(),
+                eq(CamadaPublicaService.LIMITE_CANDIDATOS_CAIXA))).thenReturn(List.of(
+                new Feicao(1L, 1L, TipoCamadaPublica.UNIDADE_CONSERVACAO, "UC-1", "Parque Nacional Teste",
+                        "Parque", "Federal", new BigDecimal("5000.00"), null,
+                        "{\"type\":\"Polygon\",\"coordinates\":[[[-56.10,-15.60],[-56.00,-15.60],[-56.00,-15.50],[-56.10,-15.50],[-56.10,-15.60]]]}")));
+        when(repo.naCaixa(eq(TipoCamadaPublica.TERRA_INDIGENA), anyDouble(), anyDouble(), anyDouble(), anyDouble(),
+                eq(CamadaPublicaService.LIMITE_CANDIDATOS_CAIXA))).thenReturn(List.of(
+                new Feicao(2L, 2L, TipoCamadaPublica.TERRA_INDIGENA, "TI-1", "Terra Indígena Teste",
+                        "Regularizada", "Federal (FUNAI)", new BigDecimal("12000.00"), null,
+                        "{\"type\":\"Polygon\",\"coordinates\":[[[-56.10,-15.60],[-56.00,-15.60],[-56.00,-15.50],[-56.10,-15.50],[-56.10,-15.60]]]}")));
+
+        var sob = service.sobreposicaoPonto(-15.55, -56.05, 10.0);
+
+        verify(repo).naCaixa(eq(TipoCamadaPublica.UNIDADE_CONSERVACAO), anyDouble(), anyDouble(), anyDouble(),
+                anyDouble(), eq(CamadaPublicaService.LIMITE_CANDIDATOS_CAIXA));
+        verify(repo).naCaixa(eq(TipoCamadaPublica.TERRA_INDIGENA), anyDouble(), anyDouble(), anyDouble(),
+                anyDouble(), eq(CamadaPublicaService.LIMITE_CANDIDATOS_CAIXA));
+        verify(repo).naCaixa(eq(TipoCamadaPublica.HIDROGRAFIA), anyDouble(), anyDouble(), anyDouble(),
+                anyDouble(), eq(CamadaPublicaService.LIMITE_CANDIDATOS_CAIXA));
+        assertThat(sob.unidadesConservacao()).hasSize(1);
+        assertThat(sob.terrasIndigenas()).hasSize(1);
+        assertThat(sob.hidrografia()).hasSize(CamadaPublicaService.MAX_ITENS_SOBREPOSICAO);
+    }
+
+    @Test
     void sobreposicaoPorAreaDaDemandaDetectaCruzamentoComRioESemCoordenada() {
         when(repo.importacoes()).thenReturn(importacoes());
-        when(repo.naCaixa(anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyInt())).thenReturn(List.of(
+        when(repo.naCaixa(eq(TipoCamadaPublica.HIDROGRAFIA), anyDouble(), anyDouble(), anyDouble(), anyDouble(),
+                anyInt())).thenReturn(List.of(
                 new Feicao(10L, 3L, TipoCamadaPublica.HIDROGRAFIA, "6", "Rio Araguaia",
                         "Curso d'água", "Nível 1", null, null,
                         "{\"type\":\"LineString\",\"coordinates\":[[-56.20,-15.55],[-55.90,-15.55]]}")));
@@ -151,5 +200,42 @@ class CamadaPublicaServiceTest {
         assertThat(sobSem.oficialSema()).isFalse();
         assertThat(sobSem.unidadesConservacao()).isEmpty();
         assertThat(sobSem.resumo().fontes()).hasSize(3);
+    }
+
+    @Test
+    void sobreposicaoReutilizaCamadasPublicasDaDemandaNoRaioPadraoERecalculaEmOutroRaio() {
+        var preCalculada = new SobreposicaoCamadasPublicas(false, CamadaPublicaDto.AVISO, "COORDENADA",
+                -15.55, -56.05, 10.0, List.of(), List.of(), List.of(),
+                new ResumoSobreposicao(true, 0.0, false, null, null, 1, 0, 0, List.of()));
+        DemandaDetalhe comCache = new DemandaDetalhe(3L, "DEM-2026/0003", "Teste", "Relato", Origem.DENUNCIA, null,
+                new MunicipioRef(5103403, "Cuiabá", Bioma.CERRADO), null, new BigDecimal("-15.55"),
+                new BigDecimal("-56.05"), null, null, LocalDate.now(), null, null, null, StatusDemanda.PENDENTE,
+                false, null, null, null, null, null, null, null, 0, null, null, null, preCalculada);
+
+        assertThat(service.sobreposicao(comCache, null)).isSameAs(preCalculada);
+        assertThat(service.sobreposicao(comCache, 10.0)).isSameAs(preCalculada);
+        verifyNoInteractions(repo);
+
+        when(repo.importacoes()).thenReturn(importacoes());
+        var outroRaio = service.sobreposicao(comCache, 5.0);
+        assertThat(outroRaio).isNotSameAs(preCalculada);
+        assertThat(outroRaio.raioKm()).isEqualTo(5.0);
+        verify(repo).naCaixa(eq(TipoCamadaPublica.UNIDADE_CONSERVACAO), anyDouble(), anyDouble(), anyDouble(),
+                anyDouble(), anyInt());
+    }
+
+    @Test
+    void sobreposicaoProtegeContraGeometriaComAneisVaziosSemLancarNpe() {
+        when(repo.importacoes()).thenReturn(importacoes());
+        Map<String, Object> areaVazia = Map.of("type", "Polygon", "coordinates", List.of(List.of()));
+
+        var semPonto = service.sobreposicao(areaVazia, null, null, 10.0);
+        assertThat(semPonto.referencia()).isEqualTo("SEM_COORDENADA");
+        verify(repo, never()).naCaixa(any(), anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyInt());
+
+        var comPonto = service.sobreposicao(areaVazia, -15.55, -56.05, 10.0);
+        assertThat(comPonto.referencia()).isEqualTo("COORDENADA");
+        assertThat(comPonto.latitude()).isEqualTo(-15.55);
+        assertThat(comPonto.longitude()).isEqualTo(-56.05);
     }
 }

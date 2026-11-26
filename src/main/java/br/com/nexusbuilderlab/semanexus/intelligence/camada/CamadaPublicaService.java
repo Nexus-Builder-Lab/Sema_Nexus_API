@@ -135,6 +135,9 @@ public class CamadaPublicaService {
         if (d == null) {
             return sobreposicao(null, null, null, raioKm);
         }
+        if (d.camadasPublicas() != null && Double.compare(raioEfetivo(raioKm), RAIO_PADRAO_KM) == 0) {
+            return d.camadasPublicas();
+        }
         Double lat = d.latitude() == null ? null : d.latitude().doubleValue();
         Double lon = d.longitude() == null ? null : d.longitude().doubleValue();
         return sobreposicao(d.areaGeometria(), lat, lon, raioKm);
@@ -156,8 +159,9 @@ public class CamadaPublicaService {
             fontes.add(new FonteResumo(i.camada(), i.fonte(), i.licenca(), i.dataReferencia()));
         }
 
-        boolean temArea = areaGeometria != null && !Geodesia.aneis(areaGeometria).isEmpty();
-        boolean temPonto = lat != null && lon != null;
+        double[] centroArea = areaGeometria != null ? Geodesia.centroide(areaGeometria) : null;
+        boolean temArea = centroArea != null && Double.isFinite(centroArea[0]) && Double.isFinite(centroArea[1]);
+        boolean temPonto = lat != null && lon != null && Double.isFinite(lat) && Double.isFinite(lon);
         if (!temArea && !temPonto) {
             return new SobreposicaoCamadasPublicas(false, CamadaPublicaDto.AVISO, "SEM_COORDENADA", null, null, raio,
                     List.of(), List.of(), List.of(),
@@ -165,9 +169,8 @@ public class CamadaPublicaService {
         }
 
         String referencia = temArea ? "AREA" : "COORDENADA";
-        double[] centro = temArea ? Geodesia.centroide(areaGeometria) : new double[] {lat, lon};
-        double refLat = centro != null ? centro[0] : lat;
-        double refLon = centro != null ? centro[1] : lon;
+        double refLat = temArea ? centroArea[0] : lat;
+        double refLon = temArea ? centroArea[1] : lon;
         Geodesia.Caixa caixa = temArea
                 ? Geodesia.caixaDaGeometria(areaGeometria, raio)
                 : Geodesia.caixa(lat, lon, raio, 0);
@@ -177,8 +180,11 @@ public class CamadaPublicaService {
                     new ResumoSobreposicao(false, null, false, null, null, 0, 0, 0, fontes));
         }
 
-        List<Feicao> candidatas = repository.naCaixa(caixa.latMin(), caixa.latMax(), caixa.lonMin(), caixa.lonMax(),
-                LIMITE_CANDIDATOS_CAIXA);
+        List<Feicao> candidatas = new ArrayList<>();
+        for (TipoCamadaPublica camada : TipoCamadaPublica.values()) {
+            candidatas.addAll(repository.naCaixa(camada, caixa.latMin(), caixa.latMax(), caixa.lonMin(), caixa.lonMax(),
+                    LIMITE_CANDIDATOS_CAIXA));
+        }
 
         Map<String, ItemSobreposicao> ucs = new LinkedHashMap<>();
         Map<String, ItemSobreposicao> tis = new LinkedHashMap<>();

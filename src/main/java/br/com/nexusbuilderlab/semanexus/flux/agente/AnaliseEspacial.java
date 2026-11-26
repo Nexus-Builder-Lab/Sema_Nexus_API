@@ -124,7 +124,7 @@ public class AnaliseEspacial {
             return d.camadasPublicas();
         }
         try {
-            return camadasPublicas.sobreposicao(p.area(), p.lat(), p.lon(), raio);
+            return camadasPublicas.sobreposicao(d.areaGeometria(), p.lat(), p.lon(), raio);
         } catch (RuntimeException ignored) {
             return null;
         }

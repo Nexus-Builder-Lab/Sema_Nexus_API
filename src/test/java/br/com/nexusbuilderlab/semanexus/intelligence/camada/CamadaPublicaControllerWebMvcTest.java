@@ -156,6 +156,30 @@ class CamadaPublicaControllerWebMvcTest {
     }
 
     @Test
+    void sobreposicaoPorDemandaReutilizaResultadoDaDemandaQuandoRaioNuloOuPadrao() throws Exception {
+        var preCalculada = new SobreposicaoCamadasPublicas(false, CamadaPublicaDto.AVISO, "AREA", -15.6, -56.1, 10.0,
+                List.of(), List.of(), List.of(), new ResumoSobreposicao(true, 0.0, false, null, null, 1, 0, 0, List.of()));
+        DemandaDetalhe det = org.mockito.Mockito.mock(DemandaDetalhe.class);
+        when(det.camadasPublicas()).thenReturn(preCalculada);
+        when(demandas.detalhar(any(), eq(10L))).thenReturn(det);
+        String auth = bearer(Perfil.FISCAL);
+
+        mvc.perform(get("/api/intelligence/referencia/camadas/sobreposicao?demandaId=10")
+                        .header(HttpHeaders.AUTHORIZATION, auth))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.referencia").value("AREA"))
+                .andExpect(jsonPath("$.resumo.dentroUc").value(true));
+
+        mvc.perform(get("/api/intelligence/referencia/camadas/sobreposicao?demandaId=10&raioKm=10")
+                        .header(HttpHeaders.AUTHORIZATION, auth))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.referencia").value("AREA"))
+                .andExpect(jsonPath("$.raioKm").value(10.0));
+
+        verify(service, never()).sobreposicao(any(DemandaDetalhe.class), any());
+    }
+
+    @Test
     void parametrosInvalidosRetornam400ProblemJson() throws Exception {
         String auth = bearer(Perfil.ANALISTA);
         mvc.perform(get("/api/intelligence/referencia/camadas/geojson?camada=INEXISTENTE")
