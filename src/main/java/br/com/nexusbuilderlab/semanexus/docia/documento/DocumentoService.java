@@ -196,12 +196,39 @@ public class DocumentoService {
         return detalhe(ativo(id));
     }
 
+    /** Metadados com SHA-256 de um documento vinculado à demanda (usado na geração do dossiê em PDF, Issue #146). */
+    public record DocumentoVinculado(Long id, String titulo, String categoria, String tipo,
+                                     java.time.LocalDate dataDocumento, String nomeArquivo, String mime,
+                                     long tamanho, String sha256, UsuarioRef responsavel,
+                                     java.time.LocalDateTime criadoEm) {
+    }
+
     /** Documentos vinculados à demanda (404/403 conforme a demanda e o escopo do fiscal). */
     @Transactional(readOnly = true)
     public List<DocumentoResumo> listarDaDemanda(UsuarioAutenticado ator, Long demandaId) {
         demandas.detalhar(ator, demandaId);
         return listar(new DocumentoFiltro(null, null, null, null, demandaId, null, null),
                 PageRequest.of(0, 100, Sort.by(Sort.Order.desc("criadoEm")))).content();
+    }
+
+    /** Documentos vinculados à demanda com SHA-256 para composição do dossiê (404/403 conforme escopo). */
+    @Transactional(readOnly = true)
+    public List<DocumentoVinculado> listarVinculadosParaDossie(UsuarioAutenticado ator, Long demandaId) {
+        demandas.detalhar(ator, demandaId);
+        List<Long> ids = jdbc.queryForList("SELECT DOCUMENTO_ID FROM DOCUMENTO_DEMANDA WHERE DEMANDA_ID = ?",
+                Long.class, demandaId);
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        var filtro = new DocumentoFiltro(null, null, null, null, demandaId, null, null);
+        return documentos.findAll(
+                        DocumentoSpecification.listagem(filtro, ids, Sort.by(Sort.Order.desc("criadoEm"))),
+                        PageRequest.of(0, 100))
+                .stream()
+                .map(d -> new DocumentoVinculado(d.getId(), d.getTitulo(), d.getCategoria(), d.getTipo(),
+                        d.getDataDocumento(), d.getNomeArquivo(), d.getMime(), d.getTamanho(), d.getSha256(),
+                        UsuarioRef.de(d.getResponsavel()), d.getCriadoEm()))
+                .toList();
     }
 
     @Transactional

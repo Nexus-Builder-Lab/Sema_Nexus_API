@@ -54,6 +54,7 @@ A ordem de avaliação é **autenticação (401) → perfil (403) → validaçã
 | POST | `/api/demandas/{id}/conclusao` · `/devolucao` | Gestor, Admin | #13 | ✅ |
 | GET | `/api/demandas/checklists` (modelos de checklist por categoria) | consulta | #145 | ✅ |
 | POST · GET · DELETE | `/api/demandas/{id}/fotos` (multipart) · `/fotos/{fotoId}/arquivo` · `/fotos/{fotoId}` | envio: fiscal designado, Gestor, Admin; leitura: escopo da demanda; exclusão: só quem enviou | #145 | ✅ |
+| GET | `/api/demandas/{id}/dossie.pdf` (`application/pdf`; faixa demonstrativa, croqui MT, histórico, fiscalização/checklist/fotos, documentos com SHA-256, QR Code) | leitura: escopo da demanda (FISCAL só equipe/atribuídas → 403) | #146 | ✅ |
 | GET | `/api/auditoria` | Admin | #14 | Implementado |
 | GET | `/api/auditoria/integridade` (cadeia SHA-256) | Admin | #148 | Implementado |
 | POST · GET | `/api/documentos` (multipart; Admin, Gestor, Fiscal, Analista) · `/api/documentos/{id}/arquivo` | ver ARCHITECTURE §6 | #15 | ✅ |
@@ -182,6 +183,12 @@ Simulação demonstrativa (AMBIENTE DEMONSTRATIVO — DADOS FICTÍCIOS): não ge
 - **Leitura:** `GET /api/demandas/{id}/fotos` (metadados, mais antigas primeiro) e `GET /api/demandas/{id}/fotos/{fotoId}/arquivo` (tipo da imagem, `Content-Disposition: attachment`, `nosniff`) devolve o **arquivo original com todo o EXIF** (inclusive GPS) a quem tem acesso à demanda — qualquer perfil com acesso à demanda (FISCAL fora da equipe/atribuição → `403`; foto de outra demanda → `404`).
 - **Exclusão:** `DELETE /api/demandas/{id}/fotos/{fotoId}` → `204`, só por **quem enviou** (`403` para os demais, inclusive GESTOR/ADMIN) e antes da conclusão (`FINALIZADA` → `409`); o arquivo sai do volume após o commit.
 - **Rastreabilidade:** envio e exclusão entram no histórico da demanda (tipo `ATIVIDADE`, texto `[Foto] …` com o resultado da conferência) e na auditoria (`UPLOAD_FOTO_FISCALIZACAO` / `EXCLUIR_FOTO_FISCALIZACAO`, com prefixo do SHA-256). O envio conta na categoria `UPLOAD` do limite de requisições (`429` + `Retry-After`).
+
+## Dossiê da demanda em PDF (Implementado — Issue #146)
+
+`GET /api/demandas/{id}/dossie.pdf` (qualquer perfil autenticado com acesso à demanda; FISCAL fora da equipe/atribuição → `403` `problem+json`; demanda inexistente → `404` `problem+json`). Devolve `application/pdf` com `Content-Disposition: attachment` (`dossie-DEM-AAAA-NNNN.pdf`) e `X-Content-Type-Options: nosniff`.
+
+- **Conteúdo (PDFBox + ZXing):** faixa `"AMBIENTE DEMONSTRATIVO — DADOS FICTÍCIOS — SEM VALOR OFICIAL"` em todas as páginas; dados cadastrais completos; croqui vetorial de enquadramento em Mato Grosso e detalhe do polígono (`areaGeometria` Polygon/MultiPolygon com barra de escala) ou coordenada pontual; linha do tempo em ordem cronológica; registro de fiscalização com checklist estruturado e fotos de evidência (SHA-256 e conferência EXIF); documentos vinculados com SHA-256 completo; bloco de verificação de auditoria com QR Code decodificável contendo o código determinístico da emissão (`EXPORTAR_DOSSIE` gravado em `AUDITORIA`).
 
 ## Idempotência na sincronização do modo campo (Implementado — Issue #147)
 
