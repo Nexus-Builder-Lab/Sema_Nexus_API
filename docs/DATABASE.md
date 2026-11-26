@@ -52,6 +52,10 @@ Conexão: `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOU
 
 `DOCUMENTO.TEXTO_BUSCA CLOB` é coluna **derivada**: o `TEXTO_EXTRAIDO` em minúsculas e sem acentos, normalizado pela API (`java.text.Normalizer`, mesma regra do termo pesquisado). A busca compara `TEXTO_BUSCA LIKE ? ESCAPE '\'` direto no CLOB, sem `TRANSLATE`/`LOWER`, que convertem o CLOB para VARCHAR2 e falhavam com ORA-64203/ORA-22835 acima de 4000 bytes (minuta acentuada de ~4 KB). Título, descrição e palavras-chave (VARCHAR2) seguem com `TRANSLATE`. Preenchida no upload (mesma transação) e na massa demonstrativa; documentos antigos ou gravados por fora (`TEXTO_BUSCA` nulo com texto extraído) são preenchidos na subida da API (`IndiceBuscaDocumentos`, idempotente; falha não impede a subida). **Regra:** nunca aplicar função de texto (`TRANSLATE`, `LOWER`, `UPPER`, `REPLACE`) sobre coluna CLOB em SQL de busca.
 
+### Governança de IA (Implementado — Issue #131, `V13__avaliacao_agente.sql`)
+
+`AVALIACAO_AGENTE` — telemetria de governança, não dado operacional: `AGENTE` (`triagem`|`distribuicao`|`docia`), `DEMANDA_ID` (FK, triagem/distribuição), `EXECUCAO_ID` (UUID único, DocIA), `USUARIO_ID` (FK: quem pediu a sugestão/fez a pergunta), `MODO`, `SUGERIDO`/`APLICADO` (`campo=valor;...`), `RESULTADO` (`PENDENTE`, `ACEITA_INTEGRAL`, `AJUSTADA_PARCIAL`, `DESCARTADA`, `UTIL`, `IMPRECISA`), `CAMPOS_DIVERGENTES`, `CATEGORIA` (da demanda na decisão), `AVALIADOR_ID` (FK), `CRIADO_EM`, `AVALIADO_EM`. Só a última sugestão `PENDENTE` por demanda/agente é mantida (a anterior é apagada ao sugerir de novo). Índices por demanda/agente/resultado e por período. Gravada por `GovernancaIaService` via JDBC parametrizado, com transação própria (`REQUIRES_NEW`) no par `DELETE + INSERT` da sugestão e sem propagar falhas.
+
 ### Flux (Implementado, Issue #11) e demais módulos (Planejado)
 
 | Tabela | Colunas principais | Restrições / índices | Issue |

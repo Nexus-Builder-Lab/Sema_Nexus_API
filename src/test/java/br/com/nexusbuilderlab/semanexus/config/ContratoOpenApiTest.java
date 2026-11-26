@@ -71,6 +71,7 @@ class ContratoOpenApiTest {
             "GET /api/intelligence/sentinela/briefing",
             // Assistente Global (Issue #139)
             "POST /api/agentes/assistente-global",
+            "POST /api/sistema/agentes/avaliar", "POST /api/docia/respostas/{execucaoId}/avaliacao",
             // Core — auditoria (implementado)
             "GET /api/auditoria",
             // Core — gestão de usuários, setores e equipes (Issue #24)
